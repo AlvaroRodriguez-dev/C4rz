@@ -8,15 +8,13 @@ class WmsOrdenTrabajoDetalle extends Model
 {
     protected $table = 'wms_orden_trabajo_detalle';
 
-    
-    // WmsOrdenTrabajoDetalle
     protected $fillable = [
         'orden_trabajo_id',
         'pallet',
         'codigo',
         'clote',
         'lote_declarado',
-        'es_excepcion_lote',   // <-- nuevo 26/07/2026
+        'es_excepcion_lote',
         'descrip',
         'descrip1',
         'cantidad',
@@ -30,7 +28,22 @@ class WmsOrdenTrabajoDetalle extends Model
 
     protected $casts = ['chequeado' => 'boolean', 'chequeado_at' => 'datetime', 'es_excepcion_lote' => 'boolean'];
 
-    //protected $casts = ['chequeado' => 'boolean', 'chequeado_at' => 'datetime'];
+    protected static function booted(): void
+    {
+        static::creating(function (self $model) {
+            $model->normalizarUbicacion();
+        });
+
+        static::updating(function (self $model) {
+            $model->normalizarUbicacion();
+        });
+    }
+
+    private function normalizarUbicacion(): void
+    {
+        $this->galpon_origen = strtoupper(trim((string) $this->galpon_origen));
+        $this->ubicacion_origen = strtoupper(trim((string) $this->ubicacion_origen));
+    }
 
     public function ordenTrabajo()
     {
