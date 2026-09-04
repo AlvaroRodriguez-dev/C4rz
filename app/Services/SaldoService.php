@@ -14,23 +14,35 @@ class SaldoService
     /**
      * Saldo neto = ingresos - salidas - reubicaciones(origen) + reubicaciones(destino)
      * agrupado por pallet+codigo+clote+almacen+galpon+ubicacion.
+     *
+     * Galpón y ubicación se normalizan a MAYÚSCULAS al construir la clave y
+     * al devolver el saldo, evitando que "Playa" y "PLAYA" se consideren
+     * ubicaciones físicas diferentes.
+     *
      * Filtros opcionales: codigo, pallet, galpon, ubicacion.
      */
     public function calcular(array $filtros = []): Collection
     {
         $saldos = collect();
-        $keyOf = fn($p, $c, $l, $a, $g, $u) => "{$p}|{$c}|{$l}|{$a}|{$g}|{$u}";
 
-        $agregar = function ($r, $pallet, $galpon, $ubicacion, $almacen, int $signo) use (&$saldos, $keyOf) {
-            $key = $keyOf($pallet, $r->codigo, $r->clote, $almacen, $galpon, $ubicacion);
+        $normalizarUbicacion = fn($valor) => strtoupper(trim((string) $valor));
+
+        $keyOf = fn($p, $c, $l, $a, $g, $u) =>
+            "{$p}|{$c}|{$l}|{$a}|{$normalizarUbicacion($g)}|{$normalizarUbicacion($u)}";
+
+        $agregar = function ($r, $pallet, $galpon, $ubicacion, $almacen, int $signo) use (&$saldos, $keyOf, $normalizarUbicacion) {
+            $galponNormalizado = $normalizarUbicacion($galpon);
+            $ubicacionNormalizada = $normalizarUbicacion($ubicacion);
+
+            $key = $keyOf($pallet, $r->codigo, $r->clote, $almacen, $galponNormalizado, $ubicacionNormalizada);
 
             $item = $saldos->get($key, [
                 'pallet' => $pallet,
                 'codigo' => $r->codigo,
                 'clote' => $r->clote,
                 'almacen' => $almacen,
-                'galpon' => $galpon,
-                'ubicacion' => $ubicacion,
+                'galpon' => $galponNormalizado,
+                'ubicacion' => $ubicacionNormalizada,
                 'descrip' => $r->descrip,
                 'descrip1' => $r->descrip1,
                 'saldo' => 0,
@@ -59,13 +71,16 @@ class SaldoService
         $this->queryReubicaciones($filtros, 'destino')
             ->select('pallet_destino', 'codigo', 'clote', 'almacen_destino', 'galpon_destino', 'ubicacion_destino', 'descrip', 'descrip1', DB::raw('SUM(cantidad) as total'))
             ->groupBy('pallet_destino', 'codigo', 'clote', 'almacen_destino', 'galpon_destino', 'ubicacion_destino', 'descrip', 'descrip1')
-            ->get()->each(fn($r) => $agregar($r, $r->pallet_destino, $r->galpon_destino, $r->ubicacion_destino, $r->almacen_destino, 1));
+            ->get()->each(fn($r) => $agregar($r, $r->pallet_destino, $r->codigo, $r->clote, $r->almacen_destino, $r->galpon_destino, $r->ubicacion_destino, $r->almacen_destino, 1));
 
         return $saldos->values()->filter(fn($s) => $s['saldo'] > 0)->values();
     }
 
     public function saldoDeGrupo(string $codigo, ?string $clote, string $pallet, string $almacen, string $galpon, string $ubicacion): int
     {
+        $galpon = strtoupper(trim($galpon));
+        $ubicacion = strtoupper(trim($ubicacion));
+
         $grupo = $this->calcular(['codigo' => $codigo, 'pallet' => $pallet])
             ->first(fn($s) => $s['clote'] == $clote && $s['almacen'] == $almacen && $s['galpon'] == $galpon && $s['ubicacion'] == $ubicacion);
 
