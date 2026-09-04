@@ -15,8 +15,8 @@ class WmsIngreso extends Model
     protected $fillable = [
         'rdocum',
         'rfecha',
-        'tipo_ingreso',   // <-- nuevo 07062026
-        'motivo',         // <-- nuevo 07062026
+        'tipo_ingreso',
+        'motivo',
         'pallet',
         'codigo',
         'clote',
@@ -37,11 +37,19 @@ class WmsIngreso extends Model
     {
         static::creating(function (self $model) {
             $model->created_id = Auth::id();
+            $model->normalizarUbicacion();
         });
 
         static::updating(function (self $model) {
             $model->update_id = Auth::id();
+            $model->normalizarUbicacion();
         });
+    }
+
+    private function normalizarUbicacion(): void
+    {
+        $this->galpon = strtoupper(trim((string) $this->galpon));
+        $this->ubicacion = strtoupper(trim((string) $this->ubicacion));
     }
 
     /**
@@ -52,7 +60,7 @@ class WmsIngreso extends Model
     public function delete(): ?bool
     {
         $this->delete_id = Auth::id();
-        $this->saveQuietly(); // guarda delete_id sin disparar updating() de nuevo
+        $this->saveQuietly();
 
         return parent::delete();
     }
