@@ -21,8 +21,23 @@ class WmsReubicacion extends Model
 
     protected static function booted(): void
     {
-        static::creating(fn (self $m) => $m->created_id = Auth::id());
-        static::updating(fn (self $m) => $m->update_id = Auth::id());
+        static::creating(function (self $m) {
+            $m->created_id = Auth::id();
+            $m->normalizarUbicaciones();
+        });
+
+        static::updating(function (self $m) {
+            $m->update_id = Auth::id();
+            $m->normalizarUbicaciones();
+        });
+    }
+
+    private function normalizarUbicaciones(): void
+    {
+        $this->galpon_origen = strtoupper(trim((string) $this->galpon_origen));
+        $this->ubicacion_origen = strtoupper(trim((string) $this->ubicacion_origen));
+        $this->galpon_destino = strtoupper(trim((string) $this->galpon_destino));
+        $this->ubicacion_destino = strtoupper(trim((string) $this->ubicacion_destino));
     }
 
     public function delete(): ?bool
