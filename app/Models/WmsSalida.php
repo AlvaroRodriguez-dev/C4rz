@@ -12,7 +12,6 @@ class WmsSalida extends Model
 
     protected $table = 'wms_salidas';
 
-    // WmsSalida
     protected $fillable = [
         'tipo_registro',
         'id_registro',
@@ -21,7 +20,7 @@ class WmsSalida extends Model
         'codigo',
         'clote',
         'lote_declarado',
-        'es_excepcion_lote',   // <-- nuevo 26/07/2026
+        'es_excepcion_lote',
         'descrip',
         'descrip1',
         'cantidad',
@@ -38,11 +37,19 @@ class WmsSalida extends Model
     {
         static::creating(function (self $model) {
             $model->created_id = Auth::id();
+            $model->normalizarUbicacion();
         });
 
         static::updating(function (self $model) {
             $model->update_id = Auth::id();
+            $model->normalizarUbicacion();
         });
+    }
+
+    private function normalizarUbicacion(): void
+    {
+        $this->galpon = strtoupper(trim((string) $this->galpon));
+        $this->ubicacion = strtoupper(trim((string) $this->ubicacion));
     }
 
     public function delete(): ?bool
