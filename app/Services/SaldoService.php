@@ -71,7 +71,7 @@ class SaldoService
         $this->queryReubicaciones($filtros, 'destino')
             ->select('pallet_destino', 'codigo', 'clote', 'almacen_destino', 'galpon_destino', 'ubicacion_destino', 'descrip', 'descrip1', DB::raw('SUM(cantidad) as total'))
             ->groupBy('pallet_destino', 'codigo', 'clote', 'almacen_destino', 'galpon_destino', 'ubicacion_destino', 'descrip', 'descrip1')
-            ->get()->each(fn($r) => $agregar($r, $r->pallet_destino, $r->codigo, $r->clote, $r->almacen_destino, $r->galpon_destino, $r->ubicacion_destino, $r->almacen_destino, 1));
+            ->get()->each(fn($r) => $agregar($r, $r->pallet_destino, $r->galpon_destino, $r->ubicacion_destino, $r->almacen_destino, 1));
 
         return $saldos->values()->filter(fn($s) => $s['saldo'] > 0)->values();
     }
@@ -130,6 +130,9 @@ class SaldoService
      */
     public function reservadoEnOtsPendientes(string $codigo, ?string $clote, string $pallet, string $almacen, string $galpon, string $ubicacion): int
     {
+        $galpon = strtoupper(trim($galpon));
+        $ubicacion = strtoupper(trim($ubicacion));
+
         return (int) WmsOrdenTrabajoDetalle::query()
             ->whereHas('ordenTrabajo', fn($q) => $q->where('estado', 'pendiente'))
             ->where('codigo', $codigo)
