@@ -288,7 +288,6 @@ class WmsSalidaController extends Controller
         $exigeDespachoCompleto = $nota && \Illuminate\Support\Carbon::parse($nota->fecha)->gte($fechaCorte);
 
         if ($exigeDespachoCompleto) {
-            // Todos los ítems pendientes de la nota (con cantidad_despacho > 0) deben venir en $data['lines']
             $todosLosItems = DB::connection('faboce2026')
                 ->table('log_registro_detalle')
                 ->where('id_registro', $data['id_registro'])
@@ -296,39 +295,48 @@ class WmsSalidaController extends Controller
                 ->select('codigo', 'lote', 'cantidad_despacho')
                 ->get();
 
-            foreach ($todosLosItems as $itemNota) {
+            // Agrupa por código+lote: puede haber varias líneas de la nota con la misma
+            // combinación (referenciadas por distintos documentos internos del ERP, como
+            // en tu ejemplo TR-...09 y TR-...10).
+            $totalPorGrupo = $todosLosItems
+                ->groupBy(fn($i) => "{$i->codigo}|{$i->lote}")
+                ->map(fn($g) => $g->sum('cantidad_despacho'));
+
+            // Agrupa lo que el usuario asignó AHORA, por la misma clave.
+            $asignadoPorGrupo = collect($data['lines'])
+                ->groupBy(fn($l) => "{$l['codigo']}|" . ($l['lote_declarado'] ?? $l['clote'] ?? ''))
+                ->map(function ($lineas) {
+                    return $lineas->sum(function ($l) {
+                        if (!empty($l['lotes_aplicados'])) {
+                            return collect($l['lotes_aplicados'])->sum(fn($x) => collect($x['salidas'])->sum('cantidad'));
+                        }
+                        return collect($l['salidas'] ?? [])->sum('cantidad');
+                    });
+                });
+
+            foreach ($totalPorGrupo as $clave => $totalOriginalGrupo) {
+                [$codigoGrupo, $loteGrupo] = explode('|', $clave, 2);
+
                 $yaDespachadoReal = WmsSalida::where('id_registro', $data['id_registro'])
-                    ->where('codigo', $itemNota->codigo)
-                    ->where('lote_declarado', $itemNota->lote)
+                    ->where('codigo', $codigoGrupo)
+                    ->where('lote_declarado', $loteGrupo)
                     ->sum('cantidad');
 
                 $yaReservadoOt = \App\Models\WmsOrdenTrabajoDetalle::query()
                     ->whereHas('ordenTrabajo', fn($q) => $q->where('estado', 'pendiente')->where('id_registro', $data['id_registro']))
-                    ->where('codigo', $itemNota->codigo)
-                    ->where('lote_declarado', $itemNota->lote)
+                    ->where('codigo', $codigoGrupo)
+                    ->where('lote_declarado', $loteGrupo)
                     ->sum('cantidad');
 
-                $pendienteAntes = $itemNota->cantidad_despacho - $yaDespachadoReal - $yaReservadoOt;
-
-                // Cuánto se está asignando a este producto/lote en ESTE guardado
-                $lineaEnviada = collect($data['lines'])->first(
-                    fn($l) =>
-                    $l['codigo'] == $itemNota->codigo && ($l['lote_declarado'] ?? $l['clote'] ?? null) == $itemNota->lote
-                );
-
-                $asignadoAhora = 0;
-                if ($lineaEnviada) {
-                    $asignadoAhora = !empty($lineaEnviada['lotes_aplicados'])
-                        ? collect($lineaEnviada['lotes_aplicados'])->sum(fn($l) => collect($l['salidas'])->sum('cantidad'))
-                        : collect($lineaEnviada['salidas'] ?? [])->sum('cantidad');
-                }
+                $pendienteAntes = $totalOriginalGrupo - $yaDespachadoReal - $yaReservadoOt;
+                $asignadoAhora = $asignadoPorGrupo[$clave] ?? 0;
 
                 if ($pendienteAntes > 0 && $asignadoAhora < $pendienteAntes) {
                     return response()->json([
                         'errors' => ['general' => [
                             "Esta nota tiene fecha " . \Illuminate\Support\Carbon::parse($nota->fecha)->format('d/m/Y') .
-                                " y requiere despacho completo en una sola operación. El producto {$itemNota->codigo} (lote {$itemNota->lote}) " .
-                                "quedaría con {$pendienteAntes} cajas sin asignar."
+                                " y requiere despacho completo en una sola operación. El producto {$codigoGrupo} (lote {$loteGrupo}) " .
+                                "quedaría con " . ($pendienteAntes - $asignadoAhora) . " cajas sin asignar."
                         ]],
                     ], 422);
                 }
