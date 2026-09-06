@@ -27,18 +27,18 @@
         <tr><th>Eliminado</th><td colspan="3">{{ $usuarios['deleted_id']['name'] ?? '—' }} ({{ $header['deleted_at'] ?? '—' }})</td></tr>
     </tbody></table>
     <h2>Registros de detalle</h2>
+    @php($esLogistica = in_array($tipo, ['Despachos', 'Programación', 'Tránsitos', 'Recepción'], true))
     @if ($detalle->isEmpty())
         <p>No existen registros de detalle para este documento.</p>
     @else
-        <table class="detail"><thead><tr><th>Código</th><th>Producto</th><th>Cantidad</th><th>Creado por</th><th>Created at</th><th>Modificado por</th><th>Updated at</th><th>Eliminado por</th><th>Deleted at</th></tr></thead><tbody>
+        <table class="detail"><thead><tr><th>Código</th><th>Producto</th>@if($esLogistica)<th>Cantidad factura</th><th>Cantidad despacho</th>@else<th>Cantidad</th>@endif<th>Creado por</th><th>Created at</th><th>Modificado por</th><th>Updated at</th><th>Eliminado por</th><th>Deleted at</th></tr></thead><tbody>
             @foreach ($detalle as $item)
                 <tr>
-                    <td>{{ $item['codigo'] ?? '—' }}</td><td>{{ $item['producto'] ?? '—' }}</td><td>{{ $item['cantidad'] ?? '—' }}</td>
+                    <td>{{ $item['codigo'] ?? '—' }}</td><td>{{ $item['producto'] ?? '—' }}</td>
+                    @if($esLogistica)<td>{{ $item['cantidad_factura'] ?? '—' }}</td><td>{{ $item['cantidad_despacho'] ?? '—' }}</td>@else<td>{{ $item['cantidad'] ?? '—' }}</td>@endif
                     <td>{{ $item['created_id_usuario'] ?? '—' }}@if(isset($item['created_id']) && $item['created_id'] !== null) <span>({{ $item['created_id'] }})</span>@endif</td>
-                    <td>{{ $item['created_at'] ?? '—' }}</td>
-                    <td>{{ $item['updated_id_usuario'] ?? '—' }}@if(isset($item['updated_id']) && $item['updated_id'] !== null) <span>({{ $item['updated_id'] }})</span>@endif</td>
-                    <td>{{ $item['updated_at'] ?? '—' }}</td>
-                    <td>{{ $item['deleted_id_usuario'] ?? '—' }}@if(isset($item['deleted_id']) && $item['deleted_id'] !== null) <span>({{ $item['deleted_id'] }})</span>@endif</td>
+                    <td>{{ $item['created_at'] ?? '—' }}</td><td>{{ $item['updated_id_usuario'] ?? '—' }}@if(isset($item['updated_id']) && $item['updated_id'] !== null) <span>({{ $item['updated_id'] }})</span>@endif</td>
+                    <td>{{ $item['updated_at'] ?? '—' }}</td><td>{{ $item['deleted_id_usuario'] ?? '—' }}@if(isset($item['deleted_id']) && $item['deleted_id'] !== null) <span>({{ $item['deleted_id'] }})</span>@endif</td>
                     <td>{{ $item['deleted_at'] ?? '—' }}</td>
                 </tr>
             @endforeach
