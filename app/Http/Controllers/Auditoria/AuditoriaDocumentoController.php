@@ -53,19 +53,24 @@ class AuditoriaDocumentoController extends Controller
 
     private function obtenerDetalle($db, array $cfg, string $documento, array $columnasDetalle)
     {
-        $codigoCampo = $this->primerCampo($columnasDetalle, ['codigo', 'CODIGO', 'codigo_producto', 'CODIGO_PRODUCTO']); $cantidadCampo = $this->primerCampo($columnasDetalle, ['cantidad', 'CANTIDAD', 'RCANTIDAD', 'ECANTIDAD', 'TCANTIDAD', 'VCANTIDAD']);
+        $codigoCampo = $this->primerCampo($columnasDetalle, ['codigo', 'CODIGO', 'Codigo', 'codigo_producto', 'CODIGO_PRODUCTO']); $cantidadCampo = $this->primerCampo($columnasDetalle, ['cantidad', 'CANTIDAD', 'RCANTIDAD', 'ECANTIDAD', 'TCANTIDAD', 'VCANTIDAD']);
         $campos = ['codigo' => $codigoCampo, 'cantidad' => $cantidadCampo, 'created_id' => in_array('created_id', $columnasDetalle, true) ? 'created_id' : null, 'created_at' => in_array('created_at', $columnasDetalle, true) ? 'created_at' : null, 'updated_id' => in_array('updated_id', $columnasDetalle, true) ? 'updated_id' : null, 'updated_at' => in_array('updated_at', $columnasDetalle, true) ? 'updated_at' : null, 'deleted_id' => in_array('deleted_id', $columnasDetalle, true) ? 'deleted_id' : null, 'deleted_at' => in_array('deleted_at', $columnasDetalle, true) ? 'deleted_at' : null];
         $select = []; if ($campos['codigo']) $select[] = 'd.'.$campos['codigo'].' as codigo'; if ($campos['cantidad']) $select[] = 'd.'.$campos['cantidad'].' as cantidad'; foreach (['created_id', 'created_at', 'updated_id', 'updated_at', 'deleted_id', 'deleted_at'] as $campo) if ($campos[$campo]) $select[] = 'd.'.$campos[$campo].' as '.$campo; if (!$select) return collect();
         $detalle = $db->table($cfg['detail'].' as d')->where('d.'.$cfg['detail_document'], $documento)->orderBy($campos['codigo'] ? 'd.'.$campos['codigo'] : 'd.'.$cfg['detail_document'])->get($select);
 
-        // El código puede venir como entero, texto o con espacios. Normalizamos ambos lados para no perder la descripción.
         $codigos = $detalle->pluck('codigo')->filter(fn ($codigo) => $codigo !== null && trim((string) $codigo) !== '')->map(fn ($codigo) => trim((string) $codigo))->unique()->values();
         $productos = collect();
         if ($codigos->isNotEmpty()) {
             $stockDb = DB::connection('sisinvconsolidado2026'); $stockColumns = $stockDb->getSchemaBuilder()->getColumnListing('stock');
-            if (in_array('codigo', $stockColumns, true)) {
-                $stockSelect = ['codigo']; foreach (['descrip', 'descrip1'] as $campo) if (in_array($campo, $stockColumns, true)) $stockSelect[] = $campo;
-                $productos = $stockDb->table('stock')->whereIn('codigo', $codigos->all())->get($stockSelect)->mapWithKeys(function ($producto) { return [trim((string) $producto->codigo) => $producto]; });
+            $stockCodigo = $this->primerCampo($stockColumns, ['codigo', 'CODIGO', 'Codigo']);
+            $stockDescripcion = $this->primerCampo($stockColumns, ['descrip', 'DESCRIP', 'Descrip']);
+            $stockDescripcionAlterna = $this->primerCampo($stockColumns, ['descrip1', 'DESCRIP1', 'Descrip1']);
+            if ($stockCodigo) {
+                $stockSelect = [$stockCodigo]; if ($stockDescripcion) $stockSelect[] = $stockDescripcion; if ($stockDescripcionAlterna && $stockDescripcionAlterna !== $stockDescripcion) $stockSelect[] = $stockDescripcionAlterna;
+                $productos = $stockDb->table('stock')->get($stockSelect)->mapWithKeys(function ($producto) use ($stockCodigo) {
+                    $key = trim((string) ($producto->{$stockCodigo} ?? ''));
+                    return $key === '' ? [] : [$key => $producto];
+                });
             }
         }
 
@@ -77,10 +82,21 @@ class AuditoriaDocumentoController extends Controller
         }
 
         return $detalle->map(function ($row) use ($productos, $usuarios) {
-            $item = (array) $row; $codigo = trim((string) ($row->codigo ?? '')); $producto = $productos->get($codigo); $item['producto'] = $producto ? (trim((string) ($producto->descrip ?? '')) !== '' ? $producto->descrip : ($producto->descrip1 ?? null)) : null;
+            $item = (array) $row; $codigo = trim((string) ($row->codigo ?? '')); $producto = $productos->get($codigo);
+            if (!$producto && ctype_digit($codigo)) {
+                $codigoNumerico = ltrim($codigo, '0'); $codigoNumerico = $codigoNumerico === '' ? '0' : $codigoNumerico;
+                $producto = $productos->first(function ($itemProducto, $key) use ($codigoNumerico) { $keyNumerico = trim((string) $key); return ctype_digit($keyNumerico) && (ltrim($keyNumerico, '0') ?: '0') === $codigoNumerico; });
+            }
+            $item['producto'] = $producto ? ($this->valorTexto($producto, ['descrip', 'DESCRIP', 'Descrip']) ?: $this->valorTexto($producto, ['descrip1', 'DESCRIP1', 'Descrip1'])) : null;
             foreach (['created_id', 'updated_id', 'deleted_id'] as $campo) { $id = $row->{$campo} ?? null; $key = trim((string) $id); $item[$campo.'_usuario'] = ($id !== null && $key !== '') ? ($usuarios->get($key)->name ?? 'Usuario no encontrado') : null; }
             return $item;
         })->values();
+    }
+
+    private function valorTexto($objeto, array $campos): ?string
+    {
+        foreach ($campos as $campo) if (isset($objeto->{$campo}) && trim((string) $objeto->{$campo}) !== '') return trim((string) $objeto->{$campo});
+        return null;
     }
 
     private function usuariosAuditoria(array $header): array
