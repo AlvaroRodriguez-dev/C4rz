@@ -130,76 +130,78 @@ class AuditoriaDocumentoController extends Controller
             'deleted_at' => in_array('deleted_at', $columnasDetalle, true) ? 'deleted_at' : null,
         ];
 
-        $select = array_values(array_filter(array_unique($campos), fn ($field) => $field !== null));
+        $select = [];
+        if ($campos['codigo']) $select[] = 'd.'.$campos['codigo'].' as codigo';
+        if ($campos['cantidad']) $select[] = 'd.'.$campos['cantidad'].' as cantidad';
+        foreach (['created_id', 'created_at', 'updated_id', 'updated_at', 'deleted_id', 'deleted_at'] as $campo) {
+            if ($campos[$campo]) $select[] = 'd.'.$campos[$campo].' as '.$campo;
+        }
 
-        $query = $db->table($cfg['detail'])
-            ->where($cfg['detail_document'], $documento);
+        if (!$select) return collect();
 
-        $detalle = $select ? $query->get($select) : collect();
+        $detalle = $db->table($cfg['detail'].' as d')
+            ->where('d.'.$cfg['detail_document'], $documento)
+            ->orderBy($campos['codigo'] ? 'd.'.$campos['codigo'] : 'd.'.$cfg['detail_document'])
+            ->get($select);
 
-        $usuarioIds = $detalle->flatMap(function ($row) use ($campos) {
-            return collect(['created_id', 'updated_id', 'deleted_id'])
-                ->map(fn ($campo) => $campos[$campo] ? $row->{$campos[$campo]} : null)
-                ->filter(fn ($id) => $id !== null && $id !== '');
-        })->unique()->values();
+        $codigos = $detalle->pluck('codigo')->filter(fn ($codigo) => $codigo !== null && $codigo !== '')->unique()->values();
+        $productos = collect();
+        if ($codigos->isNotEmpty()) {
+            $stockDb = DB::connection('sisinvconsolidado2026');
+            $stockColumns = $stockDb->getSchemaBuilder()->getColumnListing('stock');
+            if (in_array('codigo', $stockColumns, true)) {
+                $stockSelect = ['codigo'];
+                foreach (['descrip', 'descrip1'] as $campo) {
+                    if (in_array($campo, $stockColumns, true)) $stockSelect[] = $campo;
+                }
+                $productos = $stockDb->table('stock')
+                    ->whereIn('codigo', $codigos->all())
+                    ->get($stockSelect)
+                    ->keyBy('codigo');
+            }
+        }
 
-        $usuarios = $usuarioIds->isEmpty()
-            ? collect()
-            : DB::connection('faboce2026')->table('users')->whereIn('id', $usuarioIds)->get(['id', 'name', 'email'])->keyBy('id');
+        $usuarioIds = $detalle->flatMap(fn ($row) => collect(['created_id', 'updated_id', 'deleted_id'])
+            ->map(fn ($campo) => $row->{$campo} ?? null)
+            ->filter(fn ($id) => $id !== null && $id !== ''))
+            ->unique()->values();
 
-        return $detalle->map(function ($row) use ($campos, $usuarios) {
-            $createdId = $campos['created_id'] ? $row->{$campos['created_id']} : null;
-            $updatedId = $campos['updated_id'] ? $row->{$campos['updated_id']} : null;
-            $deletedId = $campos['deleted_id'] ? $row->{$campos['deleted_id']} : null;
+        $usuarios = collect();
+        if ($usuarioIds->isNotEmpty()) {
+            $userDb = DB::connection('faboce2026');
+            $userColumns = $userDb->getSchemaBuilder()->getColumnListing('users');
+            if (in_array('id', $userColumns, true)) {
+                $userSelect = ['id'];
+                if (in_array('name', $userColumns, true)) $userSelect[] = 'name';
+                if (in_array('email', $userColumns, true)) $userSelect[] = 'email';
+                $usuarios = $userDb->table('users')->whereIn('id', $usuarioIds->all())->get($userSelect)->keyBy('id');
+            }
+        }
 
-            return [
-                'codigo' => $campos['codigo'] ? ($row->{$campos['codigo']} ?? null) : null,
-                'cantidad' => $campos['cantidad'] ? ($row->{$campos['cantidad']} ?? null) : null,
-                'created_id' => $createdId,
-                'created_at' => $campos['created_at'] ? ($row->{$campos['created_at']} ?? null) : null,
-                'created_user' => $createdId !== null && $createdId !== '' ? ($usuarios->get($createdId)->name ?? 'Usuario no encontrado') : null,
-                'updated_id' => $updatedId,
-                'updated_at' => $campos['updated_at'] ? ($row->{$campos['updated_at']} ?? null) : null,
-                'updated_user' => $updatedId !== null && $updatedId !== '' ? ($usuarios->get($updatedId)->name ?? 'Usuario no encontrado') : null,
-                'deleted_id' => $deletedId,
-                'deleted_at' => $campos['deleted_at'] ? ($row->{$campos['deleted_at']} ?? null) : null,
-                'deleted_user' => $deletedId !== null && $deletedId !== '' ? ($usuarios->get($deletedId)->name ?? 'Usuario no encontrado') : null,
-            ];
+        return $detalle->map(function ($row) use ($productos, $usuarios) {
+            $item = (array) $row;
+            $producto = $productos->get($row->codigo ?? null);
+            $item['producto'] = $producto ? ($producto->descrip ?? $producto->descrip1 ?? null) : null;
+            foreach (['created_id', 'updated_id', 'deleted_id'] as $campo) {
+                $id = $row->{$campo} ?? null;
+                $item[$campo.'_usuario'] = ($id !== null && $id !== '') ? ($usuarios->get($id)->name ?? 'Usuario no encontrado') : null;
+            }
+            return $item;
         })->values();
     }
 
     private function usuariosAuditoria(array $header): array
     {
-        $ids = [
-            'created_id' => $header['created_id'] ?? null,
-            'updated_id' => $header['updated_id'] ?? null,
-            'deleted_id' => $header['deleted_id'] ?? null,
-        ];
-
+        $ids = ['created_id' => $header['created_id'] ?? null, 'updated_id' => $header['updated_id'] ?? null, 'deleted_id' => $header['deleted_id'] ?? null];
         $idsUnicos = array_values(array_unique(array_filter($ids, fn ($id) => $id !== null && $id !== '')));
-        if (!$idsUnicos) {
-            return [];
-        }
-
-        $users = DB::connection('faboce2026')->table('users')
-            ->whereIn('id', $idsUnicos)
-            ->get(['id', 'name', 'email'])
-            ->keyBy('id');
-
+        if (!$idsUnicos) return [];
+        $users = DB::connection('faboce2026')->table('users')->whereIn('id', $idsUnicos)->get(['id', 'name', 'email'])->keyBy('id');
         $resultado = [];
         foreach ($ids as $campo => $id) {
-            if ($id === null || $id === '') {
-                $resultado[$campo] = null;
-                continue;
-            }
+            if ($id === null || $id === '') { $resultado[$campo] = null; continue; }
             $user = $users->get($id);
-            $resultado[$campo] = [
-                'id' => $id,
-                'name' => $user->name ?? 'Usuario no encontrado',
-                'email' => $user->email ?? null,
-            ];
+            $resultado[$campo] = ['id' => $id, 'name' => $user->name ?? 'Usuario no encontrado', 'email' => $user->email ?? null];
         }
-
         return $resultado;
     }
 
@@ -207,79 +209,32 @@ class AuditoriaDocumentoController extends Controller
     {
         $db = DB::connection('faboce2026');
         $columnas = $db->getSchemaBuilder()->getColumnListing('audits');
-
-        if (!in_array('old_values', $columnas, true) || !in_array('new_values', $columnas, true)) {
-            return collect();
-        }
-
+        if (!in_array('old_values', $columnas, true) || !in_array('new_values', $columnas, true)) return collect();
         $select = [];
-        $camposAudits = [
-            'id' => 'a.id as audit_id',
-            'event' => 'a.event',
-            'user_id' => 'a.user_id',
-            'auditable_type' => 'a.auditable_type',
-            'auditable_id' => 'a.auditable_id',
-            'old_values' => 'a.old_values',
-            'new_values' => 'a.new_values',
-            'url' => 'a.url',
-            'ip_address' => 'a.ip_address',
-            'user_agent' => 'a.user_agent',
-            'created_at' => 'a.created_at',
-        ];
-
-        foreach ($camposAudits as $campo => $expresion) {
-            if (in_array($campo, $columnas, true)) {
-                $select[] = $expresion;
-            }
-        }
-
-        $query = $db->table('audits as a')
-            ->where(function ($query) use ($documento) {
-                $query->where('a.old_values', 'like', "%{$documento}%")
-                    ->orWhere('a.new_values', 'like', "%{$documento}%");
-            });
-
+        $camposAudits = ['id' => 'a.id as audit_id', 'event' => 'a.event', 'user_id' => 'a.user_id', 'auditable_type' => 'a.auditable_type', 'auditable_id' => 'a.auditable_id', 'old_values' => 'a.old_values', 'new_values' => 'a.new_values', 'url' => 'a.url', 'ip_address' => 'a.ip_address', 'user_agent' => 'a.user_agent', 'created_at' => 'a.created_at'];
+        foreach ($camposAudits as $campo => $expresion) if (in_array($campo, $columnas, true)) $select[] = $expresion;
+        $query = $db->table('audits as a')->where(function ($query) use ($documento) { $query->where('a.old_values', 'like', "%{$documento}%")->orWhere('a.new_values', 'like', "%{$documento}%"); });
         if (in_array('user_id', $columnas, true)) {
             $userColumns = $db->getSchemaBuilder()->getColumnListing('users');
             if (in_array('id', $userColumns, true)) {
                 $query->leftJoin('users as au', 'au.id', '=', 'a.user_id');
-                if (in_array('name', $userColumns, true)) {
-                    $select[] = 'au.name as user_name';
-                }
-                if (in_array('email', $userColumns, true)) {
-                    $select[] = 'au.email as user_email';
-                }
+                if (in_array('name', $userColumns, true)) $select[] = 'au.name as user_name';
+                if (in_array('email', $userColumns, true)) $select[] = 'au.email as user_email';
             }
         }
-
-        return $query->orderByDesc('a.created_at')->limit(200)->get($select)->map(function ($row) {
-            $item = (array) $row;
-            $item['old_values_json'] = $this->prettyJson($item['old_values'] ?? null);
-            $item['new_values_json'] = $this->prettyJson($item['new_values'] ?? null);
-            return $item;
-        });
+        return $query->orderByDesc('a.created_at')->limit(200)->get($select)->map(function ($row) { $item = (array) $row; $item['old_values_json'] = $this->prettyJson($item['old_values'] ?? null); $item['new_values_json'] = $this->prettyJson($item['new_values'] ?? null); return $item; });
     }
 
     private function primerCampo(array $columnas, array $candidatos): ?string
     {
-        foreach ($candidatos as $campo) {
-            if (in_array($campo, $columnas, true)) {
-                return $campo;
-            }
-        }
+        foreach ($candidatos as $campo) if (in_array($campo, $columnas, true)) return $campo;
         return null;
     }
 
     private function prettyJson($value): string
     {
-        if ($value === null || $value === '') {
-            return '{}';
-        }
-
+        if ($value === null || $value === '') return '{}';
         $decoded = is_array($value) ? $value : json_decode((string) $value, true);
-
-        return json_last_error() === JSON_ERROR_NONE || is_array($value)
-            ? json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-            : (string) $value;
+        return json_last_error() === JSON_ERROR_NONE || is_array($value) ? json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : (string) $value;
     }
 }
