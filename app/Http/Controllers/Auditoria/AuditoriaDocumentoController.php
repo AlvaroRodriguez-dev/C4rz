@@ -10,15 +10,15 @@ use Illuminate\Support\Facades\DB;
 class AuditoriaDocumentoController extends Controller
 {
     private const TIPOS = [
-        'ingreso' => ['label' => 'Nota de Ingreso', 'connection' => 'sisinvconsolidado2026', 'header' => 'recep', 'detail' => 'recep1', 'document' => 'RDOCUM'],
-        'entrega' => ['label' => 'Nota de Entrega', 'connection' => 'sisinvconsolidado2026', 'header' => 'entregas', 'detail' => 'entregas1', 'document' => 'EDOCUM'],
-        'traspaso' => ['label' => 'Nota de Traspaso', 'connection' => 'sisinvconsolidado2026', 'header' => 'trasp', 'detail' => 'trasp1', 'document' => 'TDOCUM'],
-        'proforma' => ['label' => 'Proformas', 'connection' => 'sisinvconsolidado2026', 'header' => 'profor', 'detail' => 'profor1', 'document' => 'VDOCUMA'],
-        'venta' => ['label' => 'Ventas', 'connection' => 'sisinvconsolidado2026', 'header' => 'ventas', 'detail' => 'ventas1', 'document' => 'VDOCUMA'],
-        'despacho' => ['label' => 'Despachos', 'connection' => 'faboce2026', 'header' => 'log_registro', 'detail' => 'log_registro_detalle', 'document' => 'id', 'tipo' => 1],
-        'programacion' => ['label' => 'Programación', 'connection' => 'faboce2026', 'header' => 'log_registro', 'detail' => 'log_registro_detalle', 'document' => 'id', 'tipo' => 2],
-        'transito' => ['label' => 'Tránsitos', 'connection' => 'faboce2026', 'header' => 'log_registro', 'detail' => 'log_registro_detalle', 'document' => 'id', 'tipo' => 3],
-        'recepcion' => ['label' => 'Recepción', 'connection' => 'faboce2026', 'header' => 'log_registro', 'detail' => 'log_registro_detalle', 'document' => 'id', 'tipo' => 4],
+        'ingreso' => ['label' => 'Nota de Ingreso', 'connection' => 'sisinvconsolidado2026', 'header' => 'recep', 'detail' => 'recep1', 'document' => 'RDOCUM', 'detail_document' => 'RDOCUM'],
+        'entrega' => ['label' => 'Nota de Entrega', 'connection' => 'sisinvconsolidado2026', 'header' => 'entregas', 'detail' => 'entregas1', 'document' => 'EDOCUM', 'detail_document' => 'EDOCUM'],
+        'traspaso' => ['label' => 'Nota de Traspaso', 'connection' => 'sisinvconsolidado2026', 'header' => 'trasp', 'detail' => 'trasp1', 'document' => 'TDOCUM', 'detail_document' => 'TDOCUM'],
+        'proforma' => ['label' => 'Proformas', 'connection' => 'sisinvconsolidado2026', 'header' => 'profor', 'detail' => 'profor1', 'document' => 'VDOCUMA', 'detail_document' => 'VDOCUMA'],
+        'venta' => ['label' => 'Ventas', 'connection' => 'sisinvconsolidado2026', 'header' => 'ventas', 'detail' => 'ventas1', 'document' => 'VDOCUMA', 'detail_document' => 'VDOCUMA'],
+        'despacho' => ['label' => 'Despachos', 'connection' => 'faboce2026', 'header' => 'log_registro', 'detail' => 'log_registro_detalle', 'document' => 'id', 'detail_document' => 'id_registro', 'tipo' => 1],
+        'programacion' => ['label' => 'Programación', 'connection' => 'faboce2026', 'header' => 'log_registro', 'detail' => 'log_registro_detalle', 'document' => 'id', 'detail_document' => 'id_registro', 'tipo' => 2],
+        'transito' => ['label' => 'Tránsitos', 'connection' => 'faboce2026', 'header' => 'log_registro', 'detail' => 'log_registro_detalle', 'document' => 'id', 'detail_document' => 'id_registro', 'tipo' => 3],
+        'recepcion' => ['label' => 'Recepción', 'connection' => 'faboce2026', 'header' => 'log_registro', 'detail' => 'log_registro_detalle', 'document' => 'id', 'detail_document' => 'id_registro', 'tipo' => 4],
     ];
 
     public function index()
@@ -78,15 +78,17 @@ class AuditoriaDocumentoController extends Controller
 
         $cfg = self::TIPOS[$tipo];
         $db = DB::connection($cfg['connection']);
-        $columnas = $db->getSchemaBuilder()->getColumnListing($cfg['header']);
+        $schema = $db->getSchemaBuilder();
+        $columnasCabecera = $schema->getColumnListing($cfg['header']);
+        $columnasDetalle = $schema->getColumnListing($cfg['detail']);
 
-        $fechaCampo = $this->primerCampo($columnas, ['fecha', 'RFECHA', 'EFECHA', 'TFECHA', 'VFECHA', 'fecha_documento', 'fecha_doc']);
-        $glosaCampo = $this->primerCampo($columnas, ['glosa', 'GLOSA', 'RGLOSA', 'EGLOSA', 'TGLOSA', 'VGLOSA', 'observaciones']);
+        $fechaCampo = $this->primerCampo($columnasCabecera, ['fecha', 'RFECHA', 'EFECHA', 'TFECHA', 'VFECHA', 'fecha_documento', 'fecha_doc']);
+        $glosaCampo = $this->primerCampo($columnasCabecera, ['glosa', 'GLOSA', 'RGLOSA', 'EGLOSA', 'TGLOSA', 'VGLOSA', 'observaciones']);
 
         $select = array_values(array_filter([
             $cfg['document'], $fechaCampo, $glosaCampo,
             'created_id', 'created_at', 'updated_id', 'updated_at', 'deleted_id', 'deleted_at',
-        ], fn ($field) => $field && in_array($field, $columnas, true)));
+        ], fn ($field) => $field && in_array($field, $columnasCabecera, true)));
 
         $header = $db->table($cfg['header'])
             ->where($cfg['document'], $documento)
@@ -103,12 +105,67 @@ class AuditoriaDocumentoController extends Controller
             'tabla_cabecera' => $cfg['connection'].'.'.$cfg['header'],
             'tabla_detalle' => $cfg['connection'].'.'.$cfg['detail'],
             'header' => $headerArray,
-            'fecha_campo' => $fechaCampo,
-            'glosa_campo' => $glosaCampo,
+            'detalle' => $this->obtenerDetalle($db, $cfg, $documento, $columnasDetalle),
             'usuarios' => $this->usuariosAuditoria($headerArray),
             'audits' => $this->obtenerAuditoria($documento),
+            'fecha_campo' => $fechaCampo,
+            'glosa_campo' => $glosaCampo,
             'generado_at' => now()->format('d/m/Y H:i:s'),
         ];
+    }
+
+    private function obtenerDetalle($db, array $cfg, string $documento, array $columnasDetalle)
+    {
+        $codigoCampo = $this->primerCampo($columnasDetalle, ['codigo', 'CODIGO', 'codigo_producto', 'CODIGO_PRODUCTO']);
+        $cantidadCampo = $this->primerCampo($columnasDetalle, ['cantidad', 'CANTIDAD', 'RCANTIDAD', 'ECANTIDAD', 'TCANTIDAD', 'VCANTIDAD']);
+
+        $campos = [
+            'codigo' => $codigoCampo,
+            'cantidad' => $cantidadCampo,
+            'created_id' => in_array('created_id', $columnasDetalle, true) ? 'created_id' : null,
+            'created_at' => in_array('created_at', $columnasDetalle, true) ? 'created_at' : null,
+            'updated_id' => in_array('updated_id', $columnasDetalle, true) ? 'updated_id' : null,
+            'updated_at' => in_array('updated_at', $columnasDetalle, true) ? 'updated_at' : null,
+            'deleted_id' => in_array('deleted_id', $columnasDetalle, true) ? 'deleted_id' : null,
+            'deleted_at' => in_array('deleted_at', $columnasDetalle, true) ? 'deleted_at' : null,
+        ];
+
+        $select = array_values(array_filter(array_unique($campos), fn ($field) => $field !== null));
+
+        $query = $db->table($cfg['detail'])
+            ->where($cfg['detail_document'], $documento);
+
+        $detalle = $select ? $query->get($select) : collect();
+
+        $usuarioIds = $detalle->flatMap(function ($row) use ($campos) {
+            return collect(['created_id', 'updated_id', 'deleted_id'])
+                ->map(fn ($campo) => $campos[$campo] ? $row->{$campos[$campo]} : null)
+                ->filter(fn ($id) => $id !== null && $id !== '');
+        })->unique()->values();
+
+        $usuarios = $usuarioIds->isEmpty()
+            ? collect()
+            : DB::connection('faboce2026')->table('users')->whereIn('id', $usuarioIds)->get(['id', 'name', 'email'])->keyBy('id');
+
+        return $detalle->map(function ($row) use ($campos, $usuarios) {
+            $createdId = $campos['created_id'] ? $row->{$campos['created_id']} : null;
+            $updatedId = $campos['updated_id'] ? $row->{$campos['updated_id']} : null;
+            $deletedId = $campos['deleted_id'] ? $row->{$campos['deleted_id']} : null;
+
+            return [
+                'codigo' => $campos['codigo'] ? ($row->{$campos['codigo']} ?? null) : null,
+                'cantidad' => $campos['cantidad'] ? ($row->{$campos['cantidad']} ?? null) : null,
+                'created_id' => $createdId,
+                'created_at' => $campos['created_at'] ? ($row->{$campos['created_at']} ?? null) : null,
+                'created_user' => $createdId !== null && $createdId !== '' ? ($usuarios->get($createdId)->name ?? 'Usuario no encontrado') : null,
+                'updated_id' => $updatedId,
+                'updated_at' => $campos['updated_at'] ? ($row->{$campos['updated_at']} ?? null) : null,
+                'updated_user' => $updatedId !== null && $updatedId !== '' ? ($usuarios->get($updatedId)->name ?? 'Usuario no encontrado') : null,
+                'deleted_id' => $deletedId,
+                'deleted_at' => $campos['deleted_at'] ? ($row->{$campos['deleted_at']} ?? null) : null,
+                'deleted_user' => $deletedId !== null && $deletedId !== '' ? ($usuarios->get($deletedId)->name ?? 'Usuario no encontrado') : null,
+            ];
+        })->values();
     }
 
     private function usuariosAuditoria(array $header): array
