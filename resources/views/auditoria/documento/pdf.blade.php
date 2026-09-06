@@ -11,7 +11,7 @@
         table { width:100%; border-collapse:collapse; margin-top:5px; }
         th,td { border:1px solid #ccc; padding:4px; vertical-align:top; }
         th { background:#e5e7eb; text-align:left; }
-        .detail th, .detail td { font-size:7px; }
+        .detail th, .detail td { font-size:6.5px; }
         .json { white-space:pre-wrap; word-wrap:break-word; font-family:DejaVu Sans Mono, monospace; font-size:6px; }
         .audit { page-break-inside:avoid; margin-bottom:12px; }
     </style>
@@ -25,58 +25,30 @@
     </div>
 
     <h2>Datos de cabecera</h2>
-    <table>
-        <tbody>
-            <tr>
-                <th width="18%">Fecha</th>
-                <td>{{ $fecha_campo ? ($header[$fecha_campo] ?? '—') : '—' }}</td>
-                <th width="18%">Documento</th>
-                <td>{{ $documento }}</td>
-            </tr>
-            <tr>
-                <th>Glosa</th>
-                <td colspan="3">{{ $glosa_campo ? ($header[$glosa_campo] ?? '—') : '—' }}</td>
-            </tr>
-            <tr>
-                <th>Creado</th>
-                <td>{{ $usuarios['created_id']['name'] ?? '—' }} ({{ $header['created_at'] ?? '—' }})</td>
-                <th>Modificado</th>
-                <td>{{ $usuarios['updated_id']['name'] ?? '—' }} ({{ $header['updated_at'] ?? '—' }})</td>
-            </tr>
-            <tr>
-                <th>Eliminado</th>
-                <td colspan="3">{{ $usuarios['deleted_id']['name'] ?? '—' }} ({{ $header['deleted_at'] ?? '—' }})</td>
-            </tr>
-        </tbody>
-    </table>
+    <table><tbody>
+        <tr><th width="18%">Fecha</th><td>{{ $fecha_campo ? ($header[$fecha_campo] ?? '—') : '—' }}</td><th width="18%">Documento</th><td>{{ $documento }}</td></tr>
+        <tr><th>Glosa</th><td colspan="3">{{ $glosa_campo ? ($header[$glosa_campo] ?? '—') : '—' }}</td></tr>
+        <tr><th>Creado</th><td>{{ $usuarios['created_id']['name'] ?? '—' }} ({{ $header['created_at'] ?? '—' }})</td><th>Modificado</th><td>{{ $usuarios['updated_id']['name'] ?? '—' }} ({{ $header['updated_at'] ?? '—' }})</td></tr>
+        <tr><th>Eliminado</th><td colspan="3">{{ $usuarios['deleted_id']['name'] ?? '—' }} ({{ $header['deleted_at'] ?? '—' }})</td></tr>
+    </tbody></table>
 
     <h2>Registros de detalle</h2>
     @if ($detalle->isEmpty())
         <p>No existen registros de detalle para este documento.</p>
     @else
         <table class="detail">
-            <thead>
-                <tr>
-                    <th>Código</th>
-                    <th>Cantidad</th>
-                    <th>Created ID</th>
-                    <th>Created at</th>
-                    <th>Updated ID</th>
-                    <th>Updated at</th>
-                    <th>Deleted ID</th>
-                    <th>Deleted at</th>
-                </tr>
-            </thead>
+            <thead><tr><th>Código</th><th>Producto</th><th>Cantidad</th><th>Creado por</th><th>Created at</th><th>Modificado por</th><th>Updated at</th><th>Eliminado por</th><th>Deleted at</th></tr></thead>
             <tbody>
                 @foreach ($detalle as $item)
                     <tr>
                         <td>{{ $item['codigo'] ?? '—' }}</td>
+                        <td>{{ $item['producto'] ?? '—' }}</td>
                         <td>{{ $item['cantidad'] ?? '—' }}</td>
-                        <td>{{ $item['created_id'] ?? '—' }}</td>
+                        <td>{{ $item['created_user'] ?? '—' }}@if(isset($item['created_id']) && $item['created_id'] !== null) <span>({{ $item['created_id'] }})</span>@endif</td>
                         <td>{{ $item['created_at'] ?? '—' }}</td>
-                        <td>{{ $item['updated_id'] ?? '—' }}</td>
+                        <td>{{ $item['updated_user'] ?? '—' }}@if(isset($item['updated_id']) && $item['updated_id'] !== null) <span>({{ $item['updated_id'] }})</span>@endif</td>
                         <td>{{ $item['updated_at'] ?? '—' }}</td>
-                        <td>{{ $item['deleted_id'] ?? '—' }}</td>
+                        <td>{{ $item['deleted_user'] ?? '—' }}@if(isset($item['deleted_id']) && $item['deleted_id'] !== null) <span>({{ $item['deleted_id'] }})</span>@endif</td>
                         <td>{{ $item['deleted_at'] ?? '—' }}</td>
                     </tr>
                 @endforeach
@@ -86,30 +58,7 @@
 
     <h2>Registros de auditoría</h2>
     @forelse ($audits as $audit)
-        <div class="audit">
-            <table>
-                <tr>
-                    <th width="18%">Evento</th>
-                    <td>{{ $audit['event'] ?? '—' }}</td>
-                    <th width="18%">Usuario</th>
-                    <td>{{ $audit['user_name'] ?? '—' }}</td>
-                </tr>
-                <tr>
-                    <th>Fecha</th>
-                    <td colspan="3">{{ $audit['created_at'] ?? '—' }}</td>
-                </tr>
-            </table>
-            <table>
-                <tr>
-                    <th width="50%">OLD VALUES</th>
-                    <th width="50%">NEW VALUES</th>
-                </tr>
-                <tr>
-                    <td><div class="json">{{ $audit['old_values_json'] }}</div></td>
-                    <td><div class="json">{{ $audit['new_values_json'] }}</div></td>
-                </tr>
-            </table>
-        </div>
+        <div class="audit"><table><tr><th width="18%">Evento</th><td>{{ $audit['event'] ?? '—' }}</td><th width="18%">Usuario</th><td>{{ $audit['user_name'] ?? '—' }}</td></tr><tr><th>Fecha</th><td colspan="3">{{ $audit['created_at'] ?? '—' }}</td></tr></table><table><tr><th width="50%">OLD VALUES</th><th width="50%">NEW VALUES</th></tr><tr><td><div class="json">{{ $audit['old_values_json'] }}</div></td><td><div class="json">{{ $audit['new_values_json'] }}</div></td></tr></table></div>
     @empty
         <p>No se encontraron registros en faboce2026.audits para el documento.</p>
     @endforelse
