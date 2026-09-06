@@ -3,16 +3,17 @@
 <head>
     <meta charset="utf-8">
     <style>
-        @page { margin: 35px 35px 45px; }
-        body { font-family: DejaVu Sans, sans-serif; font-size: 9px; color:#222; }
-        h1 { font-size:16px; margin:0 0 3px; }
-        h2 { font-size:12px; margin:18px 0 7px; color:#1f4e79; }
-        .meta { color:#666; font-size:8px; }
-        table { width:100%; border-collapse:collapse; margin-top:6px; }
-        th,td { border:1px solid #ccc; padding:5px; vertical-align:top; }
+        @page { margin: 30px 25px 40px; }
+        body { font-family: DejaVu Sans, sans-serif; font-size: 8px; color:#222; }
+        h1 { font-size:15px; margin:0 0 3px; }
+        h2 { font-size:11px; margin:16px 0 6px; color:#1f4e79; }
+        .meta { color:#666; font-size:7px; }
+        table { width:100%; border-collapse:collapse; margin-top:5px; }
+        th,td { border:1px solid #ccc; padding:4px; vertical-align:top; }
         th { background:#e5e7eb; text-align:left; }
-        .json { white-space:pre-wrap; word-wrap:break-word; font-family:DejaVu Sans Mono, monospace; font-size:7px; }
-        .audit { page-break-inside:avoid; margin-bottom:14px; }
+        .detail th, .detail td { font-size:7px; }
+        .json { white-space:pre-wrap; word-wrap:break-word; font-family:DejaVu Sans Mono, monospace; font-size:6px; }
+        .audit { page-break-inside:avoid; margin-bottom:12px; }
     </style>
 </head>
 <body>
@@ -48,6 +49,40 @@
             </tr>
         </tbody>
     </table>
+
+    <h2>Registros de detalle</h2>
+    @if ($detalle->isEmpty())
+        <p>No existen registros de detalle para este documento.</p>
+    @else
+        <table class="detail">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Cantidad</th>
+                    <th>Created ID</th>
+                    <th>Created at</th>
+                    <th>Updated ID</th>
+                    <th>Updated at</th>
+                    <th>Deleted ID</th>
+                    <th>Deleted at</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach ($detalle as $item)
+                    <tr>
+                        <td>{{ $item['codigo'] ?? '—' }}</td>
+                        <td>{{ $item['cantidad'] ?? '—' }}</td>
+                        <td>{{ $item['created_id'] ?? '—' }}</td>
+                        <td>{{ $item['created_at'] ?? '—' }}</td>
+                        <td>{{ $item['updated_id'] ?? '—' }}</td>
+                        <td>{{ $item['updated_at'] ?? '—' }}</td>
+                        <td>{{ $item['deleted_id'] ?? '—' }}</td>
+                        <td>{{ $item['deleted_at'] ?? '—' }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
 
     <h2>Registros de auditoría</h2>
     @forelse ($audits as $audit)
