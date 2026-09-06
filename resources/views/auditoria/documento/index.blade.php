@@ -1,211 +1,33 @@
 <x-app-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">Auditoría · Aud x Docto</h2>
-    </x-slot>
-
+    <x-slot name="header"><h2 class="font-semibold text-xl text-gray-800 leading-tight">Auditoría · Aud x Docto</h2></x-slot>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/css/select2.min.css" rel="stylesheet" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/js/select2.min.js"></script>
-
     <style>
-        .select2-container .select2-selection--single { height: 46px !important; display:flex; align-items:center; border-radius:.65rem !important; border-color:#d1d5db !important; }
-        .select2-container--default .select2-selection--single .select2-selection__rendered { line-height:46px !important; padding-left:12px !important; }
+        .select2-container .select2-selection--single { height:46px!important; display:flex; align-items:center; border-radius:.65rem!important; border-color:#d1d5db!important; }
+        .select2-container--default .select2-selection--single .select2-selection__rendered { line-height:46px!important; padding-left:12px!important; }
         .json-box { background:#111827; color:#e5e7eb; border-radius:.5rem; padding:.85rem; overflow-x:auto; font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; white-space:pre-wrap; }
     </style>
-
-    <div class="py-4 px-3 sm:py-6 sm:px-4">
-        <div class="max-w-7xl mx-auto">
-            <div class="bg-white rounded-xl shadow p-4 sm:p-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de documento</label>
-                        <select id="tipo" class="w-full border-gray-300 rounded-lg px-3 py-2">
-                            <option value="">Seleccione...</option>
-                            @foreach ($tipos as $key => $tipo)
-                                <option value="{{ $key }}">{{ $tipo['label'] }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Documento</label>
-                        <select id="documento" class="w-full" style="width:100%" disabled></select>
-                    </div>
-                </div>
-                <p class="text-xs text-gray-500 mt-3">Escriba parte o todo el número del documento para realizar la búsqueda.</p>
-            </div>
-
-            <div id="resultado" class="hidden mt-5 space-y-5">
-                <div class="bg-white rounded-xl shadow p-4 sm:p-6 flex flex-wrap justify-between gap-3 items-start">
-                    <div>
-                        <p class="text-xs uppercase tracking-wide text-gray-500">Auditoría por documento</p>
-                        <h3 id="tituloDocumento" class="text-2xl font-bold text-gray-800"></h3>
-                        <p id="origen" class="text-xs text-gray-500 mt-1"></p>
-                    </div>
-                    <button id="btnPdf" type="button" class="bg-gray-800 text-white rounded-lg px-4 py-2 text-sm font-semibold">Imprimir / PDF</button>
-                </div>
-
-                <div class="bg-white rounded-xl shadow p-4 sm:p-6">
-                    <h3 class="font-semibold text-gray-800 mb-4">Datos de cabecera</h3>
-                    <div id="cabecera" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
-                </div>
-
-                <div class="bg-white rounded-xl shadow p-4 sm:p-6">
-                    <div class="flex justify-between items-center mb-3">
-                        <h3 class="font-semibold text-gray-800">Registros de detalle</h3>
-                        <span id="totalDetalle" class="text-xs bg-gray-100 rounded-full px-2 py-1"></span>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full text-sm border-collapse">
-                            <thead>
-                                <tr class="bg-gray-50 text-gray-600 text-left">
-                                    <th class="border px-3 py-2 whitespace-nowrap">Código</th>
-                                    <th class="border px-3 py-2 whitespace-nowrap">Cantidad</th>
-                                    <th class="border px-3 py-2 whitespace-nowrap">Created ID</th>
-                                    <th class="border px-3 py-2 whitespace-nowrap">Created at</th>
-                                    <th class="border px-3 py-2 whitespace-nowrap">Updated ID</th>
-                                    <th class="border px-3 py-2 whitespace-nowrap">Updated at</th>
-                                    <th class="border px-3 py-2 whitespace-nowrap">Deleted ID</th>
-                                    <th class="border px-3 py-2 whitespace-nowrap">Deleted at</th>
-                                </tr>
-                            </thead>
-                            <tbody id="detalle"></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-xl shadow p-4 sm:p-6">
-                    <div class="flex justify-between items-center mb-3">
-                        <h3 class="font-semibold text-gray-800">Auditoría registrada</h3>
-                        <span id="totalAudits" class="text-xs bg-gray-100 rounded-full px-2 py-1"></span>
-                    </div>
-                    <div id="audits" class="space-y-4"></div>
-                </div>
-            </div>
+    <div class="py-4 px-3 sm:py-6 sm:px-4"><div class="max-w-7xl mx-auto">
+        <div class="bg-white rounded-xl shadow p-4 sm:p-6"><div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div><label class="block text-sm font-medium text-gray-700 mb-2">Tipo de documento</label><select id="tipo" class="w-full border-gray-300 rounded-lg px-3 py-2"><option value="">Seleccione...</option>@foreach ($tipos as $key => $tipo)<option value="{{ $key }}">{{ $tipo['label'] }}</option>@endforeach</select></div>
+            <div><label class="block text-sm font-medium text-gray-700 mb-2">Documento</label><select id="documento" class="w-full" style="width:100%" disabled></select></div>
+        </div><p class="text-xs text-gray-500 mt-3">Escriba parte o todo el número del documento para realizar la búsqueda.</p></div>
+        <div id="resultado" class="hidden mt-5 space-y-5">
+            <div class="bg-white rounded-xl shadow p-4 sm:p-6 flex flex-wrap justify-between gap-3 items-start"><div><p class="text-xs uppercase tracking-wide text-gray-500">Auditoría por documento</p><h3 id="tituloDocumento" class="text-2xl font-bold text-gray-800"></h3><p id="origen" class="text-xs text-gray-500 mt-1"></p></div><button id="btnPdf" type="button" class="bg-gray-800 text-white rounded-lg px-4 py-2 text-sm font-semibold">Imprimir / PDF</button></div>
+            <div class="bg-white rounded-xl shadow p-4 sm:p-6"><h3 class="font-semibold text-gray-800 mb-4">Datos de cabecera</h3><div id="cabecera" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div></div>
+            <div class="bg-white rounded-xl shadow p-4 sm:p-6"><div class="flex justify-between items-center mb-3"><h3 class="font-semibold text-gray-800">Registros de detalle</h3><span id="totalDetalle" class="text-xs bg-gray-100 rounded-full px-2 py-1"></span></div><div class="overflow-x-auto"><table class="min-w-full text-sm border-collapse"><thead><tr class="bg-gray-50 text-gray-600 text-left"><th class="border px-3 py-2">Código</th><th class="border px-3 py-2">Producto</th><th class="border px-3 py-2">Cantidad</th><th class="border px-3 py-2">Creado por</th><th class="border px-3 py-2">Created at</th><th class="border px-3 py-2">Modificado por</th><th class="border px-3 py-2">Updated at</th><th class="border px-3 py-2">Eliminado por</th><th class="border px-3 py-2">Deleted at</th></tr></thead><tbody id="detalle"></tbody></table></div></div>
+            <div class="bg-white rounded-xl shadow p-4 sm:p-6"><div class="flex justify-between items-center mb-3"><h3 class="font-semibold text-gray-800">Auditoría registrada</h3><span id="totalAudits" class="text-xs bg-gray-100 rounded-full px-2 py-1"></span></div><div id="audits" class="space-y-4"></div></div>
         </div>
-    </div>
-
+    </div></div>
     <script>
-        let tipoSeleccionado = '';
-
-        $('#tipo').on('change', function () {
-            tipoSeleccionado = this.value;
-            const $doc = $('#documento');
-            if ($doc.hasClass('select2-hidden-accessible')) $doc.select2('destroy');
-            $doc.empty().prop('disabled', !tipoSeleccionado);
-            $('#resultado').addClass('hidden');
-            if (!tipoSeleccionado) return;
-
-            $doc.select2({
-                placeholder: 'Buscar número de documento...',
-                minimumInputLength: 1,
-                width: '100%',
-                ajax: {
-                    url: "{{ route('auditoria.documento.buscar') }}",
-                    dataType: 'json',
-                    delay: 300,
-                    data: params => ({ tipo: tipoSeleccionado, q: params.term }),
-                    processResults: data => ({ results: data.results })
-                }
-            });
-        });
-
-        $('#documento').on('select2:select', function (e) {
-            generar(e.params.data.id);
-        });
-
-        $('#btnPdf').on('click', function () {
-            if (!tipoSeleccionado || !$('#documento').val()) return;
-            const url = new URL("{{ route('auditoria.documento.pdf') }}", window.location.origin);
-            url.searchParams.set('tipo', tipoSeleccionado);
-            url.searchParams.set('documento', $('#documento').val());
-            window.open(url.toString(), '_blank');
-        });
-
-        function escapeHtml(value) {
-            return $('<div>').text(value == null ? '' : value).html();
-        }
-
-        function valor(value) {
-            return value == null || value === '' ? '—' : value;
-        }
-
-        function generar(documento) {
-            $('#resultado').addClass('hidden');
-
-            $.ajax({
-                url: "{{ route('auditoria.documento.generar') }}",
-                method: 'POST',
-                data: { _token: "{{ csrf_token() }}", tipo: tipoSeleccionado, documento: documento },
-                success: function (data) {
-                    $('#tituloDocumento').text(data.tipo + ' · ' + data.documento);
-                    $('#origen').text('Cabecera: ' + data.tabla_cabecera + ' · Detalle: ' + data.tabla_detalle);
-
-                    const h = data.header || {};
-                    const u = data.usuarios || {};
-                    const nombreUsuario = campo => u[campo] ? u[campo].name : '—';
-
-                    const campos = [
-                        ['Fecha', data.fecha_campo ? h[data.fecha_campo] : '—'],
-                        ['Documento', data.documento],
-                        ['Glosa', data.glosa_campo ? h[data.glosa_campo] : '—'],
-                        ['Creado por', nombreUsuario('created_id')],
-                        ['Fecha creación', h.created_at],
-                        ['Modificado por', nombreUsuario('updated_id')],
-                        ['Fecha modificación', h.updated_at],
-                        ['Eliminado por', nombreUsuario('deleted_id')],
-                        ['Fecha eliminación', h.deleted_at]
-                    ];
-
-                    $('#cabecera').html(campos.map(function (item) {
-                        return '<div class="border rounded-lg p-3">' +
-                            '<p class="text-[11px] uppercase tracking-wide text-gray-400">' + escapeHtml(item[0]) + '</p>' +
-                            '<p class="text-sm text-gray-800 mt-1 break-words">' + escapeHtml(valor(item[1])) + '</p>' +
-                            '</div>';
-                    }).join(''));
-
-                    const detalle = data.detalle || [];
-                    $('#totalDetalle').text(detalle.length + ' registro(s)');
-                    if (!detalle.length) {
-                        $('#detalle').html('<tr><td colspan="8" class="border px-3 py-4 text-center text-gray-500">No existen registros de detalle para este documento.</td></tr>');
-                    } else {
-                        $('#detalle').html(detalle.map(function (d) {
-                            return '<tr class="hover:bg-gray-50">' +
-                                '<td class="border px-3 py-2 whitespace-nowrap">' + escapeHtml(valor(d.codigo)) + '</td>' +
-                                '<td class="border px-3 py-2 whitespace-nowrap text-right">' + escapeHtml(valor(d.cantidad)) + '</td>' +
-                                '<td class="border px-3 py-2 whitespace-nowrap">' + escapeHtml(valor(d.created_id)) + '</td>' +
-                                '<td class="border px-3 py-2 whitespace-nowrap">' + escapeHtml(valor(d.created_at)) + '</td>' +
-                                '<td class="border px-3 py-2 whitespace-nowrap">' + escapeHtml(valor(d.updated_id)) + '</td>' +
-                                '<td class="border px-3 py-2 whitespace-nowrap">' + escapeHtml(valor(d.updated_at)) + '</td>' +
-                                '<td class="border px-3 py-2 whitespace-nowrap">' + escapeHtml(valor(d.deleted_id)) + '</td>' +
-                                '<td class="border px-3 py-2 whitespace-nowrap">' + escapeHtml(valor(d.deleted_at)) + '</td>' +
-                                '</tr>';
-                        }).join(''));
-                    }
-
-                    $('#totalAudits').text(data.audits.length + ' registro(s)');
-
-                    if (!data.audits.length) {
-                        $('#audits').html('<div class="text-sm text-gray-500">No existen auditorías para este documento.</div>');
-                    } else {
-                        $('#audits').html(data.audits.map(function (a) {
-                            return '<div class="border rounded-xl overflow-hidden">' +
-                                '<div class="bg-gray-50 px-4 py-3 text-sm flex flex-wrap justify-between gap-2">' +
-                                '<div><strong>' + escapeHtml(a.event || 'Evento') + '</strong>' +
-                                (a.user_name ? ' · ' + escapeHtml(a.user_name) : '') + '</div>' +
-                                '<div class="text-gray-500">' + escapeHtml(a.created_at || '') + '</div></div>' +
-                                '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">' +
-                                '<div><p class="text-xs font-semibold text-gray-500 mb-2">OLD VALUES</p><pre class="json-box">' + escapeHtml(a.old_values_json) + '</pre></div>' +
-                                '<div><p class="text-xs font-semibold text-gray-500 mb-2">NEW VALUES</p><pre class="json-box">' + escapeHtml(a.new_values_json) + '</pre></div>' +
-                                '</div></div>';
-                        }).join(''));
-                    }
-
-                    $('#resultado').removeClass('hidden');
-                },
-                error: function (xhr) {
-                    alert(xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'No fue posible generar el reporte.');
-                }
-            });
-        }
+        let tipoSeleccionado='';
+        $('#tipo').on('change',function(){tipoSeleccionado=this.value;const $doc=$('#documento');if($doc.hasClass('select2-hidden-accessible'))$doc.select2('destroy');$doc.empty().prop('disabled',!tipoSeleccionado);$('#resultado').addClass('hidden');if(!tipoSeleccionado)return;$doc.select2({placeholder:'Buscar número de documento...',minimumInputLength:1,width:'100%',ajax:{url:"{{ route('auditoria.documento.buscar') }}",dataType:'json',delay:300,data:params=>({tipo:tipoSeleccionado,q:params.term}),processResults:data=>({results:data.results})}});});
+        $('#documento').on('select2:select',function(e){generar(e.params.data.id);});
+        $('#btnPdf').on('click',function(){if(!tipoSeleccionado||!$('#documento').val())return;const url=new URL("{{ route('auditoria.documento.pdf') }}",window.location.origin);url.searchParams.set('tipo',tipoSeleccionado);url.searchParams.set('documento',$('#documento').val());window.open(url.toString(),'_blank');});
+        function escapeHtml(value){return $('<div>').text(value==null?'':value).html();} function valor(value){return value==null||value===''?'—':value;}
+        function generar(documento){$('#resultado').addClass('hidden');$.ajax({url:"{{ route('auditoria.documento.generar') }}",method:'POST',data:{_token:"{{ csrf_token() }}",tipo:tipoSeleccionado,documento:documento},success:function(data){$('#tituloDocumento').text(data.tipo+' · '+data.documento);$('#origen').text('Cabecera: '+data.tabla_cabecera+' · Detalle: '+data.tabla_detalle);const h=data.header||{},u=data.usuarios||{},nombreUsuario=campo=>u[campo]?u[campo].name:'—';const campos=[['Fecha',data.fecha_campo?h[data.fecha_campo]:'—'],['Documento',data.documento],['Glosa',data.glosa_campo?h[data.glosa_campo]:'—'],['Creado por',nombreUsuario('created_id')],['Fecha creación',h.created_at],['Modificado por',nombreUsuario('updated_id')],['Fecha modificación',h.updated_at],['Eliminado por',nombreUsuario('deleted_id')],['Fecha eliminación',h.deleted_at]];$('#cabecera').html(campos.map(item=>'<div class="border rounded-lg p-3"><p class="text-[11px] uppercase tracking-wide text-gray-400">'+escapeHtml(item[0])+'</p><p class="text-sm text-gray-800 mt-1 break-words">'+escapeHtml(valor(item[1]))+'</p></div>').join(''));
+            const detalle=data.detalle||[];$('#totalDetalle').text(detalle.length+' registro(s)');if(!detalle.length){$('#detalle').html('<tr><td colspan="9" class="border px-3 py-4 text-center text-gray-500">No existen registros de detalle para este documento.</td></tr>');}else{$('#detalle').html(detalle.map(d=>'<tr class="hover:bg-gray-50"><td class="border px-3 py-2 whitespace-nowrap">'+escapeHtml(valor(d.codigo))+'</td><td class="border px-3 py-2 min-w-[220px]">'+escapeHtml(valor(d.producto))+'</td><td class="border px-3 py-2 whitespace-nowrap text-right">'+escapeHtml(valor(d.cantidad))+'</td><td class="border px-3 py-2 whitespace-nowrap">'+escapeHtml(valor(d.created_user))+'</td><td class="border px-3 py-2 whitespace-nowrap">'+escapeHtml(valor(d.created_at))+'</td><td class="border px-3 py-2 whitespace-nowrap">'+escapeHtml(valor(d.updated_user))+'</td><td class="border px-3 py-2 whitespace-nowrap">'+escapeHtml(valor(d.updated_at))+'</td><td class="border px-3 py-2 whitespace-nowrap">'+escapeHtml(valor(d.deleted_user))+'</td><td class="border px-3 py-2 whitespace-nowrap">'+escapeHtml(valor(d.deleted_at))+'</td></tr>').join(''));}
+            $('#totalAudits').text(data.audits.length+' registro(s)');if(!data.audits.length)$('#audits').html('<div class="text-sm text-gray-500">No existen auditorías para este documento.</div>');else $('#audits').html(data.audits.map(a=>'<div class="border rounded-xl overflow-hidden"><div class="bg-gray-50 px-4 py-3 text-sm flex flex-wrap justify-between gap-2"><div><strong>'+escapeHtml(a.event||'Evento')+'</strong>'+(a.user_name?' · '+escapeHtml(a.user_name):'')+'</div><div class="text-gray-500">'+escapeHtml(a.created_at||'')+'</div></div><div class="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4"><div><p class="text-xs font-semibold text-gray-500 mb-2">OLD VALUES</p><pre class="json-box">'+escapeHtml(a.old_values_json)+'</pre></div><div><p class="text-xs font-semibold text-gray-500 mb-2">NEW VALUES</p><pre class="json-box">'+escapeHtml(a.new_values_json)+'</pre></div></div></div>').join(''));$('#resultado').removeClass('hidden');},error:function(xhr){alert(xhr.responseJSON&&xhr.responseJSON.message?xhr.responseJSON.message:'No fue posible generar el reporte.');}});}
     </script>
 </x-app-layout>
