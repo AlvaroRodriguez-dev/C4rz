@@ -18,7 +18,13 @@
                     </x-nav-link>
 
                     {{-- WMS - visible si tiene algún permiso de WMS --}}
-                    @hasanyrole('WMS-ADMIN|WMS-ALMACEN|WMS-MONTACARGA|SIS-ADMIN')
+                    @hasanyrole('SIS-ADMIN')
+                <x-responsive-nav-link :href="route('auditoria.documento.index')" :active="request()->routeIs('auditoria.*')">
+                    Auditoría · Aud x Docto
+                </x-responsive-nav-link>
+            @endhasanyrole
+
+            @hasanyrole('WMS-ADMIN|WMS-ALMACEN|WMS-MONTACARGA|SIS-ADMIN')
                         <x-nav-link :href="route('wms.index')" :active="request()->routeIs('wms.*')">
                             WMS
                         </x-nav-link>
