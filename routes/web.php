@@ -32,6 +32,7 @@ use App\Http\Controllers\Wms\WmsReubicacionController;
 use App\Http\Controllers\Wms\WmsSalidaController;
 use App\Http\Controllers\Wms\WmsSalidaVerController;
 use App\Http\Controllers\Wms\WmsTicketLoteController;
+use App\Http\Controllers\Auditoria\AuditoriaDocumentoController;
 
 
 Route::get('/', [WelcomeController::class, 'index'])->name('welcome');
@@ -399,8 +400,6 @@ Route::get('/tarjeta/{uuid}/vcard', [TarjetaPublicaController::class, 'vcard'])-
 
 
 // ── AUDITORÍA ────────────────────────────────────────────────────────────
-use App\Http\Controllers\Auditoria\AuditoriaDocumentoController;
-
 Route::middleware(['auth'])->prefix('auditoria')->name('auditoria.')->group(function () {
     Route::get('/documento', [AuditoriaDocumentoController::class, 'index'])->name('documento.index');
     Route::get('/documento/buscar', [AuditoriaDocumentoController::class, 'buscarDocumentos'])->name('documento.buscar');
