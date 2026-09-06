@@ -156,7 +156,7 @@ class AuditoriaDocumentoController extends Controller
         }
 
         $select = array_values(array_intersect([
-            'id', 'event', 'user_id', 'auditable_type', 'auditable_id',
+            'a.id as audit_id', 'a.event', 'a.user_id', 'a.auditable_type', 'a.auditable_id',
             'old_values', 'new_values', 'url', 'ip_address', 'user_agent', 'created_at',
         ], $columnas));
 
