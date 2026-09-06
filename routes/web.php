@@ -397,4 +397,15 @@ Route::middleware(['auth', 'role:SIS-ADMIN'])->group(function () {
 Route::get('/tarjeta/{uuid}', [TarjetaPublicaController::class, 'show'])->name('tarjeta.show');
 Route::get('/tarjeta/{uuid}/vcard', [TarjetaPublicaController::class, 'vcard'])->name('tarjeta.vcard');
 
+
+// ── AUDITORÍA ────────────────────────────────────────────────────────────
+use App\Http\Controllers\Auditoria\AuditoriaDocumentoController;
+
+Route::middleware(['auth'])->prefix('auditoria')->name('auditoria.')->group(function () {
+    Route::get('/documento', [AuditoriaDocumentoController::class, 'index'])->name('documento.index');
+    Route::get('/documento/buscar', [AuditoriaDocumentoController::class, 'buscarDocumentos'])->name('documento.buscar');
+    Route::post('/documento/generar', [AuditoriaDocumentoController::class, 'generar'])->name('documento.generar');
+    Route::get('/documento/pdf', [AuditoriaDocumentoController::class, 'pdf'])->name('documento.pdf');
+});
+
 require __DIR__ . '/auth.php';
