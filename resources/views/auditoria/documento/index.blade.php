@@ -51,6 +51,30 @@
 
                 <div class="bg-white rounded-xl shadow p-4 sm:p-6">
                     <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-semibold text-gray-800">Registros de detalle</h3>
+                        <span id="totalDetalle" class="text-xs bg-gray-100 rounded-full px-2 py-1"></span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full text-sm border-collapse">
+                            <thead>
+                                <tr class="bg-gray-50 text-gray-600 text-left">
+                                    <th class="border px-3 py-2 whitespace-nowrap">Código</th>
+                                    <th class="border px-3 py-2 whitespace-nowrap">Cantidad</th>
+                                    <th class="border px-3 py-2 whitespace-nowrap">Created ID</th>
+                                    <th class="border px-3 py-2 whitespace-nowrap">Created at</th>
+                                    <th class="border px-3 py-2 whitespace-nowrap">Updated ID</th>
+                                    <th class="border px-3 py-2 whitespace-nowrap">Updated at</th>
+                                    <th class="border px-3 py-2 whitespace-nowrap">Deleted ID</th>
+                                    <th class="border px-3 py-2 whitespace-nowrap">Deleted at</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detalle"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow p-4 sm:p-6">
+                    <div class="flex justify-between items-center mb-3">
                         <h3 class="font-semibold text-gray-800">Auditoría registrada</h3>
                         <span id="totalAudits" class="text-xs bg-gray-100 rounded-full px-2 py-1"></span>
                     </div>
@@ -68,6 +92,7 @@
             const $doc = $('#documento');
             if ($doc.hasClass('select2-hidden-accessible')) $doc.select2('destroy');
             $doc.empty().prop('disabled', !tipoSeleccionado);
+            $('#resultado').addClass('hidden');
             if (!tipoSeleccionado) return;
 
             $doc.select2({
@@ -100,6 +125,10 @@
             return $('<div>').text(value == null ? '' : value).html();
         }
 
+        function valor(value) {
+            return value == null || value === '' ? '—' : value;
+        }
+
         function generar(documento) {
             $('#resultado').addClass('hidden');
 
@@ -130,9 +159,28 @@
                     $('#cabecera').html(campos.map(function (item) {
                         return '<div class="border rounded-lg p-3">' +
                             '<p class="text-[11px] uppercase tracking-wide text-gray-400">' + escapeHtml(item[0]) + '</p>' +
-                            '<p class="text-sm text-gray-800 mt-1 break-words">' + escapeHtml(item[1] == null || item[1] === '' ? '—' : item[1]) + '</p>' +
+                            '<p class="text-sm text-gray-800 mt-1 break-words">' + escapeHtml(valor(item[1])) + '</p>' +
                             '</div>';
                     }).join(''));
+
+                    const detalle = data.detalle || [];
+                    $('#totalDetalle').text(detalle.length + ' registro(s)');
+                    if (!detalle.length) {
+                        $('#detalle').html('<tr><td colspan="8" class="border px-3 py-4 text-center text-gray-500">No existen registros de detalle para este documento.</td></tr>');
+                    } else {
+                        $('#detalle').html(detalle.map(function (d) {
+                            return '<tr class="hover:bg-gray-50">' +
+                                '<td class="border px-3 py-2 whitespace-nowrap">' + escapeHtml(valor(d.codigo)) + '</td>' +
+                                '<td class="border px-3 py-2 whitespace-nowrap text-right">' + escapeHtml(valor(d.cantidad)) + '</td>' +
+                                '<td class="border px-3 py-2 whitespace-nowrap">' + escapeHtml(valor(d.created_id)) + '</td>' +
+                                '<td class="border px-3 py-2 whitespace-nowrap">' + escapeHtml(valor(d.created_at)) + '</td>' +
+                                '<td class="border px-3 py-2 whitespace-nowrap">' + escapeHtml(valor(d.updated_id)) + '</td>' +
+                                '<td class="border px-3 py-2 whitespace-nowrap">' + escapeHtml(valor(d.updated_at)) + '</td>' +
+                                '<td class="border px-3 py-2 whitespace-nowrap">' + escapeHtml(valor(d.deleted_id)) + '</td>' +
+                                '<td class="border px-3 py-2 whitespace-nowrap">' + escapeHtml(valor(d.deleted_at)) + '</td>' +
+                                '</tr>';
+                        }).join(''));
+                    }
 
                     $('#totalAudits').text(data.audits.length + ' registro(s)');
 
