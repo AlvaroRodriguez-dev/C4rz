@@ -46,7 +46,7 @@
     @endif
     <h2>Registros de auditoría</h2>
     @forelse ($audits as $audit)
-        <div class="audit"><table><tr><th width="18%">Evento</th><td>{{ $audit['event'] ?? '—' }}</td><th width="18%">Usuario</th><td>{{ $audit['user_name'] ?? '—' }}</td></tr><tr><th>Auditable Type</th><td colspan="3">{{ $audit['auditable_type'] ?? '—' }}</td></tr><tr><th>Fecha</th><td colspan="3">{{ $audit['created_at'] ?? '—' }}</td></tr></table><table><tr><th width="50%">OLD VALUES</th><th width="50%">NEW VALUES</th></tr><tr><td><div class="json">{{ $audit['old_values_json'] }}</div></td><td><div class="json">{{ $audit['new_values_json'] }}</div></td></tr></table></div>
+        <div class="audit"><table><tr><th width="18%">Evento</th><td>{{ $audit['event'] ?? '—' }}</td><th width="18%">Usuario</th><td>{{ $audit['user_name'] ?? '—' }}</td></tr><tr><th>Auditable Type</th><td colspan="3">{{ $audit['auditable_type'] ?? '—' }}</td></tr><tr><th>IP Address</th><td>{{ $audit['ip_address'] ?? '—' }}</td><th>Fecha</th><td>{{ $audit['created_at'] ?? '—' }}</td></tr><tr style="display:none"><th>Fecha</th><td colspan="3">{{ $audit['created_at'] ?? '—' }}</td></tr></table><table><tr><th width="50%">OLD VALUES</th><th width="50%">NEW VALUES</th></tr><tr><td><div class="json">{{ $audit['old_values_json'] }}</div></td><td><div class="json">{{ $audit['new_values_json'] }}</div></td></tr></table></div>
     @empty
         <p>No se encontraron registros en faboce2026.audits para el documento.</p>
     @endforelse
