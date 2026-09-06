@@ -155,10 +155,26 @@ class AuditoriaDocumentoController extends Controller
             return collect();
         }
 
-        $select = array_values(array_intersect([
-            'a.id as audit_id', 'a.event', 'a.user_id', 'a.auditable_type', 'a.auditable_id',
-            'old_values', 'new_values', 'url', 'ip_address', 'user_agent', 'created_at',
-        ], $columnas));
+        $select = [];
+        $camposAudits = [
+            'id' => 'a.id as audit_id',
+            'event' => 'a.event',
+            'user_id' => 'a.user_id',
+            'auditable_type' => 'a.auditable_type',
+            'auditable_id' => 'a.auditable_id',
+            'old_values' => 'a.old_values',
+            'new_values' => 'a.new_values',
+            'url' => 'a.url',
+            'ip_address' => 'a.ip_address',
+            'user_agent' => 'a.user_agent',
+            'created_at' => 'a.created_at',
+        ];
+
+        foreach ($camposAudits as $campo => $expresion) {
+            if (in_array($campo, $columnas, true)) {
+                $select[] = $expresion;
+            }
+        }
 
         $query = $db->table('audits as a')
             ->where(function ($query) use ($documento) {
@@ -170,8 +186,12 @@ class AuditoriaDocumentoController extends Controller
             $userColumns = $db->getSchemaBuilder()->getColumnListing('users');
             if (in_array('id', $userColumns, true)) {
                 $query->leftJoin('users as au', 'au.id', '=', 'a.user_id');
-                $select[] = 'au.name as user_name';
-                $select[] = 'au.email as user_email';
+                if (in_array('name', $userColumns, true)) {
+                    $select[] = 'au.name as user_name';
+                }
+                if (in_array('email', $userColumns, true)) {
+                    $select[] = 'au.email as user_email';
+                }
             }
         }
 
