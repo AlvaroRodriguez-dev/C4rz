@@ -48,7 +48,7 @@ class AuditoriaDocumentoController extends Controller
         $fechaCampo = $this->primerCampo($columnasCabecera, ['fecha', 'RFECHA', 'EFECHA', 'TFECHA', 'VFECHA', 'fecha_documento', 'fecha_doc']); $glosaCampo = $this->primerCampo($columnasCabecera, ['glosa', 'GLOSA', 'RGLOSA', 'EGLOSA', 'TGLOSA', 'VGLOSA', 'observaciones']);
         $select = array_values(array_filter([$cfg['document'], $fechaCampo, $glosaCampo, 'created_id', 'created_at', 'updated_id', 'updated_at', 'deleted_id', 'deleted_at'], fn ($field) => $field && in_array($field, $columnasCabecera, true)));
         $header = $db->table($cfg['header'])->where($cfg['document'], $documento)->when(isset($cfg['tipo']), fn ($query) => $query->where('tipo_registro', $cfg['tipo']))->first($select); abort_unless($header, 404, 'Documento no encontrado.'); $headerArray = (array) $header;
-        return ['tipo' => $cfg['label'], 'documento' => $documento, 'tabla_cabecera' => $cfg['connection'].'.'.$cfg['header'], 'tabla_detalle' => $cfg['connection'].'.'.$cfg['detail'], 'header' => $headerArray, 'detalle' => $this->obtenerDetalle($db, $cfg, $documento, $columnasDetalle), 'usuarios' => $this->usuariosAuditoria($headerArray), 'audits' => $this->obtenerAuditoria($documento, $cfg, $this->obtenerDetalleAuditoriaIds($db, $cfg, $documento)), 'fecha_campo' => $fechaCampo, 'glosa_campo' => $glosaCampo, 'generado_at' => now()->format('d/m/Y H:i:s')];
+        return ['tipo' => $cfg['label'], 'documento' => $documento, 'tabla_cabecera' => $cfg['connection'].'.'.$cfg['header'], 'tabla_detalle' => $cfg['connection'].'.'.$cfg['detail'], 'header' => $headerArray, 'detalle' => $this->obtenerDetalle($db, $cfg, $documento, $columnasDetalle), 'usuarios' => $this->usuariosAuditoria($headerArray), 'audits' => $this->obtenerAuditoria($documento, $cfg, $this->obtenerDetalleAuditoriaIds($db, $cfg, $documento), $this->mapaDetalleAuditoria($db, $cfg, $documento, $columnasDetalle)), 'fecha_campo' => $fechaCampo, 'glosa_campo' => $glosaCampo, 'generado_at' => now()->format('d/m/Y H:i:s')];
     }
 
     private function obtenerDetalle($db, array $cfg, string $documento, array $columnasDetalle)
@@ -100,8 +100,16 @@ class AuditoriaDocumentoController extends Controller
             ->all();
     }
 
+    private function mapaDetalleAuditoria($db, array $cfg, string $documento, array $columnasDetalle): array
+    {
+        if (!in_array('id', $columnasDetalle, true)) return [];
+        $codigoCampo = $this->primerCampo($columnasDetalle, ['codigo', 'CODIGO', 'Codigo', 'codigo_producto', 'CODIGO_PRODUCTO']);
+        $rows = $db->table($cfg['detail'])->where($cfg['detail_document'], $documento)->orderBy('created_at')->get($codigoCampo ? ['id', $codigoCampo.' as codigo'] : ['id']);
+        return $rows->mapWithKeys(fn ($row) => [(string) $row->id => ['id' => $row->id, 'codigo' => $codigoCampo ? ($row->codigo ?? null) : null]])->all();
+    }
+
     private function usuariosAuditoria(array $header): array { $ids = ['created_id' => $header['created_id'] ?? null, 'updated_id' => $header['updated_id'] ?? null, 'deleted_id' => $header['deleted_id'] ?? null]; $idsUnicos = array_values(array_unique(array_filter($ids, fn ($id) => $id !== null && $id !== ''))); if (!$idsUnicos) return []; $users = DB::connection('faboce2026')->table('users')->whereIn('id', $idsUnicos)->get(['id', 'name', 'email'])->keyBy('id'); $resultado = []; foreach ($ids as $campo => $id) { if ($id === null || $id === '') { $resultado[$campo] = null; continue; } $user = $users->get($id); $resultado[$campo] = ['id' => $id, 'name' => $user->name ?? 'Usuario no encontrado', 'email' => $user->email ?? null]; } return $resultado; }
-    private function obtenerAuditoria(string $documento, array $cfg, array $detalleAuditableIds = [])
+    private function obtenerAuditoria(string $documento, array $cfg, array $detalleAuditableIds = [], array $mapaDetalle = [])
     {
         $db = DB::connection('faboce2026');
         $columnas = $db->getSchemaBuilder()->getColumnListing('audits');
@@ -143,8 +151,11 @@ class AuditoriaDocumentoController extends Controller
             }
         }
 
-        return $query->orderBy('a.created_at')->limit(200)->get($select)->map(function ($row) {
+        return $query->orderBy('a.created_at')->limit(200)->get($select)->map(function ($row) use ($mapaDetalle) {
             $item = (array) $row;
+            $detalle = $mapaDetalle[(string) ($item['auditable_id'] ?? '')] ?? null;
+            $item['detalle_id'] = $detalle['id'] ?? null;
+            $item['detalle_codigo'] = $detalle['codigo'] ?? null;
             $item['old_values_json'] = $this->prettyJson($item['old_values'] ?? null);
             $item['new_values_json'] = $this->prettyJson($item['new_values'] ?? null);
             return $item;
