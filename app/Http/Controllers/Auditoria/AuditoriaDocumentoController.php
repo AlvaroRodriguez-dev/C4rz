@@ -158,9 +158,45 @@ class AuditoriaDocumentoController extends Controller
             $item['detalle_codigo'] = $detalle['codigo'] ?? null;
             $item['old_values_json'] = $this->prettyJson($item['old_values'] ?? null);
             $item['new_values_json'] = $this->prettyJson($item['new_values'] ?? null);
+            $item['cambios'] = $this->detectarCambios($item['old_values'] ?? null, $item['new_values'] ?? null, $item['event'] ?? null);
             return $item;
         });
     }
+    private function detectarCambios($oldValues, $newValues, ?string $event): array
+    {
+        $old = is_array($oldValues) ? $oldValues : json_decode((string) $oldValues, true);
+        $new = is_array($newValues) ? $newValues : json_decode((string) $newValues, true);
+        if (!is_array($old)) $old = [];
+        if (!is_array($new)) $new = [];
+
+        if (strtolower((string) $event) !== 'updated') {
+            return [];
+        }
+
+        $keys = array_values(array_unique(array_merge(array_keys($old), array_keys($new))));
+        $cambios = [];
+        foreach ($keys as $campo) {
+            $antes = $old[$campo] ?? null;
+            $despues = $new[$campo] ?? null;
+            if ($this->valorComparable($antes) !== $this->valorComparable($despues)) {
+                $cambios[] = [
+                    'campo' => $campo,
+                    'antes' => is_scalar($antes) || $antes === null ? $antes : json_encode($antes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                    'despues' => is_scalar($despues) || $despues === null ? $despues : json_encode($despues, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                ];
+            }
+        }
+        return $cambios;
+    }
+
+    private function valorComparable($value): string
+    {
+        if (is_array($value) || is_object($value)) {
+            return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+        return $value === null ? '__NULL__' : trim((string) $value);
+    }
+
     private function primerCampo(array $columnas, array $candidatos): ?string { foreach ($candidatos as $campo) if (in_array($campo, $columnas, true)) return $campo; return null; }
     private function prettyJson($value): string { if ($value === null || $value === '') return '{}'; $decoded = is_array($value) ? $value : json_decode((string) $value, true); return json_last_error() === JSON_ERROR_NONE || is_array($value) ? json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : (string) $value; }
 }
