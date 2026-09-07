@@ -48,7 +48,7 @@ class AuditoriaDocumentoController extends Controller
         $fechaCampo = $this->primerCampo($columnasCabecera, ['fecha', 'RFECHA', 'EFECHA', 'TFECHA', 'VFECHA', 'fecha_documento', 'fecha_doc']); $glosaCampo = $this->primerCampo($columnasCabecera, ['glosa', 'GLOSA', 'RGLOSA', 'EGLOSA', 'TGLOSA', 'VGLOSA', 'observaciones']);
         $select = array_values(array_filter([$cfg['document'], $fechaCampo, $glosaCampo, 'created_id', 'created_at', 'updated_id', 'updated_at', 'deleted_id', 'deleted_at'], fn ($field) => $field && in_array($field, $columnasCabecera, true)));
         $header = $db->table($cfg['header'])->where($cfg['document'], $documento)->when(isset($cfg['tipo']), fn ($query) => $query->where('tipo_registro', $cfg['tipo']))->first($select); abort_unless($header, 404, 'Documento no encontrado.'); $headerArray = (array) $header;
-        return ['tipo' => $cfg['label'], 'documento' => $documento, 'tabla_cabecera' => $cfg['connection'].'.'.$cfg['header'], 'tabla_detalle' => $cfg['connection'].'.'.$cfg['detail'], 'header' => $headerArray, 'detalle' => $this->obtenerDetalle($db, $cfg, $documento, $columnasDetalle), 'usuarios' => $this->usuariosAuditoria($headerArray), 'audits' => $this->obtenerAuditoria($documento), 'fecha_campo' => $fechaCampo, 'glosa_campo' => $glosaCampo, 'generado_at' => now()->format('d/m/Y H:i:s')];
+        return ['tipo' => $cfg['label'], 'documento' => $documento, 'tabla_cabecera' => $cfg['connection'].'.'.$cfg['header'], 'tabla_detalle' => $cfg['connection'].'.'.$cfg['detail'], 'header' => $headerArray, 'detalle' => $this->obtenerDetalle($db, $cfg, $documento, $columnasDetalle), 'usuarios' => $this->usuariosAuditoria($headerArray), 'audits' => $this->obtenerAuditoria($documento, $cfg, $this->obtenerDetalleAuditoriaIds($db, $cfg, $documento)), 'fecha_campo' => $fechaCampo, 'glosa_campo' => $glosaCampo, 'generado_at' => now()->format('d/m/Y H:i:s')];
     }
 
     private function obtenerDetalle($db, array $cfg, string $documento, array $columnasDetalle)
@@ -81,8 +81,75 @@ class AuditoriaDocumentoController extends Controller
     }
 
     private function valorTexto($objeto, array $campos): ?string { foreach ($campos as $campo) if (isset($objeto->{$campo}) && trim((string) $objeto->{$campo}) !== '') return trim((string) $objeto->{$campo}); return null; }
+    private function obtenerDetalleAuditoriaIds($db, array $cfg, string $documento): array
+    {
+        $esLogistica = isset($cfg['tipo']) && in_array($cfg['tipo'], [1, 2, 3, 4], true);
+        if (!$esLogistica) return [];
+
+        $columnas = $db->getSchemaBuilder()->getColumnListing($cfg['detail']);
+        if (!in_array('id', $columnas, true)) return [];
+
+        return $db->table($cfg['detail'])
+            ->where($cfg['detail_document'], $documento)
+            ->orderBy('created_at')
+            ->pluck('id')
+            ->filter(fn ($id) => $id !== null && $id !== '')
+            ->map(fn ($id) => (string) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     private function usuariosAuditoria(array $header): array { $ids = ['created_id' => $header['created_id'] ?? null, 'updated_id' => $header['updated_id'] ?? null, 'deleted_id' => $header['deleted_id'] ?? null]; $idsUnicos = array_values(array_unique(array_filter($ids, fn ($id) => $id !== null && $id !== ''))); if (!$idsUnicos) return []; $users = DB::connection('faboce2026')->table('users')->whereIn('id', $idsUnicos)->get(['id', 'name', 'email'])->keyBy('id'); $resultado = []; foreach ($ids as $campo => $id) { if ($id === null || $id === '') { $resultado[$campo] = null; continue; } $user = $users->get($id); $resultado[$campo] = ['id' => $id, 'name' => $user->name ?? 'Usuario no encontrado', 'email' => $user->email ?? null]; } return $resultado; }
-    private function obtenerAuditoria(string $documento) { $db = DB::connection('faboce2026'); $columnas = $db->getSchemaBuilder()->getColumnListing('audits'); if (!in_array('old_values', $columnas, true) || !in_array('new_values', $columnas, true)) return collect(); $select = []; $camposAudits = ['id' => 'a.id as audit_id', 'event' => 'a.event', 'user_id' => 'a.user_id', 'auditable_type' => 'a.auditable_type', 'auditable_id' => 'a.auditable_id', 'old_values' => 'a.old_values', 'new_values' => 'a.new_values', 'url' => 'a.url', 'ip_address' => 'a.ip_address', 'user_agent' => 'a.user_agent', 'created_at' => 'a.created_at']; foreach ($camposAudits as $campo => $expresion) if (in_array($campo, $columnas, true)) $select[] = $expresion; $query = $db->table('audits as a')->where(function ($query) use ($documento) { $query->where('a.old_values', 'like', "%{$documento}%")->orWhere('a.new_values', 'like', "%{$documento}%"); }); if (in_array('user_id', $columnas, true)) { $userColumns = $db->getSchemaBuilder()->getColumnListing('users'); if (in_array('id', $userColumns, true)) { $query->leftJoin('users as au', 'au.id', '=', 'a.user_id'); if (in_array('name', $userColumns, true)) $select[] = 'au.name as user_name'; if (in_array('email', $userColumns, true)) $select[] = 'au.email as user_email'; } } return $query->orderBy('a.created_at')->limit(200)->get($select)->map(function ($row) { $item = (array) $row; $item['old_values_json'] = $this->prettyJson($item['old_values'] ?? null); $item['new_values_json'] = $this->prettyJson($item['new_values'] ?? null); return $item; }); }
+    private function obtenerAuditoria(string $documento, array $cfg, array $detalleAuditableIds = [])
+    {
+        $db = DB::connection('faboce2026');
+        $columnas = $db->getSchemaBuilder()->getColumnListing('audits');
+        if (!in_array('old_values', $columnas, true) || !in_array('new_values', $columnas, true)) return collect();
+
+        $select = [];
+        $camposAudits = [
+            'id' => 'a.id as audit_id', 'event' => 'a.event', 'user_id' => 'a.user_id',
+            'auditable_type' => 'a.auditable_type', 'auditable_id' => 'a.auditable_id',
+            'old_values' => 'a.old_values', 'new_values' => 'a.new_values',
+            'url' => 'a.url', 'ip_address' => 'a.ip_address',
+            'user_agent' => 'a.user_agent', 'created_at' => 'a.created_at'
+        ];
+        foreach ($camposAudits as $campo => $expresion) {
+            if (in_array($campo, $columnas, true)) $select[] = $expresion;
+        }
+
+        $esLogistica = isset($cfg['tipo']) && in_array($cfg['tipo'], [1, 2, 3, 4], true);
+        $query = $db->table('audits as a');
+
+        if ($esLogistica && !empty($detalleAuditableIds) && in_array('auditable_id', $columnas, true)) {
+            // Para documentos logísticos la trazabilidad se obtiene por cada ID real
+            // de log_registro_detalle. Esto permite recuperar UPDATE aunque el número
+            // de documento no esté presente en old_values/new_values.
+            $query->whereIn('a.auditable_id', $detalleAuditableIds);
+        } else {
+            $query->where(function ($query) use ($documento) {
+                $query->where('a.old_values', 'like', "%{$documento}%")
+                    ->orWhere('a.new_values', 'like', "%{$documento}%");
+            });
+        }
+
+        if (in_array('user_id', $columnas, true)) {
+            $userColumns = $db->getSchemaBuilder()->getColumnListing('users');
+            if (in_array('id', $userColumns, true)) {
+                $query->leftJoin('users as au', 'au.id', '=', 'a.user_id');
+                if (in_array('name', $userColumns, true)) $select[] = 'au.name as user_name';
+                if (in_array('email', $userColumns, true)) $select[] = 'au.email as user_email';
+            }
+        }
+
+        return $query->orderBy('a.created_at')->limit(200)->get($select)->map(function ($row) {
+            $item = (array) $row;
+            $item['old_values_json'] = $this->prettyJson($item['old_values'] ?? null);
+            $item['new_values_json'] = $this->prettyJson($item['new_values'] ?? null);
+            return $item;
+        });
+    }
     private function primerCampo(array $columnas, array $candidatos): ?string { foreach ($candidatos as $campo) if (in_array($campo, $columnas, true)) return $campo; return null; }
     private function prettyJson($value): string { if ($value === null || $value === '') return '{}'; $decoded = is_array($value) ? $value : json_decode((string) $value, true); return json_last_error() === JSON_ERROR_NONE || is_array($value) ? json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : (string) $value; }
 }
