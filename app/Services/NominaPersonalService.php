@@ -16,7 +16,7 @@ class NominaPersonalService
      * Busca un trabajador activo en RRHH utilizando únicamente LICENSE.
      *
      * Para esta versión de Nómina, RRHH es solamente la fuente de identidad:
-     * LICENSE + nombre completo. No se exponen aquí otros atributos laborales.
+     * LICENSE + nombre y apellido. No se exponen aquí otros atributos laborales.
      */
     public function findByLicense(string $license): ?object
     {
@@ -68,13 +68,15 @@ class NominaPersonalService
 
         return [
             'license' => trim((string) ($personal->LICENSE ?? '')),
+            'nombre' => $name,
+            'apellido' => $lastname,
             'nombre_completo' => trim($name . ' ' . $lastname),
         ];
     }
 
     /**
-     * Registra la identidad en el maestro propio de Nómina después de validarla
-     * contra RRHH. No copia datos laborales ni salariales de RRHH.
+     * Registra o actualiza la identidad en el maestro propio de Nómina después
+     * de validarla contra RRHH. No copia datos laborales ni salariales de RRHH.
      */
     public function register(string $license): NominaPersonal
     {
@@ -92,9 +94,15 @@ class NominaPersonalService
             );
         }
 
+        $identity = $this->normalize($personal);
+
         return NominaPersonal::updateOrCreate(
-            ['license' => $license],
-            ['estado' => 'ACTIVO']
+            ['license' => $identity['license']],
+            [
+                'nombre' => $identity['nombre'],
+                'apellido' => $identity['apellido'],
+                'estado' => 'ACTIVO',
+            ]
         );
     }
 
