@@ -33,19 +33,10 @@ class NominaPersonalController extends Controller
             }
         }
 
-        $nombres = [];
-        foreach ($personas as $persona) {
-            $rrhh = $this->personalService->findByLicense($persona->license);
-            $nombres[$persona->license] = $rrhh
-                ? $this->personalService->normalize($rrhh)['nombre_completo']
-                : 'No encontrado en RRHH';
-        }
-
         return view('nomina.personal.index', compact(
             'personas',
             'buscar',
-            'resultadosRrhh',
-            'nombres'
+            'resultadosRrhh'
         ));
     }
 
