@@ -78,6 +78,12 @@ class NominaPersonalService
      */
     public function register(string $license): NominaPersonal
     {
+        $license = trim($license);
+
+        if ($license === '') {
+            throw new InvalidArgumentException('El LICENSE es obligatorio.');
+        }
+
         $personal = $this->findByLicense($license);
 
         if ($personal === null) {
@@ -87,7 +93,7 @@ class NominaPersonalService
         }
 
         return NominaPersonal::updateOrCreate(
-            ['license' => trim($license)],
+            ['license' => $license],
             ['estado' => 'ACTIVO']
         );
     }
@@ -98,7 +104,7 @@ class NominaPersonalService
         $qualifiedTable = $this->quoteIdentifier($schema) . '.' . $this->quoteIdentifier(self::RRHH_TABLE);
 
         return DB::connection(self::RRHH_CONNECTION)
-            ->table($qualifiedTable)
+            ->table(DB::raw($qualifiedTable))
             ->select(['LICENSE', 'NAME', 'LASTNAME']);
     }
 
