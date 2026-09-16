@@ -87,7 +87,7 @@
                         @forelse($personas as $persona)
                             <tr class="hover:bg-gray-50">
                                 <td class="px-4 py-3 font-mono font-semibold text-indigo-700">{{ $persona->license }}</td>
-                                <td class="px-4 py-3 text-gray-800">{{ $nombres[$persona->license] ?? '—' }}</td>
+                                <td class="px-4 py-3 text-gray-800">{{ $persona->nombre_completo ?: '—' }}</td>
                                 <td class="px-4 py-3 text-center">
                                     <span class="px-2 py-1 rounded-full text-xs font-semibold {{ $persona->estado === 'ACTIVO' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500' }}">
                                         {{ $persona->estado }}
