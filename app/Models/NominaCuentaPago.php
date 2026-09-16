@@ -7,10 +7,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class NominaCuentaPago extends Model
 {
-    protected $table = 'nomina_cuentas_pago';
+    protected $table = 'rh_cuentas_pago';
 
     protected $fillable = [
-        'nomina_personal_id',
+        'rh_personal_id',
         'fecha_inicio',
         'fecha_fin',
         'institucion_bancaria',
@@ -28,6 +28,6 @@ class NominaCuentaPago extends Model
 
     public function personal(): BelongsTo
     {
-        return $this->belongsTo(NominaPersonal::class, 'nomina_personal_id');
+        return $this->belongsTo(NominaPersonal::class, 'rh_personal_id');
     }
 }
