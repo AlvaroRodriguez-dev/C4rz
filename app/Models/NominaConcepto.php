@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class NominaConcepto extends Model
 {
-    protected $table = 'nomina_conceptos';
+    protected $table = 'rh_conceptos';
 
     protected $fillable = [
         'codigo',
