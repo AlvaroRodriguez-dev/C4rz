@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('nomina_personal', function (Blueprint $table) {
+        Schema::create('rh_personal', function (Blueprint $table) {
             $table->id();
             $table->string('license', 30)->unique();
             $table->string('estado', 30)->default('ACTIVO');
@@ -18,7 +18,7 @@ return new class extends Migration
             $table->index('estado');
         });
 
-        Schema::create('nomina_categorias', function (Blueprint $table) {
+        Schema::create('rh_categorias', function (Blueprint $table) {
             $table->id();
             $table->string('codigo', 50)->unique();
             $table->string('nombre', 150);
@@ -29,10 +29,10 @@ return new class extends Migration
             $table->index('activo');
         });
 
-        Schema::create('nomina_configuraciones_laborales', function (Blueprint $table) {
+        Schema::create('rh_configuraciones_laborales', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('nomina_personal_id')
-                ->constrained('nomina_personal')
+            $table->foreignId('rh_personal_id')
+                ->constrained('rh_personal')
                 ->cascadeOnDelete();
             $table->date('fecha_inicio');
             $table->date('fecha_fin')->nullable();
@@ -50,33 +50,33 @@ return new class extends Migration
             $table->text('observaciones')->nullable();
             $table->timestamps();
 
-            $table->index(['nomina_personal_id', 'fecha_inicio', 'fecha_fin']);
+            $table->index(['rh_personal_id', 'fecha_inicio', 'fecha_fin'], 'rh_lab_personal_fechas_idx');
         });
 
-        Schema::create('nomina_configuraciones_salariales', function (Blueprint $table) {
+        Schema::create('rh_configuraciones_salariales', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('nomina_personal_id')
-                ->constrained('nomina_personal')
+            $table->foreignId('rh_personal_id')
+                ->constrained('rh_personal')
                 ->cascadeOnDelete();
             $table->date('fecha_inicio');
             $table->date('fecha_fin')->nullable();
             $table->decimal('haber_basico', 14, 2)->default(0);
             $table->foreignId('categoria_id')
                 ->nullable()
-                ->constrained('nomina_categorias')
+                ->constrained('rh_categorias')
                 ->nullOnDelete();
             $table->string('modalidad_remuneracion', 100)->nullable();
             $table->decimal('salario_cotizable', 14, 2)->nullable();
             $table->text('observaciones')->nullable();
             $table->timestamps();
 
-            $table->index(['nomina_personal_id', 'fecha_inicio', 'fecha_fin']);
+            $table->index(['rh_personal_id', 'fecha_inicio', 'fecha_fin'], 'rh_sal_personal_fechas_idx');
         });
 
-        Schema::create('nomina_personal_conceptos', function (Blueprint $table) {
+        Schema::create('rh_personal_conceptos', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('nomina_personal_id')
-                ->constrained('nomina_personal')
+            $table->foreignId('rh_personal_id')
+                ->constrained('rh_personal')
                 ->cascadeOnDelete();
             $table->foreignId('concepto_id')
                 ->constrained('nomina_conceptos')
@@ -88,14 +88,14 @@ return new class extends Migration
             $table->text('observaciones')->nullable();
             $table->timestamps();
 
-            $table->index(['nomina_personal_id', 'concepto_id']);
-            $table->index(['fecha_inicio', 'fecha_fin']);
+            $table->index(['rh_personal_id', 'concepto_id'], 'rh_personal_concepto_idx');
+            $table->index(['fecha_inicio', 'fecha_fin'], 'rh_concepto_fechas_idx');
         });
 
-        Schema::create('nomina_cuentas_pago', function (Blueprint $table) {
+        Schema::create('rh_cuentas_pago', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('nomina_personal_id')
-                ->constrained('nomina_personal')
+            $table->foreignId('rh_personal_id')
+                ->constrained('rh_personal')
                 ->cascadeOnDelete();
             $table->date('fecha_inicio');
             $table->date('fecha_fin')->nullable();
@@ -106,18 +106,18 @@ return new class extends Migration
             $table->text('observaciones')->nullable();
             $table->timestamps();
 
-            $table->index(['nomina_personal_id', 'principal']);
-            $table->index(['fecha_inicio', 'fecha_fin']);
+            $table->index(['rh_personal_id', 'principal'], 'rh_cuenta_personal_principal_idx');
+            $table->index(['fecha_inicio', 'fecha_fin'], 'rh_cuenta_fechas_idx');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('nomina_cuentas_pago');
-        Schema::dropIfExists('nomina_personal_conceptos');
-        Schema::dropIfExists('nomina_configuraciones_salariales');
-        Schema::dropIfExists('nomina_configuraciones_laborales');
-        Schema::dropIfExists('nomina_categorias');
-        Schema::dropIfExists('nomina_personal');
+        Schema::dropIfExists('rh_cuentas_pago');
+        Schema::dropIfExists('rh_personal_conceptos');
+        Schema::dropIfExists('rh_configuraciones_salariales');
+        Schema::dropIfExists('rh_configuraciones_laborales');
+        Schema::dropIfExists('rh_categorias');
+        Schema::dropIfExists('rh_personal');
     }
 };
