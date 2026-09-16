@@ -7,10 +7,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class NominaPersonalConcepto extends Model
 {
-    protected $table = 'nomina_personal_conceptos';
+    protected $table = 'rh_personal_conceptos';
 
     protected $fillable = [
-        'nomina_personal_id',
+        'rh_personal_id',
         'concepto_id',
         'fecha_inicio',
         'fecha_fin',
@@ -27,7 +27,7 @@ class NominaPersonalConcepto extends Model
 
     public function personal(): BelongsTo
     {
-        return $this->belongsTo(NominaPersonal::class, 'nomina_personal_id');
+        return $this->belongsTo(NominaPersonal::class, 'rh_personal_id');
     }
 
     public function concepto(): BelongsTo
