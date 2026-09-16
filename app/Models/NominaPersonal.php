@@ -11,9 +11,20 @@ class NominaPersonal extends Model
 
     protected $fillable = [
         'license',
+        'nombre',
+        'apellido',
         'estado',
         'observaciones',
     ];
+
+    protected $appends = [
+        'nombre_completo',
+    ];
+
+    public function getNombreCompletoAttribute(): string
+    {
+        return trim(($this->nombre ?? '') . ' ' . ($this->apellido ?? ''));
+    }
 
     public function configuracionesLaborales(): HasMany
     {
