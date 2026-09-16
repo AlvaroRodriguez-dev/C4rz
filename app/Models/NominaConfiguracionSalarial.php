@@ -7,10 +7,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class NominaConfiguracionSalarial extends Model
 {
-    protected $table = 'nomina_configuraciones_salariales';
+    protected $table = 'rh_configuraciones_salariales';
 
     protected $fillable = [
-        'nomina_personal_id',
+        'rh_personal_id',
         'fecha_inicio',
         'fecha_fin',
         'haber_basico',
@@ -29,7 +29,7 @@ class NominaConfiguracionSalarial extends Model
 
     public function personal(): BelongsTo
     {
-        return $this->belongsTo(NominaPersonal::class, 'nomina_personal_id');
+        return $this->belongsTo(NominaPersonal::class, 'rh_personal_id');
     }
 
     public function categoria(): BelongsTo
