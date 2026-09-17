@@ -24,12 +24,7 @@ class NominaPersonalConceptoController extends Controller
             $query->where('concepto_id', $request->integer('concepto_id'));
         }
 
-        $asignaciones = $query
-            ->orderByDesc('fecha_inicio')
-            ->orderBy('rh_personal_id')
-            ->paginate(20)
-            ->withQueryString();
-
+        $asignaciones = $query->orderByDesc('fecha_inicio')->orderBy('rh_personal_id')->paginate(20)->withQueryString();
         $conceptos = NominaConcepto::where('activo', true)->orderBy('codigo')->get();
 
         return view('nomina.personal-conceptos.index', compact('asignaciones', 'conceptos'));
@@ -98,12 +93,11 @@ class NominaPersonalConceptoController extends Controller
             ->where('concepto_id', $data['concepto_id'])
             ->whereDate('fecha_inicio', '<=', $data['fecha_fin'] ?? '9999-12-31')
             ->where(function ($q) use ($data) {
-                $q->whereNull('fecha_fin')
-                    ->orWhereDate('fecha_fin', '>=', $data['fecha_inicio']);
+                $q->whereNull('fecha_fin')->orWhereDate('fecha_fin', '>=', $data['fecha_inicio']);
             });
 
         if ($ignoreId !== null) {
-            $query->whereKeyNot($ignoreId);
+            $query->where('id', '<>', $ignoreId);
         }
 
         if ($query->exists()) {
