@@ -17,12 +17,14 @@ Route::middleware(['auth'])
         Route::patch('/personal/{persona}/estado', [NominaPersonalController::class, 'toggle'])
             ->name('personal.toggle');
 
-        Route::get('/configuraciones-laborales', [NominaConfiguracionLaboralController::class, 'index'])
-            ->name('configuraciones-laborales.index');
+        Route::middleware(['permission:rrhh.nomina'])->group(function () {
+            Route::get('/configuraciones-laborales', [NominaConfiguracionLaboralController::class, 'index'])
+                ->name('configuraciones-laborales.index');
 
-        Route::get('/configuraciones-laborales/{personal}', [NominaConfiguracionLaboralController::class, 'show'])
-            ->name('configuraciones-laborales.show');
+            Route::get('/configuraciones-laborales/{personal}', [NominaConfiguracionLaboralController::class, 'show'])
+                ->name('configuraciones-laborales.show');
 
-        Route::post('/configuraciones-laborales/{license}/sincronizar', [NominaConfiguracionLaboralController::class, 'sincronizar'])
-            ->name('configuraciones-laborales.sincronizar');
+            Route::post('/configuraciones-laborales/{license}/sincronizar', [NominaConfiguracionLaboralController::class, 'sincronizar'])
+                ->name('configuraciones-laborales.sincronizar');
+        });
     });
