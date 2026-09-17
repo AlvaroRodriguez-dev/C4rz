@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\NominaConfiguracionLaboralController;
 use App\Http\Controllers\NominaPersonalController;
 use Illuminate\Support\Facades\Route;
 
@@ -15,4 +16,13 @@ Route::middleware(['auth'])
 
         Route::patch('/personal/{persona}/estado', [NominaPersonalController::class, 'toggle'])
             ->name('personal.toggle');
+
+        Route::get('/configuraciones-laborales', [NominaConfiguracionLaboralController::class, 'index'])
+            ->name('configuraciones-laborales.index');
+
+        Route::get('/configuraciones-laborales/{personal}', [NominaConfiguracionLaboralController::class, 'show'])
+            ->name('configuraciones-laborales.show');
+
+        Route::post('/configuraciones-laborales/{license}/sincronizar', [NominaConfiguracionLaboralController::class, 'sincronizar'])
+            ->name('configuraciones-laborales.sincronizar');
     });
