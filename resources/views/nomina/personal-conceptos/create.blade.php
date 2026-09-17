@@ -1,0 +1,17 @@
+<x-app-layout>
+    <x-slot name="header"><h2 class="font-semibold text-xl text-gray-800 leading-tight">Nueva Asignación de Concepto</h2></x-slot>
+    <div class="py-6"><div class="max-w-4xl mx-auto sm:px-6 lg:px-8"><div class="bg-white shadow-sm sm:rounded-lg p-6">
+        <form method="POST" action="{{ route('nomina.personal-conceptos.store') }}" class="space-y-5">@csrf
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">Personal</label><select name="rh_personal_id" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"><option value="">Seleccione...</option>@foreach($personal as $persona)<option value="{{ $persona->id }}" @selected(old('rh_personal_id', $selectedPersonal) == $persona->id)>{{ $persona->license }} — {{ $persona->nombre_completo }}</option>@endforeach</select>@error('rh_personal_id')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror</div>
+                <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">Concepto</label><select name="concepto_id" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"><option value="">Seleccione...</option>@foreach($conceptos as $concepto)<option value="{{ $concepto->id }}" @selected(old('concepto_id') == $concepto->id)>{{ $concepto->codigo }} — {{ $concepto->nombre }} ({{ $concepto->tipo }})</option>@endforeach</select>@error('concepto_id')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror</div>
+                <div><label class="block text-sm font-medium text-gray-700">Fecha inicio</label><input type="date" name="fecha_inicio" value="{{ old('fecha_inicio', now()->toDateString()) }}" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"></div>
+                <div><label class="block text-sm font-medium text-gray-700">Fecha fin</label><input type="date" name="fecha_fin" value="{{ old('fecha_fin') }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"><p class="text-xs text-gray-500 mt-1">Vacío = vigente.</p></div>
+                <div><label class="block text-sm font-medium text-gray-700">Tipo de valor</label><select name="tipo_valor" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"><option value="IMPORTE" @selected(old('tipo_valor','IMPORTE')==='IMPORTE')>IMPORTE</option><option value="PORCENTAJE" @selected(old('tipo_valor')==='PORCENTAJE')>PORCENTAJE</option><option value="CANTIDAD" @selected(old('tipo_valor')==='CANTIDAD')>CANTIDAD</option></select></div>
+                <div><label class="block text-sm font-medium text-gray-700">Valor</label><input type="number" step="0.000001" min="0" name="valor" value="{{ old('valor', 0) }}" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"></div>
+                <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">Observaciones</label><textarea name="observaciones" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">{{ old('observaciones') }}</textarea></div>
+            </div>
+            <div class="flex justify-end gap-2"><a href="{{ route('nomina.personal-conceptos.index') }}" class="px-4 py-2 border border-gray-300 rounded-md">Cancelar</a><button class="px-5 py-2 bg-green-600 text-white rounded-md">Guardar</button></div>
+        </form>
+    </div></div></div>
+</x-app-layout>
