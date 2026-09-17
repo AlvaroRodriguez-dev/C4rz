@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\NominaConfiguracionLaboralController;
 use App\Http\Controllers\NominaConfiguracionSalarialController;
+use App\Http\Controllers\NominaConceptoController;
 use App\Http\Controllers\NominaPersonalController;
 use Illuminate\Support\Facades\Route;
 
@@ -41,7 +42,22 @@ Route::middleware(['web'])
                         ->name('configuraciones-salariales.show');
 
                     Route::post('/configuraciones-salariales/{personal}', [NominaConfiguracionSalarialController::class, 'store'])
-                        ->name('configuraciones-salariales.store');
+                        ->name('nomina.configuraciones-salariales.store');
+
+                    Route::get('/conceptos', [NominaConceptoController::class, 'index'])
+                        ->name('conceptos.index');
+
+                    Route::get('/conceptos/create', [NominaConceptoController::class, 'create'])
+                        ->name('conceptos.create');
+
+                    Route::post('/conceptos', [NominaConceptoController::class, 'store'])
+                        ->name('conceptos.store');
+
+                    Route::get('/conceptos/{concepto}/edit', [NominaConceptoController::class, 'edit'])
+                        ->name('conceptos.edit');
+
+                    Route::put('/conceptos/{concepto}', [NominaConceptoController::class, 'update'])
+                        ->name('conceptos.update');
                 });
             });
     });
