@@ -1,14 +1,13 @@
 <?php
 
 use App\Http\Controllers\NominaConfiguracionLaboralController;
+use App\Http\Controllers\NominaConfiguracionSalarialController;
 use App\Http\Controllers\NominaPersonalController;
 use Illuminate\Support\Facades\Route;
 
 /*
  * Este archivo se carga desde bootstrap/app.php mediante el callback `then`.
- * A diferencia de routes/web.php, esas rutas no heredan automáticamente
- * el middleware `web`. Lo declaramos explícitamente para que la sesión
- * autenticada esté disponible y auth no redirija al Dashboard/Login.
+ * Declaramos explícitamente el middleware web para conservar la sesión.
  */
 Route::middleware(['web'])
     ->group(function () {
@@ -34,6 +33,15 @@ Route::middleware(['web'])
 
                     Route::post('/configuraciones-laborales/{license}/sincronizar', [NominaConfiguracionLaboralController::class, 'sincronizar'])
                         ->name('configuraciones-laborales.sincronizar');
+
+                    Route::get('/configuraciones-salariales', [NominaConfiguracionSalarialController::class, 'index'])
+                        ->name('configuraciones-salariales.index');
+
+                    Route::get('/configuraciones-salariales/{personal}', [NominaConfiguracionSalarialController::class, 'show'])
+                        ->name('configuraciones-salariales.show');
+
+                    Route::post('/configuraciones-salariales/{personal}', [NominaConfiguracionSalarialController::class, 'store'])
+                        ->name('configuraciones-salariales.store');
                 });
             });
     });
