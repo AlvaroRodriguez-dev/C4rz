@@ -25,6 +25,18 @@ class NominaConfiguracionLaboral extends Model
         'es_fiscal',
         'es_interna',
         'observaciones',
+        'area_id_externo',
+        'area_codigo',
+        'area_nombre',
+        'seccion_id_externo',
+        'seccion_nombre',
+        'cargo_id_externo',
+        'cargo_nombre',
+        'jerarquia_id_externo',
+        'jerarquia_nombre',
+        'agencia_codigo',
+        'agencia_nombre',
+        'ciudad',
     ];
 
     protected $casts = [
@@ -34,6 +46,10 @@ class NominaConfiguracionLaboral extends Model
         'fecha_retiro' => 'date',
         'es_fiscal' => 'boolean',
         'es_interna' => 'boolean',
+        'area_id_externo' => 'integer',
+        'seccion_id_externo' => 'integer',
+        'cargo_id_externo' => 'integer',
+        'jerarquia_id_externo' => 'integer',
     ];
 
     public function personal(): BelongsTo
