@@ -1,0 +1,1 @@
+Routes for this module are defined in routes/nomina_configuraciones_laborales.php. Ensure the file is loaded by the application's route registration before testing.
