@@ -200,7 +200,16 @@
             html5QrCode = new Html5Qrcode("qrReader");
             html5QrCode.start(
                 { facingMode: "environment" },
-                { fps: 10, qrbox: 250 },
+                {
+                    fps: 10,
+                    qrbox: 250,
+                    videoConstraints: {
+                        facingMode: { ideal: "environment" },
+                        width: { ideal: 1920, min: 1280 },
+                        height: { ideal: 2560, min: 720 },
+                        frameRate: { ideal: 30, min: 15 }
+                    }
+                },
                 (decodedText) => {
                     html5QrCode.stop();
                     ocultarZoom();
