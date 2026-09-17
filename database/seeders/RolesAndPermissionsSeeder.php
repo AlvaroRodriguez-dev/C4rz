@@ -36,7 +36,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'rrhh.novedades',
         ];
 
-        foreach (array_merge($wmsPermisos, $rrhhPermisos) as $permiso) {
+        $nominaPermiso = 'rrhh.nomina';
+
+        foreach (array_merge($wmsPermisos, $rrhhPermisos, [$nominaPermiso]) as $permiso) {
             Permission::firstOrCreate(['name' => $permiso]);
         }
 
@@ -56,9 +58,9 @@ class RolesAndPermissionsSeeder extends Seeder
         Role::firstOrCreate(['name' => 'WMS-MONTACARGA'])
             ->givePermissionTo(['wms.ordenes.trabajo']);
 
-        // RRHH-ADMIN: todas las opciones de Biométricos
+        // RRHH-ADMIN: todas las opciones de RRHH y Nómina
         Role::firstOrCreate(['name' => 'RRHH-ADMIN'])
-            ->givePermissionTo($rrhhPermisos);
+            ->givePermissionTo(array_merge($rrhhPermisos, [$nominaPermiso]));
 
         // RRHH-USER: todo Biométricos excepto Importar desde USB
         Role::firstOrCreate(['name' => 'RRHH-USER'])
@@ -81,8 +83,8 @@ class RolesAndPermissionsSeeder extends Seeder
             Permission::firstOrCreate(['name' => $permiso]);
         }
 
-        // SIS-ADMIN: ve TODO el proyecto sin excepciones (WMS + RRHH + SIS)
+        // SIS-ADMIN: ve TODO el proyecto sin excepciones (WMS + RRHH + SIS + Nómina)
         Role::firstOrCreate(['name' => 'SIS-ADMIN'])
-            ->givePermissionTo(array_merge($wmsPermisos, $rrhhPermisos, $sisPermisos));
+            ->givePermissionTo(array_merge($wmsPermisos, $rrhhPermisos, $sisPermisos, [$nominaPermiso]));
     }
 }
