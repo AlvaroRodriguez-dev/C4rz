@@ -53,7 +53,8 @@ class ImpresionesSasController extends Controller
             return $this->normalizarDetalle($detalle, $catalogo);
         })->values()->all();
 
-        $cabecera = $this->normalizarCabecera($registro, $detalles);
+        $logistica = $this->obtenerDatosLogistica($registro);
+        $cabecera = $this->normalizarCabecera($registro, $detalles, $logistica);
 
         Session::put('impresiones_sas', [
             'numero_documento' => $numero,
@@ -431,7 +432,98 @@ class ImpresionesSasController extends Controller
         ]);
     }
 
-    private function normalizarCabecera($registro, array $detalles): array
+    /**
+     * Obtiene los datos relacionados de logística mediante SELECT.
+     * Los valores de búsqueda salen del registro y de su relación; no hay
+     * valores de prueba ni escrituras sobre faboce2026.
+     */
+    private function obtenerDatosLogistica($registro): array
+    {
+        $resultado = [
+            'relacion' => null,
+            'empresa_transporte' => null,
+            'camion' => null,
+            'conductor' => null,
+            'agencias' => collect(),
+            'flete' => null,
+            'flete_detalle' => collect(),
+        ];
+
+        if (!$registro) {
+            return $resultado;
+        }
+
+        $cn = DB::connection('faboce2026');
+
+        if (($registro->id_relacion ?? null) !== null) {
+            $resultado['relacion'] = $cn
+                ->table('log_empresa_camion_conductor_flete')
+                ->where('id', $registro->id_relacion)
+                ->first();
+        }
+
+        $relacion = $resultado['relacion'];
+
+        if ($relacion) {
+            if (($relacion->nit ?? null) !== null && $relacion->nit !== '') {
+                $resultado['empresa_transporte'] = $cn
+                    ->table('log_empresa_transporte')
+                    ->where('nit', $relacion->nit)
+                    ->first();
+            }
+
+            if (($relacion->placa ?? null) !== null && $relacion->placa !== '') {
+                $resultado['camion'] = $cn
+                    ->table('log_camiones')
+                    ->where('placa', $relacion->placa)
+                    ->first();
+            }
+
+            if (($relacion->carnet_identidad ?? null) !== null && $relacion->carnet_identidad !== '') {
+                $resultado['conductor'] = $cn
+                    ->table('log_conductores')
+                    ->where('carnet_identidad', $relacion->carnet_identidad)
+                    ->first();
+            }
+
+            if (($relacion->id_flete ?? null) !== null) {
+                $resultado['flete'] = $cn
+                    ->table('log_flete')
+                    ->where('id', $relacion->id_flete)
+                    ->first();
+
+                $queryFlete = $cn
+                    ->table('log_flete_detalle')
+                    ->where('id_flete', $relacion->id_flete);
+
+                if (($registro->agencia ?? null) !== null) {
+                    $queryFlete->where('agencia_origen', $registro->agencia);
+                }
+
+                if (($registro->destino ?? null) !== null) {
+                    $queryFlete->where('agencia_destino', $registro->destino);
+                }
+
+                $resultado['flete_detalle'] = $queryFlete->get();
+            }
+        }
+
+        $codigosAgencia = collect([
+            $registro->agencia ?? null,
+            $registro->destino ?? null,
+        ])->filter(fn ($v) => $v !== null && $v !== '')->unique()->values();
+
+        if ($codigosAgencia->isNotEmpty()) {
+            $resultado['agencias'] = $cn
+                ->table('agencias')
+                ->whereIn('AGECODIGO', $codigosAgencia)
+                ->get();
+        }
+
+        return $resultado;
+    }
+
+    private function normalizarCabecera($registro, array $detalles, array $logistica = []): array
     {
         $fila = $registro ? (array) $registro : [];
 
@@ -452,40 +544,51 @@ class ImpresionesSasController extends Controller
             'ageregional',
         ], '');
 
+        $relacion = $logistica['relacion'] ?? null;
+        $empresa = $logistica['empresa_transporte'] ?? null;
+        $camion = $logistica['camion'] ?? null;
+        $conductor = $logistica['conductor'] ?? null;
+        $flete = $logistica['flete'] ?? null;
+        $fleteDetalle = $logistica['flete_detalle'] ?? collect();
+        $agencias = $logistica['agencias'] ?? collect();
+
+        $agenciaOrigen = $agencias->firstWhere('AGECODIGO', $origen);
+        $agenciaDestino = $agencias->firstWhere('AGECODIGO', $destino);
+
         $nit = $this->primerValor($fila, [
             'nit',
             'nit_transportista',
-        ], '');
+        ], $relacion->nit ?? '');
 
         $razonSocial = $this->primerValor($fila, [
             'razon_social',
             'empresa',
             'nombre_empresa',
-        ], '');
+        ], $empresa->razon_social ?? '');
 
         $nombre = $this->primerValor($fila, [
             'nombre',
             'conductor',
             'nombre_conductor',
             'transportista',
-        ], '');
+        ], $conductor->nombre ?? '');
 
         $telefono = $this->primerValor($fila, [
             'telefono',
             'celular',
             'telefono_conductor',
-        ], '');
+        ], $conductor->telefono ?? '');
 
         $placa = $this->primerValor($fila, [
             'placa',
             'placa_camion',
-        ], '');
+        ], $camion->placa ?? ($relacion->placa ?? ''));
 
         $descripcionCamion = $this->primerValor($fila, [
             'descripcionc',
             'descripcion_camion',
             'camion',
-        ], '');
+        ], $camion->descripcion ?? '');
 
         /*
          * El quintal histórico se calculaba con cantidad_despacho / 46 * peso.
@@ -517,17 +620,21 @@ class ImpresionesSasController extends Controller
                 'carnet_identidad',
                 'ci',
                 'carnet',
-            ], ''),
+            ], $conductor->carnet_identidad ?? ($relacion->carnet_identidad ?? '')),
             'nombre' => $nombre,
             'telefono' => $telefono,
-            'id_flete' => $this->primerValor($fila, ['id_flete'], ''),
+            'id_flete' => $this->primerValor($fila, ['id_flete'], $relacion->id_flete ?? ''),
             'descripcionf' => $this->primerValor($fila, [
                 'descripcionf',
                 'flete',
-            ], ''),
+            ], $flete->descripcion ?? ''),
             'regional' => $regional,
             'origen' => $origen,
             'destino' => $destino,
+            'origen_nombre' => $agenciaOrigen->AGENOMBRE ?? '',
+            'destino_nombre' => $agenciaDestino->AGENOMBRE ?? '',
+            'flete_tramo_corto' => optional($fleteDetalle->first())->tramo_corto,
+            'flete_tramo_corto_palet' => optional($fleteDetalle->first())->tramo_corto_palet,
             'usuario' => auth()->user()->name ?? '',
             'quintales' => $hayPeso ? number_format($quintales, 2, '.', '') : '',
             'tipo_documento' => $this->primerValor($fila, [
