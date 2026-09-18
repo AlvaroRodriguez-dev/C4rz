@@ -240,6 +240,116 @@ class ImpresionesSasController extends Controller
         ]);
     }
 
+    /**
+     * Diagnóstico dirigido de las tablas históricas que pueden alimentar las
+     * columnas de la impresión (VJE, ACUM, ENTR, SALDO, M2 e IMP. Bs).
+     * SOLO SELECT. Las tablas y columnas se obtienen de information_schema.
+     */
+    public function diagnosticoLineas(string $id)
+    {
+        $db = config('database.connections.faboce2026.database', 'faboce2026');
+        $cn = DB::connection('faboce2026');
+
+        $registro = $cn->table('log_registro')->where('id', $id)->first();
+        $detalles = $cn->table('log_registro_detalle')->where('id_registro', $id)->get();
+
+        if (!$registro && $detalles->isEmpty()) {
+            return response()->json([
+                'modo' => 'SOLO_LECTURA',
+                'documento' => $id,
+                'error' => 'Documento no encontrado.',
+            ], 404);
+        }
+
+        $codigos = $detalles->pluck('codigo')->filter()->unique()->values();
+        $lotes = $detalles->pluck('lote')->filter()->unique()->values();
+        $documentos = collect([$id])
+            ->merge($detalles->pluck('TDOCUM'))
+            ->merge($detalles->pluck('nota'))
+            ->merge($detalles->pluck('factura'))
+            ->filter(fn ($v) => $v !== null && $v !== '' && $v !== '0')
+            ->unique()->values();
+
+        $tablas = $cn->table('information_schema.tables')
+            ->where('table_schema', $db)
+            ->where(function ($q) {
+                $q->where('table_name', 'like', '%entreg%')
+                    ->orWhere('table_name', 'like', '%pendiente%')
+                    ->orWhere('table_name', 'like', '%trasp%')
+                    ->orWhere('table_name', 'like', '%transito%')
+                    ->orWhere('table_name', 'like', '%venta%')
+                    ->orWhere('table_name', 'like', '%recep%')
+                    ->orWhere('table_name', 'like', '%registro%')
+                    ->orWhere('table_name', 'like', '%despach%');
+            })
+            ->orderBy('table_name')
+            ->pluck('table_name');
+
+        $resultados = [];
+
+        foreach ($tablas as $tabla) {
+            $columnas = $cn->table('information_schema.columns')
+                ->where('table_schema', $db)
+                ->where('table_name', $tabla)
+                ->orderBy('ordinal_position')
+                ->pluck('column_name');
+
+            $norm = $columnas->mapWithKeys(fn ($col) => [strtolower($col) => $col]);
+            $claveDoc = collect(['id_registro','id_documento','documento','docum','edocum','tdocum','tdoc','vdocum','vdocuma'])
+                ->first(fn ($x) => $norm->has($x));
+            $claveCodigo = collect(['codigo','codigo_producto','codprod'])
+                ->first(fn ($x) => $norm->has($x));
+            $claveLote = collect(['lote','clote'])
+                ->first(fn ($x) => $norm->has($x));
+
+            $query = null;
+            $criterios = [];
+
+            if ($claveDoc && $documentos->isNotEmpty()) {
+                $query = $cn->table($tabla)->whereIn($norm[$claveDoc], $documentos->take(20));
+                $criterios[] = $norm[$claveDoc] . '=documentos';
+            } elseif ($claveCodigo && $codigos->isNotEmpty()) {
+                $query = $cn->table($tabla)->whereIn($norm[$claveCodigo], $codigos->take(20));
+                $criterios[] = $norm[$claveCodigo] . '=codigos';
+                if ($claveLote && $lotes->isNotEmpty()) {
+                    $query->whereIn($norm[$claveLote], $lotes->take(20));
+                    $criterios[] = $norm[$claveLote] . '=lotes';
+                }
+            }
+
+            if (!$query) {
+                continue;
+            }
+
+            $rows = $query->limit(100)->get();
+            if ($rows->isEmpty()) {
+                continue;
+            }
+
+            $interesantes = $columnas->filter(function ($col) {
+                return preg_match('/(viaje|nro_viaje|cantidad|cant|entreg|acum|saldo|metro|m2|importe|imp|precio|valor|factor|peso|nota|fact|doc|codigo|lote)/i', $col);
+            })->values();
+
+            $resultados[] = [
+                'tabla' => $tabla,
+                'criterios' => $criterios,
+                'columnas_interesantes' => $interesantes,
+                'filas' => $rows,
+            ];
+        }
+
+        return response()->json([
+            'modo' => 'SOLO_LECTURA',
+            'documento' => $id,
+            'base' => $db,
+            'documentos_busqueda' => $documentos,
+            'codigos_busqueda' => $codigos,
+            'lotes_busqueda' => $lotes,
+            'resultados' => $resultados,
+            'nota' => 'Diagnóstico dirigido: únicamente SELECT. No realiza INSERT, UPDATE, DELETE ni incrementos.',
+        ]);
+    }
+
     public function generarPdf()
     {
         $datos = Session::get('impresiones_sas');
