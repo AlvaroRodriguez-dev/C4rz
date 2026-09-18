@@ -127,15 +127,16 @@ class ImpresionesSasController extends Controller
      * Diagnóstico de datos SOLO LECTURA para reconstruir la impresión histórica.
      * No ejecuta INSERT, UPDATE, DELETE ni incrementos.
      */
+    /**
+     * Segundo diagnóstico SOLO LECTURA: reconstruye las relaciones del registro
+     * y sus documentos de origen. No modifica ninguna tabla.
+     */
     public function diagnosticoDatos(string $id)
     {
         $db = config('database.connections.faboce2026.database', 'faboce2026');
         $cn = DB::connection('faboce2026');
 
-        $registro = $cn->table('log_registro')
-            ->where('id', $id)
-            ->first();
-
+        $registro = $cn->table('log_registro')->where('id', $id)->first();
         $detalles = $cn->table('log_registro_detalle')
             ->where('id_registro', $id)
             ->orderBy('id')
@@ -146,42 +147,70 @@ class ImpresionesSasController extends Controller
                 ->filter(fn ($v) => $v !== null && $v !== '');
         })->unique()->values();
 
-        $ventas = $notas->isEmpty()
-            ? collect()
-            : $cn->table('sasinv_ventas')
+        $ventas = collect();
+        $ventas1 = collect();
+        if ($notas->isNotEmpty()) {
+            $ventas = $cn->table('sasinv_ventas')
                 ->where(function ($q) use ($notas) {
                     foreach ($notas as $nota) {
                         $q->orWhere('VDOCUM', $nota)
                             ->orWhere('VDOCUMA', $nota)
                             ->orWhere('VFACTURA', $nota);
                     }
-                })
-                ->limit(100)
-                ->get();
+                })->limit(100)->get();
 
-        $ventas1 = $notas->isEmpty()
-            ? collect()
-            : $cn->table('sasinv_ventas1')
+            $ventas1 = $cn->table('sasinv_ventas1')
                 ->where(function ($q) use ($notas) {
                     foreach ($notas as $nota) {
-                        $q->orWhere('VDOCUM', $nota)
-                            ->orWhere('VDOCUMA', $nota);
+                        $q->orWhere('VDOCUM', $nota)->orWhere('VDOCUMA', $nota);
                     }
-                })
-                ->limit(200)
-                ->get();
+                })->limit(200)->get();
+        }
 
-        // Busca tablas que tengan columnas explícitas de relación con el registro.
-        $tablasRelacion = $cn->table('information_schema.columns')
+        // La cabecera nos dio id_relacion = 7678. Inspeccionamos esa relación.
+        $relacion = null;
+        $flete = collect();
+        $relacionColumnas = $cn->table('information_schema.columns')
+            ->where('table_schema', $db)
+            ->where('table_name', 'log_empresa_camion_conductor_flete')
+            ->orderBy('ordinal_position')
+            ->pluck('column_name');
+
+        if ($relacionColumnas->contains('id') && $registro && $registro->id_relacion !== null) {
+            $relacion = $cn->table('log_empresa_camion_conductor_flete')
+                ->where('id', $registro->id_relacion)
+                ->first();
+        }
+
+        if ($relacion && isset($relacion->id_flete)) {
+            $flete = $cn->table('log_flete_detalle')
+                ->where('id_flete', $relacion->id_flete)
+                ->get();
+        }
+
+        // Identificamos otras tablas de logística que puedan contener agencias,
+        // empresas, camiones, conductores o relaciones, sin asumir nombres.
+        $tablasLogistica = $cn->table('information_schema.tables')
             ->where('table_schema', $db)
             ->where(function ($q) {
-                $q->whereRaw('LOWER(column_name) IN (?, ?, ?, ?, ?, ?, ?)', [
-                    'id_relacion', 'relacion_id', 'id_camion', 'id_conductor',
-                    'id_empresa', 'id_flete', 'id_agencia',
-                ]);
+                $q->where('table_name', 'like', '%agenc%')
+                    ->orWhere('table_name', 'like', '%camion%')
+                    ->orWhere('table_name', 'like', '%conductor%')
+                    ->orWhere('table_name', 'like', '%empresa%')
+                    ->orWhere('table_name', 'like', '%flete%');
             })
             ->orderBy('table_name')
-            ->get(['table_name', 'column_name', 'data_type']);
+            ->pluck('table_name');
+
+        $estructuraLogistica = [];
+        foreach ($tablasLogistica as $tabla) {
+            $cols = $cn->table('information_schema.columns')
+                ->where('table_schema', $db)
+                ->where('table_name', $tabla)
+                ->orderBy('ordinal_position')
+                ->get(['column_name', 'data_type']);
+            $estructuraLogistica[] = ['tabla' => $tabla, 'columnas' => $cols];
+        }
 
         return response()->json([
             'modo' => 'SOLO_LECTURA',
@@ -193,7 +222,10 @@ class ImpresionesSasController extends Controller
             'valores_busqueda_notas' => $notas,
             'sasinv_ventas' => $ventas,
             'sasinv_ventas1' => $ventas1,
-            'tablas_con_relaciones' => $tablasRelacion,
+            'relacion_log_empresa_camion_conductor_flete' => $relacion,
+            'columnas_relacion' => $relacionColumnas,
+            'log_flete_detalle' => $flete,
+            'estructura_tablas_logistica' => $estructuraLogistica,
         ]);
     }
 
