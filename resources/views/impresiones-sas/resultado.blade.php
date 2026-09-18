@@ -37,6 +37,12 @@
                                 class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
                             Guardar cambios temporales
                         </button>
+
+                        <a href="{{ route('impresiones-sas.pdf') }}"
+                           target="_blank"
+                           class="rounded bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">
+                            Generar PDF
+                        </a>
                     </div>
                 </div>
 
