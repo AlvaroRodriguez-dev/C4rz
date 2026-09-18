@@ -48,9 +48,10 @@ class ImpresionesSasController extends Controller
          * Todo es SOLO lectura.
          */
         $catalogo = $this->obtenerCatalogoProductos($detallesRaw);
+        $cantidadesDocumento = $this->obtenerCantidadesDocumento($detallesRaw);
 
-        $detalles = $detallesRaw->map(function ($detalle) use ($catalogo) {
-            return $this->normalizarDetalle($detalle, $catalogo);
+        $detalles = $detallesRaw->map(function ($detalle) use ($catalogo, $cantidadesDocumento) {
+            return $this->normalizarDetalle($detalle, $catalogo, $cantidadesDocumento);
         })->values()->all();
 
         $logistica = $this->obtenerDatosLogistica($registro);
@@ -480,75 +481,175 @@ class ImpresionesSasController extends Controller
      * acumulada, entregada, saldo, metros e impbs históricamente eran calculados
      * por RegistroClass antes de llegar a la vista PDF.
      */
-    private function normalizarDetalle($detalle, $catalogo): array
+    /**
+     * Obtiene CJAS. desde las tablas comerciales de sisinvconsolidado2026.
+     *
+     * ENTREGA  -> entregas1.ECANTIDAD
+     * TRASPASO -> trasp1.TCANTIDAD
+     * FACTURA  -> ventas1.VCANTIDAD
+     *
+     * La consulta es exclusivamente de lectura.
+     */
+    private function obtenerCantidadesDocumento($detalles): array
+    {
+        $cn = DB::connection('sisinvconsolidado2026');
+        $resultado = [];
+
+        $grupos = [
+            'entrega' => ['tabla' => 'entregas1', 'documento' => 'EDOCUM', 'cantidad' => 'ECANTIDAD'],
+            'traspaso' => ['tabla' => 'trasp1', 'documento' => 'TDOCUM', 'cantidad' => 'TCANTIDAD'],
+            'factura' => ['tabla' => 'ventas1', 'documento' => 'VDOCUMA', 'cantidad' => 'VCANTIDAD'],
+        ];
+
+        foreach ($grupos as $tipo => $config) {
+            $filasTipo = $detalles->filter(fn ($d) => $this->tipoDocumentoDetalle($d) === $tipo);
+            if ($filasTipo->isEmpty()) {
+                continue;
+            }
+
+            $documentos = $filasTipo
+                ->map(fn ($d) => $this->documentoOrigenDetalle($d, $tipo))
+                ->filter()
+                ->unique()
+                ->values();
+
+            if ($documentos->isEmpty()) {
+                continue;
+            }
+
+            $schema = config('database.connections.sisinvconsolidado2026.database', 'sisinvconsolidado2026');
+            $columnas = $cn->table('information_schema.columns')
+                ->where('table_schema', $schema)
+                ->where('table_name', $config['tabla'])
+                ->orderBy('ordinal_position')
+                ->pluck('column_name');
+
+            $norm = $columnas->mapWithKeys(fn ($col) => [strtolower($col) => $col]);
+
+            if (!$norm->has(strtolower($config['documento'])) || !$norm->has(strtolower($config['cantidad']))) {
+                continue;
+            }
+
+            $filas = $cn->table($config['tabla'])
+                ->whereIn($norm[strtolower($config['documento'])], $documentos->take(100))
+                ->get();
+
+            $codigoCol = collect(['ecodigo','tcodigo','vcodigo','codigo','codigo_producto','codprod'])
+                ->first(fn ($col) => $norm->has($col));
+            $loteCol = collect(['eclote','tclote','vclote','clote','lote'])
+                ->first(fn ($col) => $norm->has($col));
+
+            foreach ($filas as $fila) {
+                $raw = (array) $fila;
+                $doc = $raw[$norm[strtolower($config['documento'])]] ?? null;
+                $codigo = $codigoCol ? ($raw[$norm[$codigoCol]] ?? '') : '';
+                $lote = $loteCol ? ($raw[$norm[$loteCol]] ?? '') : '';
+                $cantidad = $raw[$norm[strtolower($config['cantidad'])]] ?? null;
+
+                $clave = $this->claveDocumentoProducto($tipo, $doc, $codigo, $lote);
+                $resultado[$clave] = ($resultado[$clave] ?? 0) + ($this->numero($cantidad) ?? 0);
+            }
+        }
+
+        return $resultado;
+    }
+
+    private function tipoDocumentoDetalle($detalle): string
+    {
+        $factura = trim((string) ($detalle->factura ?? ''));
+        $tdocum = trim((string) ($detalle->TDOCUM ?? ''));
+
+        if ($factura !== '' && $factura !== '0') {
+            return 'factura';
+        }
+
+        if ($tdocum !== '') {
+            return 'traspaso';
+        }
+
+        return 'entrega';
+    }
+
+    private function documentoOrigenDetalle($detalle, string $tipo)
+    {
+        return match ($tipo) {
+            'factura' => trim((string) ($detalle->factura ?? '')),
+            'traspaso' => trim((string) ($detalle->TDOCUM ?? '')),
+            default => trim((string) ($detalle->nota ?? '')),
+        };
+    }
+
+    private function claveDocumentoProducto(string $tipo, $documento, $codigo, $lote): string
+    {
+        return implode('|', [(string) $tipo, (string) $documento, (string) $codigo, (string) $lote]);
+    }
+
+    /**
+     * Normaliza una línea para la impresión SAS.
+     */
+    private function normalizarDetalle($detalle, $catalogo, array $cantidadesDocumento = []): array
     {
         $fila = (array) $detalle;
         $stock = $catalogo->get($fila['codigo'] ?? null);
 
-        $producto = $this->primerValor($fila, [
-            'producto',
-            'descrip',
-            'descripcion',
-        ], $stock->DESCRIP ?? '');
+        $producto = $this->primerValor($fila, ['producto', 'descrip', 'descripcion'], $stock->DESCRIP ?? '');
+        $descrip1 = $this->primerValor($fila, ['descrip1'], $stock->DESCRIP1 ?? '');
+        $lote = $this->primerValor($fila, ['lote', 'clote'], '');
 
-        $descrip1 = $this->primerValor($fila, [
-            'descrip1',
-        ], $stock->DESCRIP1 ?? '');
+        $tipo = $this->tipoDocumentoDetalle($detalle);
+        $documentoOrigen = $this->documentoOrigenDetalle($detalle, $tipo);
+        $codigo = $fila['codigo'] ?? '';
 
-        $lote = $this->primerValor($fila, [
-            'lote',
-            'clote',
-        ], '');
+        $acumulada = DB::connection('faboce2026')
+            ->table('log_registro_detalle')
+            ->where(function ($q) use ($tipo, $documentoOrigen) {
+                if ($tipo === 'factura') {
+                    $q->where('factura', $documentoOrigen);
+                } elseif ($tipo === 'traspaso') {
+                    $q->where('TDOCUM', $documentoOrigen);
+                } else {
+                    $q->where('nota', $documentoOrigen);
+                }
+            })
+            ->where('codigo', $codigo)
+            ->where('lote', $lote)
+            ->where('id', '<>', $fila['id'] ?? 0)
+            ->sum('cantidad_despacho');
+
+        $cantidadFactura = $this->numero($fila['cantidad_factura'] ?? null);
+        $cantidadDespacho = $this->numero($fila['cantidad_despacho'] ?? null);
+        $factor = $this->numero($fila['factor'] ?? null);
+        $valorFlete = $this->numero($fila['valor_flete'] ?? null);
+
+        $m2 = ($cantidadDespacho !== null && $factor !== null && $factor != 0)
+            ? $cantidadDespacho / $factor
+            : null;
+
+        $impBs = ($cantidadDespacho !== null && $valorFlete !== null)
+            ? $cantidadDespacho * $valorFlete
+            : null;
+
+        $saldo = $cantidadFactura !== null
+            ? $cantidadFactura - (float) $acumulada
+            : null;
+
+        $clave = $this->claveDocumentoProducto($tipo, $documentoOrigen, $codigo, $lote);
 
         return array_merge($fila, [
-            // Campos utilizados por la impresión histórica.
-            'factnota' => $this->primerValor($fila, [
-                'factnota',
-                'fact_nota',
-                'factura',
-                'nota',
-                'tdocum',
-            ], ''),
-            'viaje' => $this->primerValor($fila, [
-                'viaje',
-                'nro_viaje',
-                'numero_viaje',
-            ], ''),
+            'tipo_origen' => $tipo,
+            'documento_origen' => $documentoOrigen,
+            'factnota' => $documentoOrigen,
+            'viaje' => $fila['fila'] ?? '',
             'producto' => $producto,
             'descrip1' => $descrip1,
             'lote' => $lote,
-
-            // No se inventan cálculos. Si el dato ya existe con alguno de estos
-            // nombres, se conserva para que pueda editarse/imprimirse.
-            'facturada' => $this->primerValor($fila, [
-                'facturada',
-                'cantidad_facturada',
-                'cajas_facturadas',
-            ], ''),
-            'acumulada' => $this->primerValor($fila, [
-                'acumulada',
-                'cantidad_acumulada',
-                'cajas_acumuladas',
-            ], ''),
-            'entregada' => $this->primerValor($fila, [
-                'entregada',
-                'cantidad_entregada',
-            ], ''),
-            'saldo' => $this->primerValor($fila, [
-                'saldo',
-                'cantidad_saldo',
-            ], ''),
-            'metros' => $this->primerValor($fila, [
-                'metros',
-                'm2',
-                'metro2',
-            ], ''),
-            'impbs' => $this->primerValor($fila, [
-                'impbs',
-                'imp_bs',
-                'importe_bs',
-                'importe',
-            ], ''),
+            'facturada' => $cantidadFactura ?? '',
+            'cajas' => $cantidadesDocumento[$clave] ?? '',
+            'acumulada' => $acumulada,
+            'entregada' => $cantidadDespacho ?? '',
+            'saldo' => $saldo ?? '',
+            'metros' => $m2 ?? '',
+            'impbs' => $impBs ?? '',
         ]);
     }
 
