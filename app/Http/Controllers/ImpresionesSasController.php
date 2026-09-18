@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Str;
 
@@ -121,6 +120,80 @@ class ImpresionesSasController extends Controller
             'base' => $db,
             'nota' => 'Este diagnóstico consulta únicamente information_schema. No realiza INSERT, UPDATE ni DELETE.',
             'tablas' => $resultado,
+        ]);
+    }
+
+    /**
+     * Diagnóstico de datos SOLO LECTURA para reconstruir la impresión histórica.
+     * No ejecuta INSERT, UPDATE, DELETE ni incrementos.
+     */
+    public function diagnosticoDatos(string $id)
+    {
+        $db = config('database.connections.faboce2026.database', 'faboce2026');
+        $cn = DB::connection('faboce2026');
+
+        $registro = $cn->table('log_registro')
+            ->where('id', $id)
+            ->first();
+
+        $detalles = $cn->table('log_registro_detalle')
+            ->where('id_registro', $id)
+            ->orderBy('id')
+            ->get();
+
+        $notas = $detalles->flatMap(function ($d) {
+            return collect([$d->nota ?? null, $d->factura ?? null, $d->TDOCUM ?? null])
+                ->filter(fn ($v) => $v !== null && $v !== '');
+        })->unique()->values();
+
+        $ventas = $notas->isEmpty()
+            ? collect()
+            : $cn->table('sasinv_ventas')
+                ->where(function ($q) use ($notas) {
+                    foreach ($notas as $nota) {
+                        $q->orWhere('VDOCUM', $nota)
+                            ->orWhere('VDOCUMA', $nota)
+                            ->orWhere('VFACTURA', $nota);
+                    }
+                })
+                ->limit(100)
+                ->get();
+
+        $ventas1 = $notas->isEmpty()
+            ? collect()
+            : $cn->table('sasinv_ventas1')
+                ->where(function ($q) use ($notas) {
+                    foreach ($notas as $nota) {
+                        $q->orWhere('VDOCUM', $nota)
+                            ->orWhere('VDOCUMA', $nota);
+                    }
+                })
+                ->limit(200)
+                ->get();
+
+        // Busca tablas que tengan columnas explícitas de relación con el registro.
+        $tablasRelacion = $cn->table('information_schema.columns')
+            ->where('table_schema', $db)
+            ->where(function ($q) {
+                $q->whereRaw('LOWER(column_name) IN (?, ?, ?, ?, ?, ?, ?)', [
+                    'id_relacion', 'relacion_id', 'id_camion', 'id_conductor',
+                    'id_empresa', 'id_flete', 'id_agencia',
+                ]);
+            })
+            ->orderBy('table_name')
+            ->get(['table_name', 'column_name', 'data_type']);
+
+        return response()->json([
+            'modo' => 'SOLO_LECTURA',
+            'documento' => $id,
+            'base' => $db,
+            'nota' => 'Diagnóstico de datos: únicamente SELECT. No realiza INSERT, UPDATE, DELETE ni incrementos.',
+            'log_registro' => $registro,
+            'log_registro_detalle' => $detalles,
+            'valores_busqueda_notas' => $notas,
+            'sasinv_ventas' => $ventas,
+            'sasinv_ventas1' => $ventas1,
+            'tablas_con_relaciones' => $tablasRelacion,
         ]);
     }
 
