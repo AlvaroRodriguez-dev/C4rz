@@ -35,15 +35,6 @@
                 </div>
             </div>
 
-            <div id="qrDiagnostics" class="hidden mb-4 bg-gray-900 text-white rounded-xl p-4 text-xs font-mono">
-                <div class="flex items-center justify-between mb-2">
-                    <span class="font-bold text-sm">DIAGNÓSTICO DE CÁMARA</span>
-                    <button type="button" id="btnCopiarDiagnostico" class="bg-gray-700 hover:bg-gray-600 rounded-lg px-2 py-1">Copiar</button>
-                </div>
-                <div id="qrDiagnosticsContent" class="space-y-1"></div>
-                <p class="text-gray-400 mt-3">Estos datos permiten determinar si el límite está en resolución, zoom, enfoque o en el lector QR.</p>
-            </div>
-
             <div id="resultado" class="hidden space-y-3">
                 <div class="bg-blue-600 text-white rounded-xl p-5 shadow text-center">
                     <p class="text-sm opacity-80" id="palletTitulo"></p>
@@ -61,7 +52,6 @@
         const routeBuscar = "{{ route('wms.pallet.ver.pallets.buscar') }}";
         const routeContenido = "{{ url('wms/pallet-ver/pallet') }}";
         let html5QrCode = null;
-        let qrDiagnosticData = {};
 
         $(document).ready(function () {
             $('#selectPallet').select2({
@@ -79,55 +69,6 @@
         });
 
         function ocultarZoom() { $('#qrZoomControl').addClass('hidden'); }
-
-        function mostrarDiagnostico(data) {
-            qrDiagnosticData = data;
-            const filas = [
-                ['Navegador', data.browser],
-                ['Dispositivo', data.platform],
-                ['Cámara', data.cameraLabel],
-                ['Resolución real', `${data.width} × ${data.height}`],
-                ['FPS real', data.frameRate],
-                ['Zoom soportado', data.zoomSupported ? 'SÍ' : 'NO'],
-                ['Zoom mínimo', data.zoomMin],
-                ['Zoom máximo', data.zoomMax],
-                ['Zoom actual', data.zoomCurrent],
-                ['Enfoque', data.focusMode],
-                ['Distancia de enfoque', data.focusDistance],
-                ['Capacidades completas', JSON.stringify(data.capabilities)]
-            ];
-            $('#qrDiagnosticsContent').html(filas.map(([k, v]) => `<div><span class="text-gray-400">${k}:</span> ${escapeHtml(String(v ?? 'no disponible'))}</div>`).join(''));
-            $('#qrDiagnostics').removeClass('hidden');
-        }
-
-        function escapeHtml(value) {
-            return value.replace(/[&<>'"]/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[char]));
-        }
-
-        function recopilarDiagnostico() {
-            const capabilities = html5QrCode.getRunningTrackCapabilities();
-            const settings = html5QrCode.getRunningTrackSettings();
-            const video = document.querySelector('#qrReader video');
-            const zoom = capabilities.zoom;
-            const focusModes = capabilities.focusMode;
-            const focusDistance = capabilities.focusDistance;
-
-            return {
-                browser: navigator.userAgent,
-                platform: navigator.platform || 'no disponible',
-                cameraLabel: settings.deviceId ? (video?.srcObject?.getVideoTracks?.()[0]?.label || 'cámara trasera') : 'no disponible',
-                width: settings.width || video?.videoWidth || 'no disponible',
-                height: settings.height || video?.videoHeight || 'no disponible',
-                frameRate: settings.frameRate || 'no disponible',
-                zoomSupported: !!(zoom && zoom.max > zoom.min),
-                zoomMin: zoom?.min ?? 'no disponible',
-                zoomMax: zoom?.max ?? 'no disponible',
-                zoomCurrent: settings.zoom ?? 'no disponible',
-                focusMode: Array.isArray(focusModes) ? focusModes.join(', ') : (focusModes ?? 'no disponible'),
-                focusDistance: focusDistance ? JSON.stringify(focusDistance) : 'no disponible',
-                capabilities
-            };
-        }
 
         function configurarZoom() {
             try {
@@ -179,13 +120,6 @@
         }
 
         function actualizarTextoZoom(valor) { document.getElementById('qrZoomValue').textContent = `${Number(valor).toFixed(1)}×`; }
-
-        function copiarDiagnostico() {
-            navigator.clipboard?.writeText(JSON.stringify(qrDiagnosticData, null, 2))
-                .then(() => $('#btnCopiarDiagnostico').text('Copiado'))
-                .catch(() => alert('No fue posible copiar el diagnóstico.'));
-            setTimeout(() => $('#btnCopiarDiagnostico').text('Copiar'), 1500);
-        }
 
         function toggleScanner() {
             const reader = document.getElementById('qrReader');
