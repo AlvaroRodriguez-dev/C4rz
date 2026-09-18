@@ -9,6 +9,7 @@ use App\Http\Controllers\Comercial\AgenciaController;
 use App\Http\Controllers\Comercial\ComercialContactoController;
 use App\Http\Controllers\Comercial\TarjetaPublicaController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ImpresionesSasController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RrhhAgenciaController;
 use Illuminate\Support\Facades\Route;
@@ -396,5 +397,13 @@ Route::middleware(['auth', 'role:SIS-ADMIN'])->group(function () {
 // Publico (sin auth)
 Route::get('/tarjeta/{uuid}', [TarjetaPublicaController::class, 'show'])->name('tarjeta.show');
 Route::get('/tarjeta/{uuid}/vcard', [TarjetaPublicaController::class, 'vcard'])->name('tarjeta.vcard');
+
+
+// ── Impresiones SAS ──────────────────────────────────────────────
+Route::middleware(['auth'])->prefix('impresiones-sas')->name('impresiones-sas.')->group(function () {
+    Route::get('/', [ImpresionesSasController::class, 'index'])->name('index');
+    Route::post('/buscar', [ImpresionesSasController::class, 'buscar'])->name('buscar');
+    Route::get('/resultado', [ImpresionesSasController::class, 'resultado'])->name('resultado');
+});
 
 require __DIR__ . '/auth.php';
