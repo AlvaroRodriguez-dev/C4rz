@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Str;
 
@@ -64,6 +65,63 @@ class ImpresionesSasController extends Controller
         ]);
 
         return redirect()->route('impresiones-sas.resultado');
+    }
+
+    /**
+     * Diagnóstico temporal y SOLO LECTURA para identificar las tablas/campos
+     * que utiliza el SAS histórico. No consulta ni modifica datos de negocio.
+     */
+    public function diagnosticoFuentes(string $id)
+    {
+        $db = config('database.connections.faboce2026.database', 'faboce2026');
+
+        $tablasCandidatas = DB::connection('faboce2026')
+            ->table('information_schema.tables')
+            ->where('table_schema', $db)
+            ->where(function ($q) {
+                $q->where('table_name', 'like', '%entreg%')
+                    ->orWhere('table_name', 'like', '%pendiente%')
+                    ->orWhere('table_name', 'like', '%trasp%')
+                    ->orWhere('table_name', 'like', '%transito%')
+                    ->orWhere('table_name', 'like', '%venta%')
+                    ->orWhere('table_name', 'like', '%recep%')
+                    ->orWhere('table_name', 'like', '%registro%');
+            })
+            ->orderBy('table_name')
+            ->pluck('table_name');
+
+        $resultado = [];
+
+        foreach ($tablasCandidatas as $tabla) {
+            $columnas = DB::connection('faboce2026')
+                ->table('information_schema.columns')
+                ->where('table_schema', $db)
+                ->where('table_name', $tabla)
+                ->orderBy('ordinal_position')
+                ->get(['column_name', 'data_type']);
+
+            $interes = $columnas->filter(function ($columna) {
+                return preg_match(
+                    '/(id|doc|edoc|tdoc|fact|nota|codigo|clote|lote|cant|cantidad|entreg|acum|saldo|metro|m2|importe|imp|precio|peso|viaje|flete|agencia|age|empresa|nit|placa|conductor|telefono|descripcion|glosa|fecha)/i',
+                    $columna->column_name
+                );
+            })->values();
+
+            if ($interes->isNotEmpty()) {
+                $resultado[] = [
+                    'tabla' => $tabla,
+                    'columnas_interesantes' => $interes,
+                ];
+            }
+        }
+
+        return response()->json([
+            'modo' => 'SOLO_LECTURA',
+            'documento' => $id,
+            'base' => $db,
+            'nota' => 'Este diagnóstico consulta únicamente information_schema. No realiza INSERT, UPDATE ni DELETE.',
+            'tablas' => $resultado,
+        ]);
     }
 
     public function generarPdf()
@@ -249,7 +307,6 @@ class ImpresionesSasController extends Controller
             'entregada' => $this->primerValor($fila, [
                 'entregada',
                 'cantidad_entregada',
-                'cantidad_despacho',
             ], ''),
             'saldo' => $this->primerValor($fila, [
                 'saldo',
