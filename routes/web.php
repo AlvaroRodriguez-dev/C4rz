@@ -406,6 +406,7 @@ Route::middleware(['auth'])->prefix('impresiones-sas')->name('impresiones-sas.')
     Route::get('/resultado', [ImpresionesSasController::class, 'resultado'])->name('resultado');
     Route::post('/guardar-edicion', [ImpresionesSasController::class, 'guardarEdicion'])->name('guardar-edicion');
     Route::get('/pdf', [ImpresionesSasController::class, 'generarPdf'])->name('pdf');
+    Route::get('/diagnostico/{id}', [ImpresionesSasController::class, 'diagnosticoFuentes'])->name('diagnostico');
 });
 
 require __DIR__ . '/auth.php';
