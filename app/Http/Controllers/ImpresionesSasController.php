@@ -33,6 +33,32 @@ class ImpresionesSasController extends Controller
             ->orderBy('id')
             ->get();
 
+        // Solo lectura: enriquecemos la descripción del producto con el catálogo
+        // que ya utiliza el módulo WMS. No se modifica ninguna tabla.
+        $codigos = $detalles->pluck('codigo')->filter()->unique()->values();
+
+        $catalogo = $codigos->isNotEmpty()
+            ? DB::connection('sisinvconsolidado2026')
+                ->table('stock')
+                ->whereIn('CODIGO', $codigos)
+                ->select('CODIGO', 'DESCRIP', 'DESCRIP1')
+                ->get()
+                ->keyBy('CODIGO')
+            : collect();
+
+        $detalles = $detalles->map(function ($detalle) use ($catalogo) {
+            $item = (array) $detalle;
+            $stock = $catalogo->get($detalle->codigo);
+
+            if ($stock) {
+                $item['descrip'] = $stock->DESCRIP ?? '';
+                $item['descrip1'] = $stock->DESCRIP1 ?? '';
+                $item['producto'] = trim(($stock->DESCRIP ?? '') . ' ' . ($stock->DESCRIP1 ?? '') . ' - ' . ($detalle->lote ?? ''));
+            }
+
+            return (object) $item;
+        });
+
         if (!$registro && $detalles->isEmpty()) {
             return back()
                 ->withInput()
