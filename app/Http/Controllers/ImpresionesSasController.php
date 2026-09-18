@@ -61,4 +61,38 @@ class ImpresionesSasController extends Controller
 
         return view('impresiones-sas.resultado', $datos);
     }
+
+    /**
+     * Guarda únicamente la versión de trabajo que se utilizará posteriormente
+     * para generar el PDF. Nunca actualiza faboce2026.
+     */
+    public function guardarEdicion(Request $request)
+    {
+        $datos = Session::get('impresiones_sas');
+
+        if (!$datos) {
+            return redirect()
+                ->route('impresiones-sas.index')
+                ->with('error', 'La sesión de impresión ha expirado. Realiza nuevamente la búsqueda.');
+        }
+
+        $payload = $request->validate([
+            'cabecera' => ['required', 'array'],
+            'cabecera.*' => ['nullable', 'string', 'max:1000'],
+            'detalles' => ['nullable', 'array'],
+            'detalles.*' => ['array'],
+            'detalles.*.*' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $datos['edicion'] = [
+            'cabecera' => $payload['cabecera'],
+            'detalles' => $payload['detalles'] ?? [],
+        ];
+
+        Session::put('impresiones_sas', $datos);
+
+        return redirect()
+            ->route('impresiones-sas.resultado')
+            ->with('success', 'Cambios guardados temporalmente. No se modificó la base de datos.');
+    }
 }
