@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Str;
@@ -63,6 +64,50 @@ class ImpresionesSasController extends Controller
         ]);
 
         return redirect()->route('impresiones-sas.resultado');
+    }
+
+    public function generarPdf()
+    {
+        $datos = Session::get('impresiones_sas');
+
+        if (!$datos) {
+            return redirect()
+                ->route('impresiones-sas.index')
+                ->with('error', 'La sesión de impresión ha expirado. Realiza nuevamente la búsqueda.');
+        }
+
+        $cabecera = $datos['cabecera'] ?? [];
+        $detalles = $datos['detalles'] ?? [];
+
+        /*
+         * El PDF utiliza exactamente la copia temporal guardada en sesión.
+         * No vuelve a consultar ni modificar los registros de faboce2026.
+         */
+        $totalImpBs = $this->sumarDetalles($detalles, 'impbs');
+        $tipoCambio = $this->numero($cabecera['tipo_cambio'] ?? null);
+        $totalUsd = ($tipoCambio !== null && $tipoCambio > 0)
+            ? $totalImpBs / $tipoCambio
+            : null;
+
+        $totales = [
+            'facturada' => $this->sumarDetalles($detalles, 'facturada'),
+            'acumulada' => $this->sumarDetalles($detalles, 'acumulada'),
+            'entregada' => $this->sumarDetalles($detalles, 'entregada'),
+            'saldo' => $this->sumarDetalles($detalles, 'saldo'),
+            'metros' => $this->sumarDetalles($detalles, 'metros'),
+            'impbs' => $totalImpBs,
+        ];
+
+        $pdf = Pdf::loadView('impresiones-sas.pdf', [
+            'cabecera' => $cabecera,
+            'detalles' => $detalles,
+            'totales' => $totales,
+            'totalUsd' => $totalUsd,
+        ])->setPaper('letter', 'portrait');
+
+        $id = $cabecera['id'] ?? ($datos['numero_documento'] ?? 'documento');
+
+        return $pdf->stream('Transito-' . $id . '.pdf');
     }
 
     public function resultado()
@@ -373,6 +418,14 @@ class ImpresionesSasController extends Controller
         $normalizado = str_replace(',', '', (string) $valor);
 
         return is_numeric($normalizado) ? (float) $normalizado : null;
+    }
+
+    private function sumarDetalles(array $detalles, string $campo): float
+    {
+        return array_reduce($detalles, function ($total, $detalle) use ($campo) {
+            $numero = $this->numero($detalle[$campo] ?? null);
+            return $total + ($numero ?? 0);
+        }, 0.0);
     }
 
     private function mezclarEdicionDetalles(array $originales, array $editados): array
