@@ -189,6 +189,10 @@ class ImpresionesSasController extends Controller
                 ->get();
         }
 
+        // Recuperamos también los registros reales relacionados con el documento.
+        // Todo mediante SELECT y usando las claves encontradas en log_registro.
+        $datosLogistica = $this->obtenerDatosLogistica($registro);
+
         // Identificamos otras tablas de logística que puedan contener agencias,
         // empresas, camiones, conductores o relaciones, sin asumir nombres.
         $tablasLogistica = $cn->table('information_schema.tables')
@@ -226,6 +230,12 @@ class ImpresionesSasController extends Controller
             'relacion_log_empresa_camion_conductor_flete' => $relacion,
             'columnas_relacion' => $relacionColumnas,
             'log_flete_detalle' => $flete,
+            'empresa_transporte' => $datosLogistica['empresa_transporte'] ?? null,
+            'camion' => $datosLogistica['camion'] ?? null,
+            'conductor' => $datosLogistica['conductor'] ?? null,
+            'agencias' => $datosLogistica['agencias'] ?? collect(),
+            'flete' => $datosLogistica['flete'] ?? null,
+            'flete_detalle_ruta' => $datosLogistica['flete_detalle'] ?? collect(),
             'estructura_tablas_logistica' => $estructuraLogistica,
         ]);
     }
