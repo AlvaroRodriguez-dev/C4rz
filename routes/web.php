@@ -19,6 +19,7 @@ use App\Http\Controllers\NovedadController;
 use App\Http\Controllers\RrhhAgenciasController;
 use App\Http\Controllers\WelcomeController;
 use App\Http\Controllers\Wms\WmsConfigController;
+use App\Http\Controllers\Wms\WmsAlmacenController;
 use App\Http\Controllers\Wms\WmsExcepcionDespachoController;
 use App\Http\Controllers\Wms\WmsIngresoAjusteController;
 use App\Http\Controllers\Wms\WmsIngresoController;
@@ -119,6 +120,14 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
         Route::get('/', function () {
             return view('wms.index');
         })->name('index');
+    });
+
+    Route::middleware(['permission:wms.configurar'])->prefix('almacenes')->name('almacenes.')->group(function () {
+        Route::get('/', [WmsAlmacenController::class, 'index'])->name('index');
+        Route::get('/crear', [WmsAlmacenController::class, 'create'])->name('create');
+        Route::post('/', [WmsAlmacenController::class, 'store'])->name('store');
+        Route::get('/{almacen}/editar', [WmsAlmacenController::class, 'edit'])->name('edit');
+        Route::put('/{almacen}', [WmsAlmacenController::class, 'update'])->name('update');
     });
 
     Route::middleware(['permission:wms.configurar'])->prefix('configurar')->name('configurar.')->group(function () {
