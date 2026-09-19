@@ -27,9 +27,12 @@
 
         .logo {
             width: 24%;
-            font-size: 19px;
-            font-weight: bold;
             padding-top: 1mm;
+        }
+
+        .logo-img {
+            max-width: 34mm;
+            max-height: 16mm;
         }
 
         .title {
@@ -203,7 +206,7 @@
 
 <table class="header">
     <tr>
-        <td class="logo">fab<span style="font-weight: normal;">oce</span></td>
+        <td class="logo"><img src="{{ public_path('images/faboce2.png') }}" class="logo-img" alt="Faboce"></td>
 
         <td class="title">
             <div class="title-main">{{ $cabecera['titulo'] ?? 'DESPACHO DE PRODUCTO TERMINADO' }}</div>
@@ -250,7 +253,7 @@
             <th width="8%">ENTR.</th>
             <th width="8%">SALDO</th>
             <th width="8%">M2</th>
-            <th width="9%">IMP. Bs</th>
+            <th width="9%">COSTO $US</th>
         </tr>
     </thead>
 
