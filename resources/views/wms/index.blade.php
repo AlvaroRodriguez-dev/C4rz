@@ -284,6 +284,21 @@
 
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 @can('wms.configurar')
+                    <a href="{{ route('wms.almacenes.index') }}"
+                        class="bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <div class="flex justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-5h6v5M9 10h.01M15 10h.01M9 13h.01M15 13h.01" />
+                            </svg>
+                        </div>
+                        <div class="font-bold mt-3 text-base leading-tight">Almacenes</div>
+                        <div class="text-xs opacity-90">Maestros WMS</div>
+                    </a>
+                @endcan
+
+                @can('wms.configurar')
                     <a href="{{ route('wms.configurar.index') }}"
                         class="bg-gray-700 hover:bg-gray-800 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
                         <div class="flex justify-center">
