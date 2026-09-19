@@ -237,25 +237,6 @@
                                         </td>
                                     @endforeach
                                 </tr>
-
-                                <tr class="font-bold">
-                                    <td colspan="8" class="border border-gray-700 px-2 py-1 text-right">
-                                        TOTAL $us &nbsp;&nbsp; Tipo de Cambio:
-                                        <input name="cabecera[tipo_cambio]"
-                                               value="{{ data_get($cab, 'tipo_cambio', '') }}"
-                                               id="tipo-cambio"
-                                               inputmode="decimal"
-                                               class="inline-block w-20 border-0 border-b border-gray-400 bg-transparent text-center font-bold focus:ring-0">
-                                    </td>
-
-                                    <td class="border border-gray-700 p-0">
-                                        <input name="cabecera[total_usd]"
-                                               value="{{ data_get($cab, 'total_usd', '') }}"
-                                               id="total-usd"
-                                               readonly
-                                               class="w-full border-0 bg-gray-50 px-1 py-1 text-right font-bold">
-                                    </td>
-                                </tr>
                             </tbody>
                         </table>
                     </div>
