@@ -143,7 +143,7 @@
                                         'entregada'=>'ENTR.',
                                         'saldo'=>'SALDO',
                                         'metros'=>'M2',
-                                        'impbs'=>'IMP. Bs'
+                                        'impbs'=>'COSTO $US'
                                     ] as $key => $label)
                                         <th class="border border-gray-700 px-1 py-1 text-center font-bold whitespace-nowrap">
                                             {{ $label }}
