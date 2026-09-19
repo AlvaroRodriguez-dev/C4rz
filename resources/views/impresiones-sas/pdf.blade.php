@@ -162,21 +162,6 @@
             vertical-align: top;
         }
 
-        .footer {
-            width: 100%;
-            margin-top: 4mm;
-            font-size: 6px;
-            color: #555;
-        }
-
-        .footer td:last-child {
-            text-align: right;
-        }
-
-        .page-number:after {
-            content: "Página " counter(page) " de " counter(pages);
-        }
-
         tr {
             page-break-inside: avoid;
         }
@@ -281,14 +266,6 @@
             <td class="right">{{ $fmt($totales['metros'] ?? 0) }}</td>
             <td class="right">{{ $fmt($totales['impbs'] ?? 0) }}</td>
         </tr>
-
-        <tr class="usd">
-            <td colspan="8" class="right">
-                TOTAL $us &nbsp;&nbsp; Tipo de Cambio:
-                {{ $cabecera['tipo_cambio'] ?? '' }}
-            </td>
-            <td class="right">{{ $totalUsd !== null ? $fmt($totalUsd) : '' }}</td>
-        </tr>
     </tbody>
 </table>
 
@@ -335,16 +312,6 @@
 <table class="observacion">
     <tr>
         <td>{{ strtoupper($cabecera['observacion'] ?? ($cabecera['glosa'] ?? '')) }}</td>
-    </tr>
-</table>
-
-<table class="footer">
-    <tr>
-        <td>
-            Usuario: {{ $cabecera['usuario'] ?? '' }}<br>
-            Fecha y Hora de Impresión: {{ now()->format('d-m-Y H:i:s') }}
-        </td>
-        <td class="page-number"></td>
     </tr>
 </table>
 
