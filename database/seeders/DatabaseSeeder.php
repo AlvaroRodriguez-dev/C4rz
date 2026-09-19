@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             AgenciasSeeder::class,  // ✅ Agregar esta línea
             WmsMasterDataSeeder::class,
+            WmsUsuarioAlmacenSeeder::class,
         ]);
 
         $this->call(RolesAndPermissionsSeeder::class);
