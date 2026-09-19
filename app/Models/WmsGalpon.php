@@ -30,6 +30,11 @@ class WmsGalpon extends Model
         return $this->belongsTo(WmsAlmacen::class, 'almacen_id');
     }
 
+    public function rangos(): HasMany
+    {
+        return $this->hasMany(WmsGalponRango::class, 'galpon_id');
+    }
+
     public function ubicaciones(): HasMany
     {
         return $this->hasMany(WmsUbicacion::class, 'galpon_id');
