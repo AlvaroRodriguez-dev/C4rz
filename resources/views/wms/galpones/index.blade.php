@@ -95,10 +95,16 @@
                                             @endif
                                         </td>
                                         <td class="p-3 text-right">
-                                            <a href="{{ route('wms.galpones.edit', $galpon) }}"
-                                               class="text-blue-600 hover:text-blue-800 font-semibold text-xs">
-                                                EDITAR
-                                            </a>
+                                            <div class="flex flex-wrap gap-2 justify-end">
+                                                <a href="{{ route('wms.galpones.rangos.index', $galpon) }}"
+                                                   class="text-indigo-600 hover:text-indigo-800 font-semibold text-xs">
+                                                    TRAMOS
+                                                </a>
+                                                <a href="{{ route('wms.galpones.edit', $galpon) }}"
+                                                   class="text-blue-600 hover:text-blue-800 font-semibold text-xs">
+                                                    EDITAR
+                                                </a>
+                                            </div>
                                         </td>
                                     </tr>
                                 @empty
