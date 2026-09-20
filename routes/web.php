@@ -21,6 +21,7 @@ use App\Http\Controllers\WelcomeController;
 use App\Http\Controllers\Wms\WmsConfigController;
 use App\Http\Controllers\Wms\WmsAlmacenController;
 use App\Http\Controllers\Wms\WmsGalponController;
+use App\Http\Controllers\Wms\WmsGalponRangoController;
 use App\Http\Controllers\Wms\WmsExcepcionDespachoController;
 use App\Http\Controllers\Wms\WmsIngresoAjusteController;
 use App\Http\Controllers\Wms\WmsIngresoController;
@@ -135,6 +136,9 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
         Route::get('/', [WmsGalponController::class, 'index'])->name('index');
         Route::get('/crear', [WmsGalponController::class, 'create'])->name('create');
         Route::post('/', [WmsGalponController::class, 'store'])->name('store');
+        Route::get('/{galpon}/rangos', [WmsGalponRangoController::class, 'index'])->name('rangos.index');
+        Route::get('/{galpon}/rangos/crear', [WmsGalponRangoController::class, 'create'])->name('rangos.create');
+        Route::post('/{galpon}/rangos', [WmsGalponRangoController::class, 'store'])->name('rangos.store');
         Route::get('/{galpon}/editar', [WmsGalponController::class, 'edit'])->name('edit');
         Route::put('/{galpon}', [WmsGalponController::class, 'update'])->name('update');
     });
