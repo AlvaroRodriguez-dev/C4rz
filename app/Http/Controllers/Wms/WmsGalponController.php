@@ -130,6 +130,18 @@ class WmsGalponController extends Controller
 
         $codigo = strtoupper($validated['codigo']);
 
+        if ((int) $validated['almacen_id'] !== (int) $galpon->almacen_id) {
+            $tieneConfiguracion = $galpon->ubicaciones()->exists() || $galpon->rangos()->exists();
+
+            if ($tieneConfiguracion) {
+                return back()
+                    ->withErrors([
+                        'almacen_id' => 'No se puede cambiar de almacén un galpón que ya tiene tramos o posiciones configuradas.',
+                    ])
+                    ->withInput();
+            }
+        }
+
         $duplicado = WmsGalpon::where('almacen_id', $validated['almacen_id'])
             ->whereRaw('UPPER(codigo) = ?', [$codigo])
             ->whereKeyNot($galpon->id)
