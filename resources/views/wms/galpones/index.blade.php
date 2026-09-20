@@ -96,6 +96,10 @@
                                         </td>
                                         <td class="p-3 text-right">
                                             <div class="flex flex-wrap gap-2 justify-end">
+                                                <a href="{{ route('wms.ubicaciones.index', ['almacen' => $galpon->almacen_id, 'galpon' => $galpon->id]) }}"
+                                                   class="text-sky-600 hover:text-sky-800 font-semibold text-xs">
+                                                    POSICIONES
+                                                </a>
                                                 <a href="{{ route('wms.galpones.rangos.index', $galpon) }}"
                                                    class="text-indigo-600 hover:text-indigo-800 font-semibold text-xs">
                                                     TRAMOS
