@@ -24,6 +24,13 @@
                         </x-nav-link>
                     @endhasanyrole
 
+                    {{-- ITAM - gestión de activos TI --}}
+                    @can('it.solicitudes.view')
+                        <x-nav-link :href="route('itam.index')" :active="request()->routeIs('itam.*')">
+                            ITAM
+                        </x-nav-link>
+                    @endcan
+
                     {{-- Solo SIS-ADMIN --}}
                     @can('sis.verificar-bd')
                         <x-nav-link :href="route('verificar-bd.index')" :active="request()->routeIs('verificar-bd.*')">
@@ -247,6 +254,12 @@
                     WMS
                 </x-responsive-nav-link>
             @endhasanyrole
+
+            @can('it.solicitudes.view')
+                <x-responsive-nav-link :href="route('itam.index')" :active="request()->routeIs('itam.*')">
+                    ITAM
+                </x-responsive-nav-link>
+            @endcan
 
             @can('sis.verificar-bd')
                 <x-responsive-nav-link :href="route('verificar-bd.index')" :active="request()->routeIs('verificar-bd.*')">
