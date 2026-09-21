@@ -12,6 +12,12 @@ use Illuminate\Http\Request;
 
 class WmsUbicacionController extends Controller
 {
+    public function __construct(
+        private WmsContextService $context,
+        private WmsUbicacionService $ubicacionService
+    ) {
+    }
+
     public function index(Request $request)
     {
         $almacenes = WmsAlmacen::query()
