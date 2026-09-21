@@ -148,6 +148,11 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
         Route::get('/', [WmsUbicacionController::class, 'index'])->name('index');
     });
 
+    Route::middleware(['permission:wms.ingresos.create'])->prefix('maestros')->name('maestros.')->group(function () {
+        Route::get('/ubicaciones/opciones', [WmsUbicacionController::class, 'opciones'])->name('ubicaciones.opciones');
+        Route::get('/ubicaciones/galpon/{galpon}', [WmsUbicacionController::class, 'porGalpon'])->name('ubicaciones.por-galpon');
+    });
+
     Route::middleware(['permission:wms.configurar'])->prefix('configurar')->name('configurar.')->group(function () {
         Route::get('/', [WmsConfigController::class, 'index'])->name('index');
         Route::get('/crear', [WmsConfigController::class, 'create'])->name('create');
