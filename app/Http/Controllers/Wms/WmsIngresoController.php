@@ -261,7 +261,7 @@ class WmsIngresoController extends Controller
         $palletsReales = $this->palletService->generarSiguientes(count($data['grupos']));
         $resumenPallets = [];
 
-        DB::transaction(function () use ($data, $palletsReales, &$resumenPallets) {
+        DB::transaction(function () use ($data, $almacen, $palletsReales, &$resumenPallets) {
             foreach ($data['grupos'] as $idx => $grupo) {
                 $pallet = $palletsReales[$idx];
                 $resumenPallets[] = ['local' => $idx + 1, 'pallet' => $pallet];
