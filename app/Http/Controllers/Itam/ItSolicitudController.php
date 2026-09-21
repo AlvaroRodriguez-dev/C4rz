@@ -69,7 +69,14 @@ class ItSolicitudController extends Controller
 
     public function show(ItSolicitud $solicitud)
     {
-        $solicitud->load(['detalles.tipoActivo', 'ubicacion', 'responsable']);
+        $solicitud->load([
+            'detalles.tipoActivo',
+            'ubicacion',
+            'responsable',
+            'evaluaciones' => fn ($query) => $query
+                ->with(['evaluador', 'detalles.solicitudDetalle'])
+                ->latest('id'),
+        ]);
 
         $personal = DB::connection('pgsql_rrhh')
             ->table('rrhh_personal')
