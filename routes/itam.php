@@ -4,6 +4,10 @@ use App\Http\Controllers\Itam\ItSolicitudController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->prefix('itam')->name('itam.')->group(function () {
+    Route::middleware(['role_or_permission:SIS-ADMIN|it.solicitudes.view'])->group(function () {
+        Route::view('/', 'itam.index')->name('index');
+    });
+
     Route::middleware(['permission:it.solicitudes.create'])->group(function () {
         Route::get('/solicitudes/crear', [ItSolicitudController::class, 'create'])->name('solicitudes.create');
         Route::post('/solicitudes', [ItSolicitudController::class, 'store'])->name('solicitudes.store');
