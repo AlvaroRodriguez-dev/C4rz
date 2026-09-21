@@ -95,4 +95,52 @@ class WmsUbicacionController extends Controller
             'ubicaciones'
         ));
     }
+
+    public function opciones(): \Illuminate\Http\JsonResponse
+    {
+        $almacen = $this->context->almacen();
+
+        return response()->json([
+            'almacen' => [
+                'id' => $almacen->id,
+                'codigo' => $almacen->codigo,
+                'nombre' => $almacen->nombre,
+            ],
+            'galpones' => $this->ubicacionService
+                ->galpones($this->context)
+                ->map(fn (WmsGalpon $galpon) => [
+                    'id' => $galpon->id,
+                    'codigo' => $galpon->codigo,
+                    'nombre' => $galpon->nombre,
+                ])
+                ->values(),
+        ]);
+    }
+
+    public function porGalpon(WmsGalpon $galpon): \Illuminate\Http\JsonResponse
+    {
+        $almacen = $this->context->almacen();
+
+        if ((int) $galpon->almacen_id !== (int) $almacen->id || !$galpon->activo) {
+            abort(404);
+        }
+
+        return response()->json([
+            'almacen' => $almacen->codigo,
+            'galpon' => [
+                'id' => $galpon->id,
+                'codigo' => $galpon->codigo,
+                'nombre' => $galpon->nombre,
+            ],
+            'ubicaciones' => $this->ubicacionService
+                ->ubicacionesPorGalpon($galpon)
+                ->map(fn (WmsUbicacion $ubicacion) => [
+                    'id' => $ubicacion->id,
+                    'codigo' => $ubicacion->codigo,
+                    'numero' => $ubicacion->numero,
+                ])
+                ->values(),
+        ]);
+    }
+
 }
