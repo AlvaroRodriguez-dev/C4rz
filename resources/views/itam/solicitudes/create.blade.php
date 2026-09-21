@@ -17,14 +17,17 @@
                         <input
                             type="text"
                             x-model="personal.label"
-                            @input="personal.id = ''; personal.area_id = ''; buscarPersonal()"
+                            @input="personal.id = ''; personal.area_id = ''; buscarPersonal()" @focus="mostrarResultados()"
                             placeholder="Buscar por nombre, apellido o licencia"
                             autocomplete="off"
                             class="mt-1 w-full rounded-lg border-gray-300"
                         >
                         <p class="mt-1 text-xs text-gray-500">Seleccione una persona de la lista. Escribir el nombre no registra automáticamente al solicitante.</p>
 
-                        <div x-show="resultados.length" class="relative">
+                        <div x-show="cargando" class="mt-2 text-sm text-gray-500">Buscando personal...</div>
+                        <div x-show="errorBusqueda" class="mt-2 text-sm text-red-600" x-text="errorBusqueda"></div>
+
+                        <div x-show="resultados.length && personal.label && !personal.id" class="relative">
                             <div class="absolute z-20 w-full bg-white border rounded-lg shadow mt-1 max-h-60 overflow-auto">
                                 <template x-for="persona in resultados" :key="persona.id">
                                     <button type="button" @click="seleccionar(persona)" class="block w-full text-left px-4 py-2 hover:bg-gray-50">
@@ -78,19 +81,53 @@
             return {
                 personal: {id:'', label:'', area_id:''},
                 resultados: [],
+                cargando: false,
+                errorBusqueda: '',
                 detalles: [{tipo_item:'ACTIVO', tipo_activo_id:'', descripcion_solicitada:'', cantidad:1, especificaciones:''}],
 
                 async buscarPersonal() {
-                    if (this.personal.label.length < 2) {
+                    const texto = this.personal.label.trim();
+                    this.errorBusqueda = '';
+
+                    if (texto.length < 2) {
                         this.resultados = [];
+                        this.cargando = false;
                         return;
                     }
 
-                    const r = await fetch(`{{ route('itam.solicitudes.personal.buscar') }}?q=${encodeURIComponent(this.personal.label)}`, {
-                        headers: {'Accept':'application/json'}
-                    });
+                    this.cargando = true;
 
-                    this.resultados = await r.json();
+                    try {
+                        const url = new URL('{{ route('itam.solicitudes.personal.buscar') }}', window.location.origin);
+                        url.searchParams.set('q', texto);
+
+                        const r = await fetch(url.toString(), {
+                            method: 'GET',
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        });
+
+                        if (!r.ok) {
+                            throw new Error('No se pudo consultar el personal de RRHH (HTTP ' + r.status + ').');
+                        }
+
+                        const data = await r.json();
+                        this.resultados = Array.isArray(data) ? data : [];
+                    } catch (error) {
+                        console.error('ITAM - buscarPersonal:', error);
+                        this.resultados = [];
+                        this.errorBusqueda = error.message || 'No se pudo consultar el personal.';
+                    } finally {
+                        this.cargando = false;
+                    }
+                },
+
+                mostrarResultados() {
+                    if (this.personal.label.trim().length >= 2 && !this.personal.id) {
+                        this.buscarPersonal();
+                    }
                 },
 
                 seleccionar(p) {
