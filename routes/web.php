@@ -23,6 +23,7 @@ use App\Http\Controllers\Wms\WmsAlmacenController;
 use App\Http\Controllers\Wms\WmsGalponController;
 use App\Http\Controllers\Wms\WmsGalponRangoController;
 use App\Http\Controllers\Wms\WmsUbicacionController;
+use App\Http\Controllers\Wms\WmsUsuarioAlmacenController;
 use App\Http\Controllers\Wms\WmsExcepcionDespachoController;
 use App\Http\Controllers\Wms\WmsIngresoAjusteController;
 use App\Http\Controllers\Wms\WmsIngresoController;
@@ -151,6 +152,12 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
     Route::middleware(['permission:wms.ingresos.create'])->prefix('maestros')->name('maestros.')->group(function () {
         Route::get('/ubicaciones/opciones', [WmsUbicacionController::class, 'opciones'])->name('ubicaciones.opciones');
         Route::get('/ubicaciones/galpon/{galpon}', [WmsUbicacionController::class, 'porGalpon'])->name('ubicaciones.por-galpon');
+    });
+
+    Route::middleware(['permission:wms.configurar'])->prefix('usuario-almacenes')->name('usuario-almacenes.')->group(function () {
+        Route::get('/', [WmsUsuarioAlmacenController::class, 'index'])->name('index');
+        Route::get('/{user}/editar', [WmsUsuarioAlmacenController::class, 'edit'])->name('edit');
+        Route::put('/{user}', [WmsUsuarioAlmacenController::class, 'update'])->name('update');
     });
 
     Route::middleware(['permission:wms.configurar'])->prefix('configurar')->name('configurar.')->group(function () {
