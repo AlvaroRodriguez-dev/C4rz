@@ -62,8 +62,66 @@
         </div>
 
         <div class="bg-white shadow rounded-lg p-5">
-            <h3 class="font-semibold mb-4">Historial de evaluación técnica</h3>
-            <p class="text-sm text-gray-500">Las evaluaciones se conservarán como historial. Desde aquí se podrá consultar la evaluación vigente y las anteriores.</p>
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-semibold text-gray-800">Historial de evaluación técnica</h3>
+                <span class="text-sm text-gray-500">{{ $solicitud->evaluaciones->count() }} evaluación(es)</span>
+            </div>
+
+            @forelse($solicitud->evaluaciones as $evaluacion)
+                <div class="border rounded-lg p-4 mb-4 last:mb-0">
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-3">
+                        <div>
+                            <p class="font-semibold">Evaluación #{{ $evaluacion->id }}</p>
+                            <p class="text-sm text-gray-500">
+                                {{ $evaluacion->fecha_evaluacion?->format('d/m/Y H:i') }}
+                                · {{ $evaluacion->evaluador?->name ?? 'Usuario no disponible' }}
+                            </p>
+                        </div>
+                        <span class="inline-flex self-start px-3 py-1 rounded-full bg-gray-100 text-sm font-semibold">
+                            {{ $evaluacion->resultado }}
+                        </span>
+                    </div>
+
+                    @if($evaluacion->justificacion)
+                        <div class="mb-3">
+                            <p class="text-xs uppercase text-gray-500">Justificación técnica</p>
+                            <p class="text-sm mt-1 whitespace-pre-line">{{ $evaluacion->justificacion }}</p>
+                        </div>
+                    @endif
+
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full text-sm">
+                            <thead class="border-b">
+                                <tr>
+                                    <th class="py-2 text-left">Requerimiento</th>
+                                    <th class="py-2 text-left">Resultado</th>
+                                    <th class="py-2 text-left">Cantidad</th>
+                                    <th class="py-2 text-left">Observaciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($evaluacion->detalles as $detalleEvaluacion)
+                                    <tr class="border-b last:border-b-0">
+                                        <td class="py-2 pr-4">{{ $detalleEvaluacion->solicitudDetalle?->descripcion_solicitada ?? '—' }}</td>
+                                        <td class="py-2 pr-4 font-medium">{{ $detalleEvaluacion->resultado }}</td>
+                                        <td class="py-2 pr-4">{{ $detalleEvaluacion->cantidad }}</td>
+                                        <td class="py-2">{{ $detalleEvaluacion->observaciones ?: '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    @if($evaluacion->observaciones)
+                        <div class="mt-3 pt-3 border-t">
+                            <p class="text-xs uppercase text-gray-500">Observaciones</p>
+                            <p class="text-sm mt-1 whitespace-pre-line">{{ $evaluacion->observaciones }}</p>
+                        </div>
+                    @endif
+                </div>
+            @empty
+                <p class="text-sm text-gray-500">Todavía no se ha registrado una evaluación técnica.</p>
+            @endforelse
         </div>
     </div>
 </x-app-layout>
