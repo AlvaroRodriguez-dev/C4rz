@@ -73,9 +73,17 @@ class ItSolicitudController extends Controller
 
         $personal = DB::connection('pgsql_rrhh')
             ->table('rrhh_personal')
-            ->where('id', $solicitud->solicitante_id)
-            ->whereNull('deleted_at')
-            ->first(['id', 'name', 'lastname', 'licence_id', 'area_id', 'cargo_id', 'agencia_id']);
+            ->where('ID', $solicitud->solicitante_id)
+            ->whereNull('DELETED_AT')
+            ->first([
+                'ID as id',
+                'NAME as name',
+                'LASTNAME as lastname',
+                'LICENSE as licence_id',
+                'AREA_ID as area_id',
+                'CHARGE_ID as cargo_id',
+                'AGECODIGO as agencia_id',
+            ]);
 
         return view('itam.solicitudes.show', compact('solicitud', 'personal'));
     }
@@ -90,16 +98,24 @@ class ItSolicitudController extends Controller
 
         $personal = DB::connection('pgsql_rrhh')
             ->table('rrhh_personal')
-            ->whereNull('deleted_at')
+            ->whereNull('DELETED_AT')
             ->where(function ($query) use ($texto) {
-                $query->where('name', 'ilike', "%{$texto}%")
-                    ->orWhere('lastname', 'ilike', "%{$texto}%")
-                    ->orWhere('licence_id', 'ilike', "%{$texto}%");
+                $query->where('NAME', 'ilike', "%{$texto}%")
+                    ->orWhere('LASTNAME', 'ilike', "%{$texto}%")
+                    ->orWhere('LICENSE', 'ilike', "%{$texto}%");
             })
-            ->orderBy('lastname')
-            ->orderBy('name')
+            ->orderBy('LASTNAME')
+            ->orderBy('NAME')
             ->limit(20)
-            ->get(['id', 'name', 'lastname', 'licence_id', 'area_id', 'cargo_id', 'agencia_id']);
+            ->get([
+                'ID as id',
+                'NAME as name',
+                'LASTNAME as lastname',
+                'LICENSE as licence_id',
+                'AREA_ID as area_id',
+                'CHARGE_ID as cargo_id',
+                'AGECODIGO as agencia_id',
+            ]);
 
         return response()->json($personal);
     }
