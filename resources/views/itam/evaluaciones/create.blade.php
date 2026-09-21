@@ -44,44 +44,64 @@
                 </div>
             </div>
 
-            <div class="bg-white shadow rounded-lg p-5">
-                <h3 class="font-semibold text-gray-800 mb-4">Evaluación de requerimientos</h3>
-                <div class="space-y-4">
-                    @foreach($solicitud->detalles as $index => $detalle)
-                        <div class="border rounded-lg p-4">
-                            <input type="hidden" name="detalles[{{ $index }}][solicitud_detalle_id]" value="{{ $detalle->id }}">
+            <div class="bg-white shadow rounded-lg p-5" x-data="evaluacionForm()">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+                    <div>
+                        <h3 class="font-semibold text-gray-800">Evaluación de requerimientos</h3>
+                        <p class="text-sm text-gray-500">La suma de decisiones debe cubrir exactamente la cantidad solicitada.</p>
+                    </div>
+                    <span class="text-sm font-semibold" :class="todoResuelto ? 'text-green-700' : 'text-amber-700'" x-text="resumenGeneral"></span>
+                </div>
 
-                            <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
-                                <div class="md:col-span-3">
-                                    <p class="text-xs text-gray-500 uppercase">Requerimiento</p>
+                <div class="space-y-5">
+                    @foreach($solicitud->detalles as $detalle)
+                        <div class="border rounded-lg p-4">
+                            <div class="flex flex-col sm:flex-row sm:justify-between gap-2 mb-3">
+                                <div>
                                     <p class="font-semibold">{{ $detalle->descripcion_solicitada }}</p>
                                     <p class="text-sm text-gray-500">{{ $detalle->tipo_item }} · {{ $detalle->tipoActivo?->descripcion ?? '—' }}</p>
                                 </div>
-
-                                <div class="md:col-span-2">
-                                    <label class="text-xs font-semibold text-gray-500">CANTIDAD SOLICITADA</label>
-                                    <p class="mt-2 font-semibold">{{ $detalle->cantidad }}</p>
-                                </div>
-
-                                <div class="md:col-span-3">
-                                    <label class="text-xs font-semibold text-gray-500">RESULTADO *</label>
-                                    <select name="detalles[{{ $index }}][resultado]" required class="mt-1 w-full rounded-lg border-gray-300">
-                                        @foreach(['REASIGNACION','REPARACION','STOCK','COMPRA','MEJORA','REEMPLAZO','OTRO'] as $resultado)
-                                            <option value="{{ $resultado }}" @selected(old("detalles.$index.resultado") === $resultado)>{{ $resultado }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-
-                                <div class="md:col-span-2">
-                                    <label class="text-xs font-semibold text-gray-500">CANTIDAD *</label>
-                                    <input type="number" name="detalles[{{ $index }}][cantidad]" value="{{ old("detalles.$index.cantidad", $detalle->cantidad) }}" min="1" max="{{ $detalle->cantidad }}" required class="mt-1 w-full rounded-lg border-gray-300">
-                                </div>
-
-                                <div class="md:col-span-2">
-                                    <label class="text-xs font-semibold text-gray-500">OBSERVACIONES</label>
-                                    <input name="detalles[{{ $index }}][observaciones]" value="{{ old("detalles.$index.observaciones") }}" class="mt-1 w-full rounded-lg border-gray-300">
+                                <div class="text-sm">
+                                    Solicitada: <strong>{{ $detalle->cantidad }}</strong>
+                                    · Evaluada: <strong x-text="sumaDetalle({{ $detalle->id }})"></strong>
+                                    · Pendiente: <strong x-text="{{ $detalle->cantidad }} - sumaDetalle({{ $detalle->id }})"></strong>
                                 </div>
                             </div>
+
+                            <div class="space-y-3">
+                                <template x-for="decision in decisiones.filter(d => d.detalleId === {{ $detalle->id }})" :key="decision.key">
+                                    <div class="grid grid-cols-1 md:grid-cols-12 gap-3 bg-gray-50 rounded-lg p-3">
+                                        <input type="hidden" :name="'detalles[' + decision.key + '][solicitud_detalle_id]'" value="{{ $detalle->id }}">
+
+                                        <div class="md:col-span-4">
+                                            <label class="text-xs font-semibold text-gray-500">RESULTADO *</label>
+                                            <select :name="'detalles[' + decision.key + '][resultado]'" x-model="decision.resultado" required class="mt-1 w-full rounded-lg border-gray-300">
+                                                @foreach(['REASIGNACION','REPARACION','STOCK','COMPRA','MEJORA','REEMPLAZO','OTRO'] as $resultado)
+                                                    <option value="{{ $resultado }}">{{ $resultado }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                        <div class="md:col-span-3">
+                                            <label class="text-xs font-semibold text-gray-500">CANTIDAD *</label>
+                                            <input type="number" min="1" :max="cantidadMaxima(decision)" :name="'detalles[' + decision.key + '][cantidad]'" x-model.number="decision.cantidad" required class="mt-1 w-full rounded-lg border-gray-300">
+                                        </div>
+
+                                        <div class="md:col-span-4">
+                                            <label class="text-xs font-semibold text-gray-500">OBSERVACIONES</label>
+                                            <input :name="'detalles[' + decision.key + '][observaciones]'" x-model="decision.observaciones" class="mt-1 w-full rounded-lg border-gray-300">
+                                        </div>
+
+                                        <div class="md:col-span-1 flex items-end justify-end">
+                                            <button type="button" @click="quitar(decision.key)" x-show="cantidadDecisiones({{ $detalle->id }}) > 1" class="text-red-600 text-sm">Quitar</button>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <button type="button" @click="agregar({{ $detalle->id }}, {{ $detalle->cantidad }})" class="mt-3 text-sm text-blue-700 hover:text-blue-900 font-medium">
+                                + Dividir decisión
+                            </button>
                         </div>
                     @endforeach
                 </div>
