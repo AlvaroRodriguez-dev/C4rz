@@ -31,14 +31,23 @@ class ItEvaluacionService
             $detallesSolicitud = $solicitud->detalles()->get()->keyBy('id');
             $detallesEvaluacion = collect($data['detalles'] ?? []);
 
-            if ($detallesEvaluacion->count() !== $detallesSolicitud->count()) {
+            if ($detallesSolicitud->isEmpty()) {
                 throw ValidationException::withMessages([
-                    'detalles' => 'Debe evaluar todos los requerimientos de la solicitud.',
+                    'detalles' => 'La solicitud no tiene requerimientos para evaluar.',
                 ]);
             }
 
+            if ($detallesEvaluacion->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'detalles' => 'Debe registrar al menos una decisión técnica.',
+                ]);
+            }
+
+            $cantidadesPorDetalle = [];
+
             foreach ($detallesEvaluacion as $detalle) {
-                $solicitudDetalle = $detallesSolicitud->get((int) ($detalle['solicitud_detalle_id'] ?? 0));
+                $solicitudDetalleId = (int) ($detalle['solicitud_detalle_id'] ?? 0);
+                $solicitudDetalle = $detallesSolicitud->get($solicitudDetalleId);
 
                 if (!$solicitudDetalle) {
                     throw ValidationException::withMessages([
@@ -46,17 +55,31 @@ class ItEvaluacionService
                     ]);
                 }
 
-                $cantidad = (int) ($detalle['cantidad'] ?? 0);
-
-                if ($cantidad < 1 || $cantidad > (int) $solicitudDetalle->cantidad) {
+                $resultado = $detalle['resultado'] ?? '';
+                if (!in_array($resultado, self::RESULTADOS, true)) {
                     throw ValidationException::withMessages([
-                        'detalles' => "La cantidad evaluada para {$solicitudDetalle->descripcion_solicitada} no es válida.",
+                        'detalles' => 'Existe un resultado de evaluación no válido.',
                     ]);
                 }
 
-                if (!in_array($detalle['resultado'] ?? '', self::RESULTADOS, true)) {
+                $cantidad = (int) ($detalle['cantidad'] ?? 0);
+                if ($cantidad < 1) {
                     throw ValidationException::withMessages([
-                        'detalles' => 'Existe un resultado de evaluación no válido.',
+                        'detalles' => "La cantidad evaluada para {$solicitudDetalle->descripcion_solicitada} debe ser mayor a cero.",
+                    ]);
+                }
+
+                $cantidadesPorDetalle[$solicitudDetalleId] =
+                    ($cantidadesPorDetalle[$solicitudDetalleId] ?? 0) + $cantidad;
+            }
+
+            foreach ($detallesSolicitud as $solicitudDetalleId => $solicitudDetalle) {
+                $evaluada = $cantidadesPorDetalle[$solicitudDetalleId] ?? 0;
+                $solicitada = (int) $solicitudDetalle->cantidad;
+
+                if ($evaluada !== $solicitada) {
+                    throw ValidationException::withMessages([
+                        'detalles' => "El requerimiento '{$solicitudDetalle->descripcion_solicitada}' debe quedar completamente resuelto: solicitada {$solicitada}, evaluada {$evaluada}. Puede dividir la cantidad entre diferentes resultados.",
                     ]);
                 }
             }
