@@ -34,6 +34,11 @@ class ItSolicitud extends Model
         return $this->belongsTo(User::class, 'responsable_id');
     }
 
+    public function evaluaciones()
+    {
+        return $this->hasMany(ItEvaluacion::class, 'solicitud_id');
+    }
+
     protected static function booted(): void
     {
         static::creating(function (self $model) {
