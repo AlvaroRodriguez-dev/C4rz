@@ -6,19 +6,26 @@ use App\Http\Controllers\Controller;
 use App\Models\WmsConfigPallet;
 use App\Models\WmsIngreso;
 use App\Services\PalletCorrelativoService;
+use App\Services\WmsContextService;
+use App\Services\WmsUbicacionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class WmsIngresoController extends Controller
 {
-    public function __construct(private PalletCorrelativoService $palletService)
-    {
+    public function __construct(
+        private PalletCorrelativoService $palletService,
+        private WmsContextService $context,
+        private WmsUbicacionService $ubicacionService
+    ) {
     }
 
     public function create()
     {
-        return view('wms.ingresos.create');
+        $almacen = $this->context->almacen();
+
+        return view('wms.ingresos.create', compact('almacen'));
     }
 
     public function buscarNotas(Request $request)
@@ -29,7 +36,7 @@ class WmsIngresoController extends Controller
         $notas = DB::connection('sisinvconsolidado2026')
             ->table('recep')
             ->where('PROCODIGO', 'like', 'IP%')
-            ->where('AGECODIGO', 110)
+            ->where('AGECODIGO', (int) $this->context->codigo())
             ->when($q !== '', function ($query) use ($q) {
                 $query->where(function ($sub) use ($q) {
                     $sub->where('RDOCUM', 'like', "%{$q}%")
@@ -185,6 +192,27 @@ class WmsIngresoController extends Controller
 
         $data = $validator->validated();
 
+        // La ubicación operativa se determina y valida contra el maestro WMS.
+        // El almacén enviado por el navegador no participa en esta decisión.
+        $almacen = $this->context->almacen();
+
+        foreach ($data['grupos'] as $idx => $grupo) {
+            try {
+                $ubicacion = $this->ubicacionService->validarNormal(
+                    $almacen->id,
+                    $grupo['galpon'],
+                    $grupo['ubicacion']
+                );
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                return response()->json([
+                    'errors' => $e->errors(),
+                ], 422);
+            }
+
+            $data['grupos'][$idx]['galpon'] = $ubicacion->galpon->codigo;
+            $data['grupos'][$idx]['ubicacion'] = $ubicacion->codigo;
+        }
+
         // --- Control de duplicados ---
         $yaRegistrado = WmsIngreso::where('rdocum', $data['rdocum'])
             ->select('codigo', 'clote', DB::raw('SUM(cantidad) as total'))
@@ -248,7 +276,7 @@ class WmsIngresoController extends Controller
                         'descrip' => $item['descrip'] ?? null,
                         'descrip1' => $item['descrip1'] ?? null,
                         'cantidad' => $item['cantidad'],
-                        'almacen' => '110',
+                        'almacen' => $almacen->codigo,
                         'galpon' => $grupo['galpon'],
                         'ubicacion' => $grupo['ubicacion'],
                     ]);
