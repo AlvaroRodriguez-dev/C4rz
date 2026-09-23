@@ -89,9 +89,8 @@ class WmsDocumentoService
                 ]);
 
             $codigo = sprintf(
-                '%s%s%s%s%02d%03d',
+                '%s%s%s%02d%03d',
                 $prefijo,
-                $talonario,
                 $tipo->codigo,
                 $fecha->format('Y'),
                 $mes,
