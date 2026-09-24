@@ -38,6 +38,7 @@ use App\Http\Controllers\Wms\WmsSalidaController;
 use App\Http\Controllers\Wms\WmsSalidaVerController;
 use App\Http\Controllers\Wms\WmsTicketLoteController;
 use App\Http\Controllers\Wms\WmsProduccionVerificacionController;
+use App\Http\Controllers\Wms\WmsLiberacionProduccionController;
 
 
 Route::get('/', [WelcomeController::class, 'index'])->name('welcome');
@@ -166,6 +167,12 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
         Route::get('/crear', [WmsConfigController::class, 'create'])->name('create');
         Route::post('/', [WmsConfigController::class, 'store'])->name('store');
         Route::delete('/{codigo}', [WmsConfigController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::middleware(['permission:wms.produccion.verificar'])->prefix('produccion-liberacion')->name('produccion.liberacion.')->group(function () {
+        Route::get('/', [WmsLiberacionProduccionController::class, 'create'])->name('create');
+        Route::get('/productos/buscar', [WmsLiberacionProduccionController::class, 'buscarProductos'])->name('productos.buscar');
+        Route::post('/', [WmsLiberacionProduccionController::class, 'store'])->name('store');
     });
 
     Route::middleware(['permission:wms.produccion.verificar'])->prefix('produccion-verificacion')->name('produccion.verificacion.')->group(function () {
