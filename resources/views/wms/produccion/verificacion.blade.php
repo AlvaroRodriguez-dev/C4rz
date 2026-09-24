@@ -14,7 +14,7 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
                         <input id="search" type="search"
-                               placeholder="Documento SAS, documento WMS u origen..."
+                               placeholder="Documento SAS, WMS u origen..."
                                class="w-full border-gray-300 rounded-lg">
                     </div>
                     <div>
@@ -42,7 +42,7 @@
                         <thead class="bg-gray-100 text-gray-600">
                             <tr>
                                 <th class="text-left p-3">Documento WMS</th>
-                                <th class="text-left p-3">Documento SAS</th>
+                                <th class="text-left p-3">Documento SAS (origen)</th>
                                 <th class="text-left p-3">Fecha</th>
                                 <th class="text-right p-3">Declarado</th>
                                 <th class="text-right p-3">Físico</th>
