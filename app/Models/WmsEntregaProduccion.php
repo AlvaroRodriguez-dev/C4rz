@@ -16,6 +16,8 @@ class WmsEntregaProduccion extends Model
         'almacen_id',
         'fecha_entrega',
         'fecha_recepcion',
+        'verificado_at',
+        'verificado_id',
         'origen',
         'turno_hora',
         'total_declarado',
@@ -33,11 +35,17 @@ class WmsEntregaProduccion extends Model
         'fecha_entrega' => 'date',
         'fecha_recepcion' => 'date',
         'posteado_erp_at' => 'datetime',
+        'verificado_at' => 'datetime',
     ];
 
     public function documento(): BelongsTo
     {
         return $this->belongsTo(WmsDocumento::class, 'documento_id');
+    }
+
+    public function verificadoPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'verificado_id');
     }
 
     public function almacen(): BelongsTo
