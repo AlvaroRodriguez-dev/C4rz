@@ -30,6 +30,11 @@
             </h3>
 
                 @can('wms.produccion.verificar')
+                    <a href="{{ route('wms.produccion.liberacion.create') }}" class="bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <div class="font-bold text-base">Liberación</div><div class="text-xs opacity-90">RG-CB-36 Producción</div>
+                    </a>
+                @endcan
+                @can('wms.produccion.verificar')
                     <a href="{{ route('wms.produccion.verificacion.index') }}"
                         class="bg-violet-600 hover:bg-violet-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
                         <div class="flex justify-center">
