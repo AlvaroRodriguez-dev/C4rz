@@ -29,25 +29,39 @@
                 Registros
             </h3>
 
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+
+                <!-- Liberación RG-CB-36 Producción -->
                 @can('wms.produccion.verificar')
-                    <a href="{{ route('wms.produccion.liberacion.create') }}" class="bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
-                        <div class="font-bold text-base">Liberación</div><div class="text-xs opacity-90">RG-CB-36 Producción</div>
+                    <a href="{{ route('wms.produccion.liberacion.create') }}"
+                        class="bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <div class="flex justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                        </div>
+                        <div class="mt-3 font-bold text-base leading-tight">Liberación</div>
+                        <div class="text-xs opacity-90">RG-CB-36 Producción</div>
                     </a>
                 @endcan
+
+                <!-- Verificación de Producción -->
                 @can('wms.produccion.verificar')
                     <a href="{{ route('wms.produccion.verificacion.index') }}"
                         class="bg-violet-600 hover:bg-violet-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
                         <div class="flex justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A9 9 0 1112 3a9 9 0 014.618 13.984z" />
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M9 12l2 2 4-4m5.618-4.016A9 9 0 1112 3a9 9 0 014.618 13.984z" />
                             </svg>
                         </div>
                         <div class="mt-3 font-bold text-base leading-tight">Verificación</div>
                         <div class="text-xs opacity-90">Producción</div>
                     </a>
                 @endcan
-
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
 
                 <!-- Registrar Ingreso -->
                 @can('wms.ingresos.create')
