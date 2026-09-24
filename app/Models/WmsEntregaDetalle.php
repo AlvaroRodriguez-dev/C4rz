@@ -21,6 +21,7 @@ class WmsEntregaDetalle extends Model
         'formato',
         'lote',
         'cantidad_declarada',
+        'cantidad_fisica',
         'cantidad_paletizada',
         'tono',
         'calibre',
