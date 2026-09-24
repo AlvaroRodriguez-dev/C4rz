@@ -1,0 +1,40 @@
+<x-app-layout>
+<x-slot name="header"><h2 class="font-semibold text-xl text-gray-800 leading-tight">WMS - Liberación de Producción RG-CB-36</h2></x-slot>
+<div class="py-4 px-3 sm:py-6 sm:px-4"><div class="max-w-6xl mx-auto">
+<a href="{{ route('wms.index') }}" class="text-sm text-gray-600 mb-3 inline-flex items-center gap-1">&larr; Volver</a><div id="alertBox" class="hidden mb-4 p-3 rounded-lg text-sm"></div>
+<form id="formLiberacion" class="space-y-4">@csrf
+<div class="bg-white shadow rounded-xl p-4 sm:p-5"><h3 class="font-bold mb-4">Datos de la liberación</h3>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+<div><label class="block text-sm font-medium mb-1">Planta</label><input name="planta" value="FABRICA CBBA I" required class="w-full border-gray-300 rounded-lg"></div>
+<div><label class="block text-sm font-medium mb-1">Fecha de entrega</label><input name="fecha_entrega" type="date" value="{{ now()->toDateString() }}" required class="w-full border-gray-300 rounded-lg"></div>
+<div><label class="block text-sm font-medium mb-1">Turno / Hora</label><input name="turno_hora" class="w-full border-gray-300 rounded-lg"></div>
+<div><label class="block text-sm font-medium mb-1">Folio físico RG-CB-36</label><input name="folio_fisico" class="w-full border-gray-300 rounded-lg" placeholder="Ej. 008845"></div>
+</div>
+<div class="mt-3"><label class="block text-sm font-medium mb-1">Formato</label><select name="formato" id="formato" required class="w-full border-gray-300 rounded-lg"><option value="">Seleccione...</option>@foreach($formatos as $formato)<option value="{{ $formato->codigo }}">{{ $formato->codigo }} · {{ $formato->descripcion }}</option>@endforeach</select></div></div>
+
+<div class="bg-white shadow rounded-xl p-4 sm:p-5"><div class="flex justify-between items-center gap-3 mb-4"><div><h3 class="font-bold">Detalle de producción</h3><p class="text-xs text-gray-500">El producto se selecciona del catálogo; el código no se digita manualmente.</p></div><button type="button" id="btnAgregar" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-semibold">+ Agregar fila</button></div>
+<div id="lineas" class="space-y-3"></div><div class="mt-4 border-t pt-4 flex flex-col sm:flex-row justify-between gap-3"><div><label class="block text-sm font-medium mb-1">Observaciones</label><textarea name="observaciones" rows="2" class="w-full sm:w-96 border-gray-300 rounded-lg"></textarea></div><div class="text-right self-end"><p class="text-xs text-gray-500 uppercase">Total general declarado</p><p id="total" class="text-3xl font-bold">0</p></div></div></div>
+<div class="flex justify-end"><button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-bold px-5 py-3 rounded-lg">EMITIR LIBERACIÓN</button></div>
+</form></div></div>
+
+<template id="lineaTemplate"><div class="linea border rounded-xl p-3 bg-gray-50"><div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+<div class="md:col-span-4"><label class="block text-xs font-medium mb-1">Producto / Modelo</label><select class="producto w-full border-gray-300 rounded-lg" required></select></div>
+<div class="md:col-span-2"><label class="block text-xs font-medium mb-1">Calidad</label><select class="calidad w-full border-gray-300 rounded-lg" required><option>EXTRA</option><option>COMERCIAL</option><option>ECONOMICO</option></select></div>
+<div class="md:col-span-2"><label class="block text-xs font-medium mb-1">Cajas</label><input class="cantidad w-full border-gray-300 rounded-lg" type="number" min="1" required></div>
+<div class="md:col-span-1 extra"><label class="block text-xs font-medium mb-1">Tono</label><input class="tono w-full border-gray-300 rounded-lg" type="number" min="0" max="999"></div>
+<div class="md:col-span-1 extra"><label class="block text-xs font-medium mb-1">Calibre</label><input class="calibre w-full border-gray-300 rounded-lg" type="number" min="0" max="99"></div>
+<div class="md:col-span-1"><button type="button" class="eliminar w-full bg-red-100 text-red-700 px-2 py-2 rounded-lg font-semibold">×</button></div>
+</div><div class="mt-2 text-xs text-gray-500 preview"></div></div></template>
+
+<script>
+const form=document.getElementById('formLiberacion'),contenedor=document.getElementById('lineas'),template=document.getElementById('lineaTemplate'),formato=document.getElementById('formato');
+document.getElementById('btnAgregar').addEventListener('click',agregarFila);form.addEventListener('submit',guardar);
+function agregarFila(){if(!formato.value){mostrarAlerta('Primero selecciona el formato.','error');return;}const fila=template.content.cloneNode(true).querySelector('.linea'),producto=fila.querySelector('.producto'),calidad=fila.querySelector('.calidad'),extra=fila.querySelectorAll('.extra');producto.innerHTML='<option value="">Seleccione producto...</option>';
+producto.addEventListener('change',()=>{const opt=producto.options[producto.selectedIndex];if(opt.dataset.calidad){calidad.value=opt.dataset.calidad;actualizarExtra();}fila.querySelector('.preview').textContent=opt.dataset.descripcion?(opt.value+' · '+opt.dataset.descripcion+' · Modelo '+(opt.dataset.modelo||'')):'';});
+calidad.addEventListener('change',actualizarExtra);function actualizarExtra(){extra.forEach(el=>el.style.display=calidad.value==='EXTRA'?'':'none');}fila.querySelector('.eliminar').addEventListener('click',()=>{fila.remove();recalcular();});fila.querySelector('.cantidad').addEventListener('input',recalcular);contenedor.appendChild(fila);configurarBusqueda(producto);actualizarExtra();}
+function configurarBusqueda(select){select.addEventListener('focus',()=>buscarProductos(select,''));}
+async function buscarProductos(select,q){const params=new URLSearchParams({formato:formato.value,q});const res=await fetch("{{ route('wms.produccion.liberacion.productos.buscar') }}?"+params);const data=await res.json();select.innerHTML='<option value="">Seleccione producto...</option>';data.results.forEach(item=>{const option=document.createElement('option');option.value=item.codigo;option.textContent=item.text;option.dataset.calidad=item.calidad||'';option.dataset.modelo=item.modelo||'';option.dataset.descripcion=item.descripcion||'';select.appendChild(option);});}
+function recalcular(){let total=0;contenedor.querySelectorAll('.cantidad').forEach(i=>total+=Number(i.value||0));document.getElementById('total').textContent=total;}
+async function guardar(e){e.preventDefault();const lineas=[...contenedor.querySelectorAll('.linea')].map(fila=>{const producto=fila.querySelector('.producto'),opt=producto.options[producto.selectedIndex];return{codigo:producto.value,descripcion:opt?.dataset.descripcion||null,modelo:opt?.dataset.modelo||null,calidad:fila.querySelector('.calidad').value,cantidad:Number(fila.querySelector('.cantidad').value),tono:fila.querySelector('.tono').value||null,calibre:fila.querySelector('.calibre').value||null};});if(!lineas.length){mostrarAlerta('Agrega al menos una línea de producción.','error');return;}const payload=Object.fromEntries(new FormData(form).entries());payload.lineas=lineas;const res=await fetch("{{ route('wms.produccion.liberacion.store') }}",{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('[name="_token"]').value,'Accept':'application/json'},body:JSON.stringify(payload)});const data=await res.json();if(!res.ok){mostrarAlerta(data.message||Object.values(data.errors||{}).flat().join(' ')||'No fue posible emitir la liberación.','error');return;}window.location.href=data.redirect;}
+function mostrarAlerta(mensaje,tipo){const box=document.getElementById('alertBox');box.className='mb-4 p-3 rounded-lg text-sm '+(tipo==='success'?'bg-green-100 text-green-800':'bg-red-100 text-red-800');box.textContent=mensaje;box.classList.remove('hidden');}agregarFila();
+</script></x-app-layout>
