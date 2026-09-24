@@ -40,7 +40,7 @@
 const form=document.getElementById('formLiberacion'),contenedor=document.getElementById('lineas'),template=document.getElementById('lineaTemplate'),formato=document.getElementById('formato');
 document.getElementById('btnAgregar').addEventListener('click',agregarFila);form.addEventListener('submit',guardar);
 function agregarFila(){if(!formato.value){mostrarAlerta('Primero selecciona el formato.','error');return;}const fila=template.content.cloneNode(true).querySelector('.linea'),producto=fila.querySelector('.producto'),calidad=fila.querySelector('.calidad'),extra=fila.querySelectorAll('.extra');producto.innerHTML='<option value="">Seleccione producto...</option>';
-calidad.addEventListener('change',()=>actualizarExtraFila(fila));fila.querySelector('.eliminar').addEventListener('click',()=>{fila.remove();recalcular();});fila.querySelector('.cantidad').addEventListener('input',recalcular);contenedor.appendChild(fila);configurarBusqueda(producto);actualizarExtra();}
+calidad.addEventListener('change',()=>actualizarExtraFila(fila));fila.querySelector('.eliminar').addEventListener('click',()=>{fila.remove();recalcular();});fila.querySelector('.cantidad').addEventListener('input',recalcular);contenedor.appendChild(fila);configurarBusqueda(producto);actualizarExtraFila(fila);}
 function configurarBusqueda(select){
   $(select).select2({
     placeholder:'Escribe código, descripción o modelo...',
