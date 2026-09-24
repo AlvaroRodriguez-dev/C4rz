@@ -29,6 +29,19 @@
                 Registros
             </h3>
 
+                @can('wms.produccion.verificar')
+                    <a href="{{ route('wms.produccion.verificacion.index') }}"
+                        class="bg-violet-600 hover:bg-violet-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <div class="flex justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A9 9 0 1112 3a9 9 0 014.618 13.984z" />
+                            </svg>
+                        </div>
+                        <div class="mt-3 font-bold text-base leading-tight">Verificación</div>
+                        <div class="text-xs opacity-90">Producción</div>
+                    </a>
+                @endcan
+
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
 
                 <!-- Registrar Ingreso -->
