@@ -1,5 +1,15 @@
 <x-app-layout>
 <x-slot name="header"><h2 class="font-semibold text-xl text-gray-800 leading-tight">WMS - Liberación de Producción RG-CB-36</h2></x-slot>
+
+<link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/css/select2.min.css" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/js/select2.min.js"></script>
+<style>
+.select2-container { width: 100% !important; }
+.select2-container .select2-selection--single { height: 42px !important; display:flex; align-items:center; border-radius:.5rem !important; border-color:#d1d5db !important; }
+.select2-container--default .select2-selection--single .select2-selection__rendered { line-height:42px !important; padding-left:12px !important; font-size:.875rem; }
+.select2-container--default .select2-selection--single .select2-selection__arrow { height:40px !important; }
+</style>
 <div class="py-4 px-3 sm:py-6 sm:px-4"><div class="max-w-6xl mx-auto">
 <a href="{{ route('wms.index') }}" class="text-sm text-gray-600 mb-3 inline-flex items-center gap-1">&larr; Volver</a><div id="alertBox" class="hidden mb-4 p-3 rounded-lg text-sm"></div>
 <form id="formLiberacion" class="space-y-4">@csrf
@@ -30,11 +40,44 @@
 const form=document.getElementById('formLiberacion'),contenedor=document.getElementById('lineas'),template=document.getElementById('lineaTemplate'),formato=document.getElementById('formato');
 document.getElementById('btnAgregar').addEventListener('click',agregarFila);form.addEventListener('submit',guardar);
 function agregarFila(){if(!formato.value){mostrarAlerta('Primero selecciona el formato.','error');return;}const fila=template.content.cloneNode(true).querySelector('.linea'),producto=fila.querySelector('.producto'),calidad=fila.querySelector('.calidad'),extra=fila.querySelectorAll('.extra');producto.innerHTML='<option value="">Seleccione producto...</option>';
-producto.addEventListener('change',()=>{const opt=producto.options[producto.selectedIndex];if(opt.dataset.calidad){calidad.value=opt.dataset.calidad;actualizarExtra();}fila.querySelector('.preview').textContent=opt.dataset.descripcion?(opt.value+' · '+opt.dataset.descripcion+' · Modelo '+(opt.dataset.modelo||'')):'';});
-calidad.addEventListener('change',actualizarExtra);function actualizarExtra(){extra.forEach(el=>el.style.display=calidad.value==='EXTRA'?'':'none');}fila.querySelector('.eliminar').addEventListener('click',()=>{fila.remove();recalcular();});fila.querySelector('.cantidad').addEventListener('input',recalcular);contenedor.appendChild(fila);configurarBusqueda(producto);actualizarExtra();}
-function configurarBusqueda(select){select.addEventListener('focus',()=>buscarProductos(select,''));}
-async function buscarProductos(select,q){const params=new URLSearchParams({formato:formato.value,q});const res=await fetch("{{ route('wms.produccion.liberacion.productos.buscar') }}?"+params);const data=await res.json();select.innerHTML='<option value="">Seleccione producto...</option>';data.results.forEach(item=>{const option=document.createElement('option');option.value=item.codigo;option.textContent=item.text;option.dataset.calidad=item.calidad||'';option.dataset.modelo=item.modelo||'';option.dataset.descripcion=item.descripcion||'';select.appendChild(option);});}
+calidad.addEventListener('change',()=>actualizarExtraFila(fila));fila.querySelector('.eliminar').addEventListener('click',()=>{fila.remove();recalcular();});fila.querySelector('.cantidad').addEventListener('input',recalcular);contenedor.appendChild(fila);configurarBusqueda(producto);actualizarExtra();}
+function configurarBusqueda(select){
+  $(select).select2({
+    placeholder:'Escribe código, descripción o modelo...',
+    allowClear:true,
+    minimumInputLength:1,
+    width:'100%',
+    ajax:{
+      url:"{{ route('wms.produccion.liberacion.productos.buscar') }}",
+      dataType:'json',
+      delay:300,
+      data:params=>({q:params.term||'',formato:formato.value}),
+      processResults:data=>({results:data.results||[]}),
+      cache:true
+    }
+  });
+
+  $(select).on('select2:select',function(e){
+    const data=e.params.data;
+    $(this).data('producto',data);
+    const fila=$(this).closest('.linea')[0];
+    const calidad=fila.querySelector('.calidad');
+    if(data.calidad){calidad.value=data.calidad;actualizarExtraFila(fila);}
+    fila.querySelector('.preview').textContent=data.descripcion
+      ? (data.codigo+' · '+data.descripcion+' · Modelo '+(data.modelo||'')) : '';
+  });
+
+  $(select).on('select2:clear',function(){
+    $(this).removeData('producto');
+    const fila=$(this).closest('.linea')[0];
+    fila.querySelector('.preview').textContent='';
+  });
+}
+function actualizarExtraFila(fila){
+  const calidad=fila.querySelector('.calidad');
+  fila.querySelectorAll('.extra').forEach(el=>el.style.display=calidad.value==='EXTRA'?'':'none');
+}
 function recalcular(){let total=0;contenedor.querySelectorAll('.cantidad').forEach(i=>total+=Number(i.value||0));document.getElementById('total').textContent=total;}
-async function guardar(e){e.preventDefault();const lineas=[...contenedor.querySelectorAll('.linea')].map(fila=>{const producto=fila.querySelector('.producto'),opt=producto.options[producto.selectedIndex];return{codigo:producto.value,descripcion:opt?.dataset.descripcion||null,modelo:opt?.dataset.modelo||null,calidad:fila.querySelector('.calidad').value,cantidad:Number(fila.querySelector('.cantidad').value),tono:fila.querySelector('.tono').value||null,calibre:fila.querySelector('.calibre').value||null};});if(!lineas.length){mostrarAlerta('Agrega al menos una línea de producción.','error');return;}const payload=Object.fromEntries(new FormData(form).entries());payload.lineas=lineas;const res=await fetch("{{ route('wms.produccion.liberacion.store') }}",{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('[name="_token"]').value,'Accept':'application/json'},body:JSON.stringify(payload)});const data=await res.json();if(!res.ok){mostrarAlerta(data.message||Object.values(data.errors||{}).flat().join(' ')||'No fue posible emitir la liberación.','error');return;}window.location.href=data.redirect;}
+async function guardar(e){e.preventDefault();const lineas=[...contenedor.querySelectorAll('.linea')].map(fila=>{const producto=fila.querySelector('.producto'),data=$(producto).data('producto')||{};return{codigo:producto.value,descripcion:data.descripcion||null,modelo:data.modelo||null,calidad:fila.querySelector('.calidad').value,cantidad:Number(fila.querySelector('.cantidad').value),tono:fila.querySelector('.tono').value||null,calibre:fila.querySelector('.calibre').value||null};});if(!lineas.length){mostrarAlerta('Agrega al menos una línea de producción.','error');return;}const payload=Object.fromEntries(new FormData(form).entries());payload.lineas=lineas;const res=await fetch("{{ route('wms.produccion.liberacion.store') }}",{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('[name="_token"]').value,'Accept':'application/json'},body:JSON.stringify(payload)});const data=await res.json();if(!res.ok){mostrarAlerta(data.message||Object.values(data.errors||{}).flat().join(' ')||'No fue posible emitir la liberación.','error');return;}window.location.href=data.redirect;}
 function mostrarAlerta(mensaje,tipo){const box=document.getElementById('alertBox');box.className='mb-4 p-3 rounded-lg text-sm '+(tipo==='success'?'bg-green-100 text-green-800':'bg-red-100 text-red-800');box.textContent=mensaje;box.classList.remove('hidden');}agregarFila();
 </script></x-app-layout>
