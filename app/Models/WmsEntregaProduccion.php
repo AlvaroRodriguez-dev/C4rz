@@ -14,6 +14,8 @@ class WmsEntregaProduccion extends Model
         'documento_id',
         'folio_fisico',
         'almacen_id',
+        'planta',
+        'formato',
         'fecha_entrega',
         'fecha_recepcion',
         'verificado_at',
