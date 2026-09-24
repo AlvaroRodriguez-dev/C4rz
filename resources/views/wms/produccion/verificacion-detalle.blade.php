@@ -43,7 +43,7 @@
                          data-detalle="{{ $detalle->id }}"
                          data-declarada="{{ $detalle->cantidad_declarada }}">
                         <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center">
-                            <div class="lg:col-span-5">
+                            <div class="lg:col-span-4 min-w-0">
                                 <p class="font-mono font-semibold text-gray-800">{{ $detalle->codigo }}</p>
                                 <p class="text-sm text-gray-600">{{ $detalle->descripcion }}</p>
                                 <p class="text-xs text-gray-500 mt-1">
@@ -66,8 +66,10 @@
                                 <p class="text-xs text-gray-500">DIFERENCIA</p>
                                 <p class="diferencia text-lg font-bold">—</p>
                             </div>
-                            <div class="lg:col-span-1">
-                                <span class="estado-detalle inline-block px-2 py-1 rounded-full text-xs font-semibold">{{ $detalle->estado }}</span>
+                            <div class="lg:col-span-2 min-w-0">
+                                <span class="estado-detalle inline-flex max-w-full items-center justify-center px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap overflow-hidden text-ellipsis {{ $detalle->estado === 'CON_DIFERENCIA' ? 'bg-red-100 text-red-700' : ($detalle->estado === 'CONCILIADO' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700') }}">
+                                    {{ $detalle->estado }}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -127,7 +129,9 @@
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.message || 'No fue posible guardar la cantidad.');
 
-                    card.querySelector('.estado-detalle').textContent = data.detalle.estado;
+                    const estadoBadge = card.querySelector('.estado-detalle');
+                    estadoBadge.textContent = data.detalle.estado;
+                    estadoBadge.className = 'estado-detalle inline-flex max-w-full items-center justify-center px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap overflow-hidden text-ellipsis ' + claseEstadoDetalle(data.detalle.estado);
                 } catch (e) {
                     mostrarAlerta(e.message, 'error');
                 }
@@ -159,6 +163,14 @@
 
             mostrarAlerta(data.message, data.entrega.estado === 'CONCILIADA' ? 'success' : 'warning');
             setTimeout(() => location.reload(), 900);
+        }
+
+        function claseEstadoDetalle(estado) {
+            return {
+                CON_DIFERENCIA: 'bg-red-100 text-red-700',
+                CONCILIADO: 'bg-green-100 text-green-700',
+                PENDIENTE: 'bg-gray-100 text-gray-700'
+            }[estado] ?? 'bg-gray-100 text-gray-700';
         }
 
         function mostrarAlerta(mensaje, tipo) {
