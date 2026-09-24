@@ -37,6 +37,7 @@ use App\Http\Controllers\Wms\WmsReubicacionController;
 use App\Http\Controllers\Wms\WmsSalidaController;
 use App\Http\Controllers\Wms\WmsSalidaVerController;
 use App\Http\Controllers\Wms\WmsTicketLoteController;
+use App\Http\Controllers\Wms\WmsProduccionVerificacionController;
 
 
 Route::get('/', [WelcomeController::class, 'index'])->name('welcome');
@@ -165,6 +166,15 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
         Route::get('/crear', [WmsConfigController::class, 'create'])->name('create');
         Route::post('/', [WmsConfigController::class, 'store'])->name('store');
         Route::delete('/{codigo}', [WmsConfigController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::middleware(['permission:wms.produccion.verificar'])->prefix('produccion-verificacion')->name('produccion.verificacion.')->group(function () {
+        Route::get('/', [WmsProduccionVerificacionController::class, 'index'])->name('index');
+        Route::get('/buscar', [WmsProduccionVerificacionController::class, 'buscar'])->name('buscar');
+        Route::get('/{entrega}', [WmsProduccionVerificacionController::class, 'show'])->name('show');
+        Route::post('/{entrega}/iniciar', [WmsProduccionVerificacionController::class, 'iniciar'])->name('iniciar');
+        Route::post('/{entrega}/conciliar', [WmsProduccionVerificacionController::class, 'conciliar'])->name('conciliar');
+        Route::patch('/detalle/{detalle}/cantidad', [WmsProduccionVerificacionController::class, 'cantidad'])->name('detalle.cantidad');
     });
 
     Route::middleware(['permission:wms.ingresos.create'])->prefix('ingresos')->name('ingresos.')->group(function () {
