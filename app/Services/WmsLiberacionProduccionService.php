@@ -21,7 +21,6 @@ class WmsLiberacionProduccionService
     public function crear(array $data): WmsEntregaProduccion
     {
         return DB::transaction(function () use ($data) {
-            // El almacén operativo se determina exclusivamente por el usuario autenticado.
             $almacen = $this->context->almacen();
             $fecha = Carbon::parse($data['fecha_entrega']);
             $usuarioId = auth()->id() ?: null;
@@ -62,13 +61,11 @@ class WmsLiberacionProduccionService
                 'documento_id' => $documento->id,
                 'folio_fisico' => $data['folio_fisico'] ?? null,
                 'almacen_id' => $almacen->id,
-                // Se conserva el campo para futuras etapas; no se solicita al usuario.
                 'planta' => $almacen->nombre,
                 'formato' => $data['formato'],
                 'fecha_entrega' => $fecha->toDateString(),
                 'fecha_recepcion' => null,
                 'origen' => 'RG-CB-36',
-                // Se conserva para una futura captura del paso anterior de Producción.
                 'turno_hora' => null,
                 'total_declarado' => 0,
                 'total_fisico' => 0,
@@ -96,6 +93,9 @@ class WmsLiberacionProduccionService
                 ];
                 $calidad = $calidades[strtoupper(substr($codigo, 4, 1))] ?? 'OTRO';
                 $cantidad = (int) $linea['cantidad'];
+
+                // El carácter 5 determina la calidad y los 4 siguientes (6-9)
+                // determinan el formato del producto.
                 $formatoCodigo = substr($codigo, 5, 4);
 
                 if (strtoupper($formatoCodigo) !== strtoupper($data['formato'])) {
