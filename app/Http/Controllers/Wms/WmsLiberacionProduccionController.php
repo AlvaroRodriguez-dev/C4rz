@@ -28,9 +28,16 @@ class WmsLiberacionProduccionController extends Controller
 
     public function create(Request $request)
     {
+        if ($request->boolean('pdf')) {
+            $entrega = WmsEntregaProduccion::findOrFail($request->integer('id'));
+            return $this->pdf($entrega);
+        }
+
         if (!$request->boolean('nuevo')) {
             return view('wms.produccion.liberacion-index');
         }
+
+        abort_unless(auth()->user()->can('wms.produccion.liberar'), 403);
 
         $formatos = WmsConfigPallet::query()->orderBy('codigo')->get();
         $almacen = $this->context->almacen();
@@ -131,6 +138,8 @@ class WmsLiberacionProduccionController extends Controller
 
     public function store(Request $request)
     {
+        abort_unless(auth()->user()->can('wms.produccion.liberar'), 403);
+
         $data = $request->validate([
             'fecha_entrega' => ['required', 'date'],
             'formato' => ['required', 'string', 'max:20'],
