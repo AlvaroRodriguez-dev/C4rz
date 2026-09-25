@@ -20,6 +20,12 @@ class WmsProductoCatalogoService
         'ECONOMICO' => '3',
     ];
 
+    private const CALIDADES_INVERTIDAS = [
+        '1' => 'EXTRA',
+        '2' => 'COMERCIAL',
+        '3' => 'ECONOMICO',
+    ];
+
     public function buscar($almacen, string $texto, string $formato, ?string $calidad = null): Collection
     {
         $codigoAlmacen = trim((string) $almacen->codigo);
@@ -44,11 +50,16 @@ class WmsProductoCatalogoService
             }
         }
 
-        return \DB::connection('sisinvconsolidado2026')
+        $query = \DB::connection('sisinvconsolidado2026')
             ->table('stock')
             ->where('CODIGO', 'like', $planta . '%')
-            ->whereRaw('UPPER(SUBSTRING(CODIGO, 5, 1)) = ?', [$calidadCodigo ?? '%'])
-            ->whereRaw('UPPER(SUBSTRING(CODIGO, 6, 4)) = ?', [$formato])
+            ->whereRaw('UPPER(SUBSTRING(CODIGO, 6, 4)) = ?', [$formato]);
+
+        if ($calidadCodigo !== null) {
+            $query->whereRaw('UPPER(SUBSTRING(CODIGO, 5, 1)) = ?', [$calidadCodigo]);
+        }
+
+        return $query
             ->when(trim($texto) !== '', function ($query) use ($texto) {
                 $termino = trim($texto);
                 $query->where(function ($sub) use ($termino) {
@@ -96,10 +107,4 @@ class WmsProductoCatalogoService
     {
         return strtoupper(substr($codigo, 4, 1));
     }
-
-    private const CALIDADES_INVERTIDAS = [
-        '1' => 'EXTRA',
-        '2' => 'COMERCIAL',
-        '3' => 'ECONOMICO',
-    ];
 }
