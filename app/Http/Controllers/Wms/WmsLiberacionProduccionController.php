@@ -8,7 +8,9 @@ use App\Services\WmsContextService;
 use App\Services\WmsLiberacionProduccionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
+Throwable;
 
 class WmsLiberacionProduccionController extends Controller
 {
@@ -35,42 +37,61 @@ class WmsLiberacionProduccionController extends Controller
             return response()->json(['results' => []]);
         }
 
-        $productos = DB::connection('sisinvconsolidado2026')
-            ->table('stock')
-            ->where('CODIGO', 'like', '6C%')
-            ->whereRaw('UPPER(SUBSTRING(CODIGO,6,4)) = ?', [$formato])
-            ->when($q !== '', function ($query) use ($q) {
-                $query->where(function ($sub) use ($q) {
-                    $sub->where('CODIGO', 'like', '%' . $q . '%')
-                        ->orWhere('DESCRIP', 'like', '%' . $q . '%')
-                        ->orWhere('DESCRIP1', 'like', '%' . $q . '%')
-                        ->orWhere('DESCRIP2', 'like', '%' . $q . '%');
-                });
-            })
-            ->select('CODIGO', 'DESCRIP', 'DESCRIP1', 'DESCRIP2')
-            ->orderBy('CODIGO')
-            ->limit(30)
-            ->get();
+        try {
+            $productos = DB::connection('sisinvconsolidado2026')
+                ->table('stock')
+                ->where('CODIGO', 'like', '6C%')
+                // En el código de producto, la posición 5 es calidad
+                // y las posiciones 6-9 corresponden al formato de 4 caracteres.
+                ->whereRaw('UPPER(SUBSTRING(CODIGO,6,4)) = ?', [$formato])
+                ->when($q !== '', function ($query) use ($q) {
+                    $query->where(function ($sub) use ($q) {
+                        $sub->where('CODIGO', 'like', '%' . $q . '%')
+                            ->orWhere('DESCRIP', 'like', '%' . $q . '%')
+                            ->orWhere('DESCRIP1', 'like', '%' . $q . '%')
+                            ->orWhere('DESCRIP2', 'like', '%' . $q . '%');
+                    });
+                })
+                ->select('CODIGO', 'DESCRIP', 'DESCRIP1', 'DESCRIP2')
+                ->orderBy('CODIGO')
+                ->limit(30)
+                ->get();
 
-        return response()->json([
-            'results' => $productos->map(function ($p) {
-                $calidades = [
-                    '1' => 'EXTRA',
-                    '2' => 'COMERCIAL',
-                    '3' => 'ECONOMICO',
-                ];
+            return response()->json([
+                'results' => $productos->map(function ($p) {
+                    $calidades = [
+                        '1' => 'EXTRA',
+                        '2' => 'COMERCIAL',
+                        '3' => 'ECONOMICO',
+                        'X' => 'OTRO',
+                    ];
 
-                return [
-                    'id' => $p->CODIGO,
-                    'text' => trim($p->CODIGO . ' · ' . $p->DESCRIP . ' ' . $p->DESCRIP1),
-                    'codigo' => $p->CODIGO,
-                    'descripcion' => trim((string) $p->DESCRIP . ' ' . (string) $p->DESCRIP1),
-                    'descripcion2' => trim((string) $p->DESCRIP2),
-                    'modelo' => substr($p->CODIGO, -4),
-                    'calidad' => $calidades[substr($p->CODIGO, 4, 1)] ?? 'OTRO',
-                ];
-            }),
-        ]);
+                    $codigo = strtoupper(trim((string) $p->CODIGO));
+
+                    return [
+                        'id' => $codigo,
+                        'text' => trim($codigo . ' · ' . (string) $p->DESCRIP . ' ' . (string) $p->DESCRIP1),
+                        'codigo' => $codigo,
+                        'descripcion' => trim((string) $p->DESCRIP . ' ' . (string) $p->DESCRIP1),
+                        'descripcion2' => trim((string) $p->DESCRIP2),
+                        'modelo' => substr($codigo, -4),
+                        'calidad' => $calidades[substr($codigo, 4, 1)] ?? 'OTRO',
+                    ];
+                }),
+            ]);
+        } catch (Throwable $e) {
+            Log::error('Error buscando productos para liberación RG-CB-36', [
+                'usuario_id' => auth()->id(),
+                'q' => $q,
+                'formato' => $formato,
+                'exception' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'results' => [],
+                'message' => 'No fue posible consultar el catálogo de productos. Revise la conexión al maestro de inventario.',
+            ], 500);
+        }
     }
 
     public function store(Request $request)
