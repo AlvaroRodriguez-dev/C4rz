@@ -53,7 +53,7 @@
                                 <th class="text-right p-3">Declarado</th>
                                 <th class="text-right p-3">Físico</th>
                                 <th class="text-left p-3">Estado</th>
-                                <th class="p-3"></th>
+                                <th class="text-right p-3">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="tabla"></tbody>
@@ -65,8 +65,10 @@
     </div>
 
     <script>
-        const routeBuscar = "{{ route('wms.produccion.verificacion.buscar') }}";
+        const routeBuscar = "{{ route('wms.produccion.liberacion.buscar') }}";
+        const routePdf = "{{ url('wms/produccion-liberacion/pdf') }}";
         const routeDetalle = "{{ url('wms/produccion-verificacion') }}";
+        const puedeVerificar = @json(auth()->user()->can('wms.produccion.verificar'));
 
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('btnBuscar').addEventListener('click', () => cargar(1));
@@ -114,6 +116,13 @@
         }
 
         function fila(item) {
+            const pdf = '<a class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold mr-2" ' +
+                'href="' + routePdf + '/' + item.id + '" target="_blank" rel="noopener">PDF</a>';
+
+            const verificar = puedeVerificar
+                ? '<a class="text-blue-600 font-semibold" href="' + routeDetalle + '/' + item.id + '">VER</a>'
+                : '';
+
             return '<tr class="border-t hover:bg-gray-50">' +
                 '<td class="p-3 font-mono font-semibold">' + (item.documento ?? '—') + '</td>' +
                 '<td class="p-3">' + (item.origen ?? '—') + '</td>' +
@@ -121,7 +130,7 @@
                 '<td class="p-3 text-right">' + item.total_declarado + '</td>' +
                 '<td class="p-3 text-right">' + item.total_fisico + '</td>' +
                 '<td class="p-3"><span class="px-2 py-1 rounded-full text-xs font-semibold ' + claseEstado(item.estado) + '">' + item.estado + '</span></td>' +
-                '<td class="p-3 text-right"><a class="text-blue-600 font-semibold" href="' + routeDetalle + '/' + item.id + '">VER</a></td>' +
+                '<td class="p-3 text-right whitespace-nowrap">' + pdf + verificar + '</td>' +
                 '</tr>';
         }
 
