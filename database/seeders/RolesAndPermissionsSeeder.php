@@ -27,6 +27,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'wms.inventario',
             'wms.kardex',
             'wms.configurar',
+            'wms.produccion.liberar',
             'wms.produccion.verificar',
         ];
 
