@@ -12,7 +12,13 @@ return new class extends Migration
         // documento_id debe almacenar el identificador documental WMS
         // (ej.: A010202609004), no el id interno autoincremental de wms_documentos.
         $foreignKey = DB::selectOne(
-            "SELECT CONSTRAINT_NAME\n             FROM information_schema.KEY_COLUMN_USAGE\n             WHERE TABLE_SCHEMA = DATABASE()\n               AND TABLE_NAME = 'wms_entregas_produccion'\n               AND COLUMN_NAME = 'documento_id'\n               AND REFERENCED_TABLE_NAME = 'wms_documentos'\n             LIMIT 1"
+            "SELECT CONSTRAINT_NAME
+             FROM information_schema.KEY_COLUMN_USAGE
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = 'wms_entregas_produccion'
+               AND COLUMN_NAME = 'documento_id'
+               AND REFERENCED_TABLE_NAME = 'wms_documentos'
+             LIMIT 1"
         );
 
         if ($foreignKey) {
@@ -28,10 +34,23 @@ return new class extends Migration
 
         // Migra los valores históricos que todavía contengan el id interno.
         DB::statement(
-            "UPDATE wms_entregas_produccion e\n             INNER JOIN wms_documentos d ON d.id = CAST(e.documento_id AS UNSIGNED)\n             SET e.documento_id = d.id_documento\n             WHERE e.documento_id IS NOT NULL\n               AND e.documento_id REGEXP '^[0-9]+$'"
+            "UPDATE wms_entregas_produccion e
+             INNER JOIN wms_documentos d ON d.id = CAST(e.documento_id AS UNSIGNED)
+             SET e.documento_id = d.id_documento
+             WHERE e.documento_id IS NOT NULL
+               AND e.documento_id REGEXP '^[0-9]+$'"
         );
 
-        if (!Schema::hasIndex('wms_entregas_produccion', 'wms_entregas_produccion_documento_id_index')) {
+        $indexExists = DB::selectOne(
+            "SELECT 1
+             FROM information_schema.STATISTICS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = 'wms_entregas_produccion'
+               AND INDEX_NAME = 'wms_entregas_produccion_documento_id_index'
+             LIMIT 1"
+        );
+
+        if (!$indexExists) {
             Schema::table('wms_entregas_produccion', function (Blueprint $table) {
                 $table->index('documento_id');
             });
@@ -46,7 +65,9 @@ return new class extends Migration
 
         // La reversión vuelve a almacenar el id interno del documento.
         DB::statement(
-            "UPDATE wms_entregas_produccion e\n             INNER JOIN wms_documentos d ON d.id_documento = e.documento_id\n             SET e.documento_id = d.id"
+            "UPDATE wms_entregas_produccion e
+             INNER JOIN wms_documentos d ON d.id_documento = e.documento_id
+             SET e.documento_id = d.id"
         );
 
         DB::statement(
