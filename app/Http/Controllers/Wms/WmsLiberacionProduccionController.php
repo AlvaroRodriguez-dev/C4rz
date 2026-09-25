@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
-Throwable;
+use Throwable;
 
 class WmsLiberacionProduccionController extends Controller
 {
@@ -41,8 +41,6 @@ class WmsLiberacionProduccionController extends Controller
             $productos = DB::connection('sisinvconsolidado2026')
                 ->table('stock')
                 ->where('CODIGO', 'like', '6C%')
-                // En el código de producto, la posición 5 es calidad
-                // y las posiciones 6-9 corresponden al formato de 4 caracteres.
                 ->whereRaw('UPPER(SUBSTRING(CODIGO,6,4)) = ?', [$formato])
                 ->when($q !== '', function ($query) use ($q) {
                     $query->where(function ($sub) use ($q) {
