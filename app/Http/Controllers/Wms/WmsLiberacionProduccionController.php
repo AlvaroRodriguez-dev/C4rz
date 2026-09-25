@@ -11,7 +11,11 @@ use RuntimeException;
 class WmsLiberacionProduccionController extends Controller
 {
  public function __construct(private WmsContextService $context,private WmsLiberacionProduccionService $service){}
- public function create(){ $formatos=WmsConfigPallet::query()->orderBy('codigo')->get(); return view('wms.produccion.liberacion',compact('formatos')); }
+ public function create(){
+  $formatos=WmsConfigPallet::query()->orderBy('codigo')->get();
+  $almacen=$this->context->almacen();
+  return view('wms.produccion.liberacion',compact('formatos','almacen'));
+ }
  public function buscarProductos(Request $request){
   $q=trim((string)$request->get('q'));$formato=strtoupper(trim((string)$request->get('formato')));
   if($formato==='') return response()->json(['results'=>[]]);
@@ -34,7 +38,7 @@ class WmsLiberacionProduccionController extends Controller
    'lineas.*.cantidad'=>['required','integer','min:1'],'lineas.*.tono'=>['nullable','integer','min:0','max:999'],
    'lineas.*.calibre'=>['nullable','integer','min:0','max:99']
   ]);
-  try{$entrega=$this->service->crear($this->context->almacen(),$data);return response()->json([
+  try{$entrega=$this->service->crear($data);return response()->json([
    'ok'=>true,'message'=>'Liberación RG-CB-36 creada correctamente.',
    'redirect'=>route('wms.produccion.verificacion.show',$entrega),'documento'=>$entrega->documento?->id_documento,'total'=>$entrega->total_declarado
   ]);}catch(RuntimeException $e){return response()->json(['message'=>$e->getMessage()],422);}
