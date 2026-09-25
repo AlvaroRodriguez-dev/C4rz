@@ -27,7 +27,7 @@ class WmsLiberacionProduccionController extends Controller
     public function create(Request $request)
     {
         if (!$request->boolean('nuevo')) {
-            return redirect()->route('wms.produccion.liberacion.create');
+            return view('wms.produccion.liberacion-index');
         }
 
         $formatos = WmsConfigPallet::query()->orderBy('codigo')->get();
