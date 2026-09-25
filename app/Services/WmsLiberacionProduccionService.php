@@ -34,7 +34,9 @@ class WmsLiberacionProduccionService
             $stocks = DB::connection('sisinvconsolidado2026')
                 ->table('stock')
                 ->whereIn('CODIGO', $codigos->all())
-                ->select('CODIGO', 'DESCRIP', 'DESCRIP1', 'DESCRIP2')
+                // El maestro de inventario actual solo dispone de DESCRIP y DESCRIP1.
+                // descripcion2 en WMS queda NULL hasta definir su fuente oficial.
+                ->select('CODIGO', 'DESCRIP', 'DESCRIP1')
                 ->get()
                 ->keyBy(fn ($stock) => strtoupper(trim($stock->CODIGO)));
 
@@ -119,7 +121,7 @@ class WmsLiberacionProduccionService
                     'orden' => $orden++,
                     'codigo' => $codigo,
                     'descripcion' => trim((string) $stock->DESCRIP . ' ' . (string) $stock->DESCRIP1),
-                    'descripcion2' => trim((string) $stock->DESCRIP2),
+                    'descripcion2' => null,
                     'calidad' => $calidad,
                     'modelo' => substr($codigo, -4),
                     'formato' => $formatoCodigo,
