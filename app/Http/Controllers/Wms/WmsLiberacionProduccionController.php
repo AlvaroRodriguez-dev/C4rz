@@ -46,11 +46,13 @@ class WmsLiberacionProduccionController extends Controller
                     $query->where(function ($sub) use ($q) {
                         $sub->where('CODIGO', 'like', '%' . $q . '%')
                             ->orWhere('DESCRIP', 'like', '%' . $q . '%')
-                            ->orWhere('DESCRIP1', 'like', '%' . $q . '%')
-                            ->orWhere('DESCRIP2', 'like', '%' . $q . '%');
+                            ->orWhere('DESCRIP1', 'like', '%' . $q . '%');
                     });
                 })
-                ->select('CODIGO', 'DESCRIP', 'DESCRIP1', 'DESCRIP2')
+                // El maestro de inventario actual no dispone de DESCRIP2.
+                // Se conserva el campo descripcion2 en WMS, pero por ahora se
+                // deja NULL hasta definir su fuente oficial.
+                ->select('CODIGO', 'DESCRIP', 'DESCRIP1')
                 ->orderBy('CODIGO')
                 ->limit(30)
                 ->get();
@@ -71,7 +73,7 @@ class WmsLiberacionProduccionController extends Controller
                         'text' => trim($codigo . ' · ' . (string) $p->DESCRIP . ' ' . (string) $p->DESCRIP1),
                         'codigo' => $codigo,
                         'descripcion' => trim((string) $p->DESCRIP . ' ' . (string) $p->DESCRIP1),
-                        'descripcion2' => trim((string) $p->DESCRIP2),
+                        'descripcion2' => null,
                         'modelo' => substr($codigo, -4),
                         'calidad' => $calidades[substr($codigo, 4, 1)] ?? 'OTRO',
                     ];
