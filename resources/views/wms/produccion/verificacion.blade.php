@@ -14,7 +14,7 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
                         <input id="search" type="search"
-                               placeholder="Documento WMS, folio u origen..."
+                               placeholder="Documento WMS u origen..."
                                class="w-full border-gray-300 rounded-lg">
                     </div>
                     <div>
