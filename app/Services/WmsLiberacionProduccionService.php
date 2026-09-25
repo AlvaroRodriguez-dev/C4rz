@@ -34,8 +34,6 @@ class WmsLiberacionProduccionService
             $stocks = DB::connection('sisinvconsolidado2026')
                 ->table('stock')
                 ->whereIn('CODIGO', $codigos->all())
-                // El maestro de inventario actual solo dispone de DESCRIP y DESCRIP1.
-                // descripcion2 en WMS queda NULL hasta definir su fuente oficial.
                 ->select('CODIGO', 'DESCRIP', 'DESCRIP1')
                 ->get()
                 ->keyBy(fn ($stock) => strtoupper(trim($stock->CODIGO)));
@@ -60,7 +58,9 @@ class WmsLiberacionProduccionService
             );
 
             $entrega = WmsEntregaProduccion::create([
-                'documento_id' => $documento->id,
+                // Seguimiento documental: se almacena el código WMS (ej. A010202609004),
+                // no el id interno autoincremental de wms_documentos.
+                'documento_id' => $documento->id_documento,
                 'folio_fisico' => $data['folio_fisico'] ?? null,
                 'almacen_id' => $almacen->id,
                 'planta' => $almacen->nombre,
