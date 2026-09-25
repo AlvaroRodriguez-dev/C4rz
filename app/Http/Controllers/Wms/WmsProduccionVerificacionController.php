@@ -8,7 +8,6 @@ use App\Models\WmsEntregaProduccion;
 use App\Services\WmsConciliacionService;
 use App\Services\WmsContextService;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 class WmsProduccionVerificacionController extends Controller
@@ -69,6 +68,7 @@ class WmsProduccionVerificacionController extends Controller
 
     public function show(WmsEntregaProduccion $entrega)
     {
+        $this->validarPermisoEjecucion();
         $this->validarAlmacen($entrega);
 
         $entrega->load(['documento.tipo', 'almacen', 'detalles', 'verificadoPor']);
@@ -78,6 +78,7 @@ class WmsProduccionVerificacionController extends Controller
 
     public function iniciar(WmsEntregaProduccion $entrega)
     {
+        $this->validarPermisoEjecucion();
         $this->validarAlmacen($entrega);
 
         try {
@@ -95,6 +96,8 @@ class WmsProduccionVerificacionController extends Controller
 
     public function cantidad(Request $request, WmsEntregaDetalle $detalle)
     {
+        $this->validarPermisoEjecucion();
+
         $entrega = $detalle->entrega;
         $this->validarAlmacen($entrega);
 
@@ -119,6 +122,7 @@ class WmsProduccionVerificacionController extends Controller
 
     public function conciliar(WmsEntregaProduccion $entrega)
     {
+        $this->validarPermisoEjecucion();
         $this->validarAlmacen($entrega);
 
         try {
@@ -134,6 +138,11 @@ class WmsProduccionVerificacionController extends Controller
         } catch (RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
+    }
+
+    private function validarPermisoEjecucion(): void
+    {
+        abort_unless(auth()->user()->can('wms.produccion.verificar.ejecutar'), 403);
     }
 
     private function validarAlmacen(WmsEntregaProduccion $entrega): void
