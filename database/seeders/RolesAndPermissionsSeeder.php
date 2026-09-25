@@ -31,6 +31,13 @@ class RolesAndPermissionsSeeder extends Seeder
             'wms.produccion.verificar',
         ];
 
+        // Permiso separado para ejecutar la verificación física.
+        // No se asigna automáticamente a WMS-ALMACEN para permitir separar
+        // al usuario que registra la liberación del usuario que verifica.
+        $wmsPermisosVerificacion = [
+            'wms.produccion.verificar.ejecutar',
+        ];
+
         $rrhhPermisos = [
             'rrhh.importar-usb',
             'rrhh.recuperar-datos',
@@ -38,17 +45,18 @@ class RolesAndPermissionsSeeder extends Seeder
             'rrhh.novedades',
         ];
 
-        foreach (array_merge($wmsPermisos, $rrhhPermisos) as $permiso) {
+        foreach (array_merge($wmsPermisos, $wmsPermisosVerificacion, $rrhhPermisos) as $permiso) {
             Permission::firstOrCreate(['name' => $permiso]);
         }
 
         // ================= ROLES =================
 
-        // WMS-ADMIN: todas las opciones de WMS
+        // WMS-ADMIN: todas las opciones de WMS, incluida la ejecución de verificación.
         Role::firstOrCreate(['name' => 'WMS-ADMIN'])
-            ->givePermissionTo($wmsPermisos);
+            ->givePermissionTo(array_merge($wmsPermisos, $wmsPermisosVerificacion));
 
-        // WMS-ALMACEN: todo WMS excepto Ingreso Sin Nota
+        // WMS-ALMACEN: acceso al módulo de producción y liberación,
+        // pero la ejecución de la verificación física se asigna por separado.
         Role::firstOrCreate(['name' => 'WMS-ALMACEN'])
             ->givePermissionTo(
                 collect($wmsPermisos)->reject(fn($p) => $p === 'wms.ingresos.ajuste')->all()
@@ -85,6 +93,6 @@ class RolesAndPermissionsSeeder extends Seeder
 
         // SIS-ADMIN: ve TODO el proyecto sin excepciones (WMS + RRHH + SIS)
         Role::firstOrCreate(['name' => 'SIS-ADMIN'])
-            ->givePermissionTo(array_merge($wmsPermisos, $rrhhPermisos, $sisPermisos));
+            ->givePermissionTo(array_merge($wmsPermisos, $wmsPermisosVerificacion, $rrhhPermisos, $sisPermisos));
     }
 }
