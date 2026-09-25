@@ -42,7 +42,11 @@ class WmsEntregaProduccion extends Model
 
     public function documento(): BelongsTo
     {
-        return $this->belongsTo(WmsDocumento::class, 'documento_id');
+        return $this->belongsTo(
+            WmsDocumento::class,
+            'documento_id',
+            'id_documento'
+        );
     }
 
     public function verificadoPor(): BelongsTo
