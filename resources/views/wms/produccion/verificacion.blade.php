@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">WMS - Verificación de Producción</h2>
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight">WMS - Liberaciones de Producción RG-CB-36</h2>
     </x-slot>
 
     <div class="py-4 px-3 sm:py-6 sm:px-4">
@@ -14,14 +14,14 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
                         <input id="search" type="search"
-                               placeholder="Documento SAS, WMS u origen..."
+                               placeholder="Documento WMS, folio u origen..."
                                class="w-full border-gray-300 rounded-lg">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
                         <select id="estado" class="w-full border-gray-300 rounded-lg">
                             <option value="">Todos</option>
-                            <option value="PENDIENTE_VERIFICACION">Pendiente</option>
+                            <option value="PENDIENTE_VERIFICACION">Pendiente de verificación</option>
                             <option value="EN_VERIFICACION">En verificación</option>
                             <option value="CONCILIADA">Conciliada</option>
                             <option value="CON_DIFERENCIA">Con diferencia</option>
@@ -42,7 +42,7 @@
                         <thead class="bg-gray-100 text-gray-600">
                             <tr>
                                 <th class="text-left p-3">Documento WMS</th>
-                                <th class="text-left p-3">Documento SAS (origen)</th>
+                                <th class="text-left p-3">Folio RG-CB-36</th>
                                 <th class="text-left p-3">Fecha</th>
                                 <th class="text-right p-3">Declarado</th>
                                 <th class="text-right p-3">Físico</th>
@@ -85,7 +85,7 @@
 
             document.getElementById('tabla').innerHTML = data.data.length
                 ? data.data.map(fila).join('')
-                : '<tr><td colspan="7" class="p-6 text-center text-gray-500">No se encontraron entregas.</td></tr>';
+                : '<tr><td colspan="7" class="p-6 text-center text-gray-500">No se encontraron liberaciones.</td></tr>';
 
             document.getElementById('paginacion').innerHTML =
                 data.last_page > 1
@@ -101,8 +101,8 @@
 
         function fila(item) {
             return '<tr class="border-t hover:bg-gray-50">' +
-                '<td class="p-3 font-mono">' + (item.documento ?? '—') + '</td>' +
-                '<td class="p-3 font-mono">' + item.rdocum_sas + '</td>' +
+                '<td class="p-3 font-mono font-semibold">' + (item.documento ?? '—') + '</td>' +
+                '<td class="p-3 font-mono">' + (item.rdocum_sas ?? '—') + '</td>' +
                 '<td class="p-3">' + (item.fecha_entrega ?? '—') + '</td>' +
                 '<td class="p-3 text-right">' + item.total_declarado + '</td>' +
                 '<td class="p-3 text-right">' + item.total_fisico + '</td>' +
