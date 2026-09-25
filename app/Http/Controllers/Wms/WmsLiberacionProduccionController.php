@@ -24,8 +24,12 @@ class WmsLiberacionProduccionController extends Controller
         return view('wms.produccion.liberacion-index');
     }
 
-    public function create()
+    public function create(Request $request)
     {
+        if (!$request->boolean('nuevo')) {
+            return redirect()->route('wms.produccion.liberacion.create');
+        }
+
         $formatos = WmsConfigPallet::query()->orderBy('codigo')->get();
         $almacen = $this->context->almacen();
 
@@ -96,7 +100,7 @@ class WmsLiberacionProduccionController extends Controller
             return response()->json([
                 'ok' => true,
                 'message' => 'Liberación RG-CB-36 creada correctamente.',
-                'redirect' => route('wms.produccion.liberacion.index'),
+                'redirect' => route('wms.produccion.liberacion.create'),
                 'documento' => $entrega->documento?->id_documento,
                 'total' => $entrega->total_declarado,
             ]);
