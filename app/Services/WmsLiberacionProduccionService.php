@@ -10,39 +10,66 @@ use RuntimeException;
 
 class WmsLiberacionProduccionService
 {
+    private const TIPO_DOCUMENTO_LIBERACION_PRODUCCION = 10;
+
     public function __construct(
         private WmsContextService $context,
+        private WmsDocumentoService $documentos,
     ) {
     }
 
     public function crear(array $data): WmsEntregaProduccion
     {
         return DB::transaction(function () use ($data) {
-            /*
-             * El almacén operativo se determina exclusivamente
-             * por el usuario autenticado. No se acepta desde el frontend.
-             */
+            // El almacén operativo se determina exclusivamente por el usuario autenticado.
             $almacen = $this->context->almacen();
-
             $fecha = Carbon::parse($data['fecha_entrega']);
-
             $usuarioId = auth()->id() ?: null;
 
-            /*
-             * RG-CB-36 es el registro operativo inicial del WMS.
-             * El documento SAS/ERP se generará en una etapa posterior,
-             * después de conciliación, paletización y ubicación.
-             */
+            $codigos = collect($data['lineas'])
+                ->pluck('codigo')
+                ->map(fn ($codigo) => strtoupper(trim((string) $codigo)))
+                ->unique()
+                ->values();
+
+            $stocks = DB::connection('sisinvconsolidado2026')
+                ->table('stock')
+                ->whereIn('CODIGO', $codigos->all())
+                ->select('CODIGO', 'DESCRIP', 'DESCRIP1', 'DESCRIP2')
+                ->get()
+                ->keyBy(fn ($stock) => strtoupper(trim($stock->CODIGO)));
+
+            if ($stocks->count() !== $codigos->count()) {
+                $faltantes = $codigos
+                    ->reject(fn ($codigo) => $stocks->has($codigo))
+                    ->implode(', ');
+
+                throw new RuntimeException(
+                    'Uno o más productos no existen en el maestro de stock: ' . $faltantes
+                );
+            }
+
+            // El documento WMS se genera al emitir el RG-CB-36.
+            // La nota/rdocum oficial del SAS se generará posteriormente,
+            // después de conciliación, paletización y ubicación.
+            $documento = $this->documentos->generar(
+                $almacen,
+                self::TIPO_DOCUMENTO_LIBERACION_PRODUCCION,
+                $fecha
+            );
+
             $entrega = WmsEntregaProduccion::create([
-                'documento_id' => null,
+                'documento_id' => $documento->id,
                 'folio_fisico' => $data['folio_fisico'] ?? null,
                 'almacen_id' => $almacen->id,
-                'planta' => $data['planta'],
+                // Se conserva el campo para futuras etapas; no se solicita al usuario.
+                'planta' => $almacen->nombre,
                 'formato' => $data['formato'],
                 'fecha_entrega' => $fecha->toDateString(),
                 'fecha_recepcion' => null,
-                'origen' => $data['planta'],
-                'turno_hora' => $data['turno_hora'] ?? null,
+                'origen' => 'RG-CB-36',
+                // Se conserva para una futura captura del paso anterior de Producción.
+                'turno_hora' => null,
                 'total_declarado' => 0,
                 'total_fisico' => 0,
                 'estado' => 'PENDIENTE_VERIFICACION',
@@ -59,21 +86,16 @@ class WmsLiberacionProduccionService
 
             foreach ($data['lineas'] as $linea) {
                 $codigo = strtoupper(trim($linea['codigo']));
-                $calidad = strtoupper(trim($linea['calidad']));
-                $cantidad = (int) $linea['cantidad'];
+                $stock = $stocks->get($codigo);
 
                 $calidades = [
                     '1' => 'EXTRA',
                     '2' => 'COMERCIAL',
                     '3' => 'ECONOMICO',
+                    'X' => 'OTRO',
                 ];
-
-                if (($calidades[substr($codigo, 4, 1)] ?? null) !== $calidad) {
-                    throw new RuntimeException(
-                        'El producto ' . $codigo . ' no corresponde a la calidad ' . $calidad . '.'
-                    );
-                }
-
+                $calidad = $calidades[strtoupper(substr($codigo, 4, 1))] ?? 'OTRO';
+                $cantidad = (int) $linea['cantidad'];
                 $formatoCodigo = substr($codigo, 5, 4);
 
                 if (strtoupper($formatoCodigo) !== strtoupper($data['formato'])) {
@@ -82,28 +104,31 @@ class WmsLiberacionProduccionService
                     );
                 }
 
+                $tono = $linea['tono'] ?? null;
+                $calibre = $linea['calibre'] ?? null;
+
                 $lote = $this->generarLote(
                     $fecha,
                     $calidad,
-                    $linea['tono'] ?? null,
-                    $linea['calibre'] ?? null
+                    $tono,
+                    $calibre
                 );
 
                 WmsEntregaDetalle::create([
                     'entrega_id' => $entrega->id,
                     'orden' => $orden++,
                     'codigo' => $codigo,
-                    'descripcion' => $linea['descripcion'] ?? null,
-                    'descripcion2' => null,
+                    'descripcion' => trim((string) $stock->DESCRIP . ' ' . (string) $stock->DESCRIP1),
+                    'descripcion2' => trim((string) $stock->DESCRIP2),
                     'calidad' => $calidad,
-                    'modelo' => $linea['modelo'] ?? substr($codigo, -4),
+                    'modelo' => substr($codigo, -4),
                     'formato' => $formatoCodigo,
                     'lote' => $lote,
                     'cantidad_declarada' => $cantidad,
                     'cantidad_fisica' => null,
                     'cantidad_paletizada' => 0,
-                    'tono' => $calidad === 'EXTRA' ? ($linea['tono'] ?? null) : null,
-                    'calibre' => $calidad === 'EXTRA' ? ($linea['calibre'] ?? null) : null,
+                    'tono' => $calidad === 'EXTRA' ? $tono : null,
+                    'calibre' => $calidad === 'EXTRA' ? $calibre : null,
                     'estado' => 'PENDIENTE',
                     'observacion' => null,
                 ]);
@@ -116,6 +141,7 @@ class WmsLiberacionProduccionService
             ]);
 
             return $entrega->fresh([
+                'documento',
                 'almacen',
                 'detalles',
             ]);
