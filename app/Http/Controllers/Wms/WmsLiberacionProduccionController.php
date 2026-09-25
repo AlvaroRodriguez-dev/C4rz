@@ -19,6 +19,11 @@ class WmsLiberacionProduccionController extends Controller
     ) {
     }
 
+    public function index()
+    {
+        return view('wms.produccion.liberacion-index');
+    }
+
     public function create()
     {
         $formatos = WmsConfigPallet::query()->orderBy('codigo')->get();
@@ -91,7 +96,7 @@ class WmsLiberacionProduccionController extends Controller
             return response()->json([
                 'ok' => true,
                 'message' => 'Liberación RG-CB-36 creada correctamente.',
-                'redirect' => route('wms.produccion.verificacion.index'),
+                'redirect' => route('wms.produccion.liberacion.index'),
                 'documento' => $entrega->documento?->id_documento,
                 'total' => $entrega->total_declarado,
             ]);
