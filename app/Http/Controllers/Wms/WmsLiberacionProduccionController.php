@@ -35,7 +35,7 @@ class WmsLiberacionProduccionController extends Controller
    'lineas.*.calibre'=>['nullable','integer','min:0','max:99']
   ]);
   try{$entrega=$this->service->crear($this->context->almacen(),$data);return response()->json([
-   'ok'=>true,'message'=>'Liberación '.$entrega->documento?->id_documento.' creada correctamente.',
+   'ok'=>true,'message'=>'Liberación RG-CB-36 creada correctamente.',
    'redirect'=>route('wms.produccion.verificacion.show',$entrega),'documento'=>$entrega->documento?->id_documento,'total'=>$entrega->total_declarado
   ]);}catch(RuntimeException $e){return response()->json(['message'=>$e->getMessage()],422);}
  }
