@@ -49,8 +49,6 @@ class WmsDocumentoService
             $mes = (int) $fecha->format('m');
             $ahora = now();
 
-            // Inicializamos la secuencia una sola vez. La restricción única
-            // evita duplicar la combinación de almacén/tipo/talonario/año/mes.
             DB::table('wms_documento_correlativos')->insertOrIgnore([
                 'almacen_id' => $almacen->id,
                 'id_tipo_registro' => $tipo->id,
@@ -62,8 +60,6 @@ class WmsDocumentoService
                 'updated_at' => $ahora,
             ]);
 
-            // El lock protege el incremento cuando varios usuarios generan
-            // documentos simultáneamente para la misma secuencia.
             $correlativo = DB::table('wms_documento_correlativos')
                 ->where('almacen_id', $almacen->id)
                 ->where('id_tipo_registro', $tipo->id)
@@ -88,9 +84,12 @@ class WmsDocumentoService
                     'updated_at' => $ahora,
                 ]);
 
+            // Estructura: PREFIJO + TALONARIO + TIPO + AÑO + MES + CORRELATIVO.
+            // Ej.: A + 0 + 10 + 2026 + 09 + 001 = A010202609001.
             $codigo = sprintf(
-                '%s%s%s%02d%03d',
+                '%s%s%s%s%02d%03d',
                 $prefijo,
+                $talonario,
                 $tipo->codigo,
                 $fecha->format('Y'),
                 $mes,
