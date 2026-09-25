@@ -42,7 +42,7 @@
                         <thead class="bg-gray-100 text-gray-600">
                             <tr>
                                 <th class="text-left p-3">Documento WMS</th>
-                                <th class="text-left p-3">Folio RG-CB-36</th>
+                                <th class="text-left p-3">Origen</th>
                                 <th class="text-left p-3">Fecha</th>
                                 <th class="text-right p-3">Declarado</th>
                                 <th class="text-right p-3">Físico</th>
@@ -102,7 +102,7 @@
         function fila(item) {
             return '<tr class="border-t hover:bg-gray-50">' +
                 '<td class="p-3 font-mono font-semibold">' + (item.documento ?? '—') + '</td>' +
-                '<td class="p-3 font-mono">' + (item.rdocum_sas ?? '—') + '</td>' +
+                '<td class="p-3">' + (item.origen ?? '—') + '</td>' +
                 '<td class="p-3">' + (item.fecha_entrega ?? '—') + '</td>' +
                 '<td class="p-3 text-right">' + item.total_declarado + '</td>' +
                 '<td class="p-3 text-right">' + item.total_fisico + '</td>' +
