@@ -29,6 +29,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'wms.configurar',
             'wms.produccion.liberar',
             'wms.produccion.verificar',
+            'wms.produccion.paletizar',
         ];
 
         // Permiso separado para ejecutar la verificación física.
