@@ -49,7 +49,6 @@
 
     <script>
         const routeBuscar = "{{ route('wms.produccion.paletizacion.buscar') }}";
-        const routeDetalle = "{{ url('wms/paletizacion') }}";
 
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('btnBuscar').addEventListener('click', () => cargar(1));
@@ -90,7 +89,7 @@
 
         function fila(item) {
             const accion = item.pendiente > 0
-                ? '<a class="inline-flex items-center px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold" href="' + routeDetalle + '/' + item.id + '">PALETIZAR</a>'
+                ? '<span class="inline-flex items-center px-3 py-1.5 rounded-lg bg-gray-200 text-gray-600 text-xs font-semibold" title="La construcción del pallet se habilitará en el siguiente bloque">PALETIZAR</span>'
                 : '<span class="text-xs text-gray-500">COMPLETO</span>';
 
             return '<tr class="border-t hover:bg-gray-50">' +
