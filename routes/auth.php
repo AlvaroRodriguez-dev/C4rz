@@ -10,6 +10,7 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\WelcomeController;
+use App\Http\Controllers\Wms\WmsPaletizacionProduccionController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -60,3 +61,14 @@ Route::middleware('auth')->group(function () {
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');
 });
+
+// WMS - Paletización de producción.
+// Este bloque se encuentra temporalmente aquí porque routes/web.php se mantiene
+// como archivo estable durante el desarrollo incremental del módulo WMS.
+Route::middleware(['auth', 'permission:wms.produccion.paletizar'])
+    ->prefix('wms/paletizacion')
+    ->name('wms.produccion.paletizacion.')
+    ->group(function () {
+        Route::get('/', [WmsPaletizacionProduccionController::class, 'index'])->name('index');
+        Route::get('/buscar', [WmsPaletizacionProduccionController::class, 'buscar'])->name('buscar');
+    });
