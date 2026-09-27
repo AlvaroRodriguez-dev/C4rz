@@ -93,16 +93,19 @@ class WmsPaletizacionController extends Controller
         $this->validarAlmacen($entrega);
 
         $validated = $request->validate([
-            'pallets' => ['required', 'array', 'min:1'],
-            'pallets.*.items' => ['required', 'array', 'min:1'],
-            'pallets.*.items.*.entrega_detalle_id' => ['required', 'integer'],
-            'pallets.*.items.*.cantidad' => ['required', 'integer', 'min:1'],
+            'pallets' => ['required', 'string'],
         ]);
+
+        $pallets = json_decode($validated['pallets'], true);
+
+        if (!is_array($pallets)) {
+            return back()->withInput()->with('error', 'La información de paletización no es válida.');
+        }
 
         try {
             $creados = $this->paletizacion->guardar(
                 $entrega,
-                $validated['pallets'],
+                $pallets,
                 (int) auth()->id()
             );
 
