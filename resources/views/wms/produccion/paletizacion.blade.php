@@ -7,16 +7,28 @@
         <div class="max-w-6xl mx-auto">
             <a href="{{ route('wms.index') }}" class="text-sm text-gray-600 inline-flex items-center gap-1 mb-3">&larr; Volver</a>
 
+            @if (session('success'))
+                <div class="mb-4 p-3 rounded-lg text-sm bg-green-100 text-green-800">
+                    {{ session('success') }}
+                </div>
+            @endif
+
+            @if (session('error'))
+                <div class="mb-4 p-3 rounded-lg text-sm bg-red-100 text-red-800">
+                    {{ session('error') }}
+                </div>
+            @endif
+
             <div id="alertBox" class="hidden mb-4 p-3 rounded-lg text-sm"></div>
 
             <div class="bg-white shadow rounded-xl p-4 sm:p-5 mb-4">
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
+                    <div class="sm:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
                         <input id="search" type="search" placeholder="Documento WMS, folio u origen..." class="w-full border-gray-300 rounded-lg">
                     </div>
-                    <div class="sm:col-span-2 flex items-end">
-                        <button id="btnBuscar" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-6 rounded-lg">BUSCAR</button>
+                    <div class="flex items-end">
+                        <button id="btnBuscar" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-6 rounded-lg">BUSCAR</button>
                     </div>
                 </div>
             </div>
@@ -25,6 +37,7 @@
                 <div class="px-4 py-3 border-b bg-gray-50">
                     <p class="text-sm text-gray-600">Aquí aparecen las entregas <strong>CONCILIADAS</strong> del almacén operativo pendientes de paletización.</p>
                 </div>
+
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead class="bg-gray-100 text-gray-600">
@@ -48,7 +61,8 @@
     </div>
 
     <script>
-        const routeBuscar = "{{ route('wms.produccion.paletizacion.buscar') }}";
+        const routeBuscar = "{{ route('wms.paletizacion.buscar') }}";
+        const routeShowBase = "{{ url('/wms/paletizacion') }}";
 
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('btnBuscar').addEventListener('click', () => cargar(1));
@@ -59,47 +73,58 @@
         });
 
         async function cargar(page) {
-            const params = new URLSearchParams({ q: document.getElementById('search').value.trim(), page });
+            const params = new URLSearchParams({
+                q: document.getElementById('search').value.trim(),
+                page
+            });
+
+            ocultarAlerta();
 
             try {
                 const res = await fetch(routeBuscar + '?' + params.toString(), {
                     headers: { 'Accept': 'application/json' }
                 });
+
                 if (!res.ok) throw new Error('No fue posible cargar las entregas pendientes de paletización.');
 
                 const data = await res.json();
-                document.getElementById('tabla').innerHTML = data.data.length
-                    ? data.data.map(fila).join('')
+                const filas = data.data || [];
+
+                document.getElementById('tabla').innerHTML = filas.length
+                    ? filas.map(fila).join('')
                     : '<tr><td colspan="8" class="p-6 text-center text-gray-500">No hay entregas conciliadas pendientes de paletización.</td></tr>';
 
                 document.getElementById('paginacion').innerHTML = data.last_page > 1
-                    ? '<div class="flex justify-between items-center"><button class="px-3 py-2 border rounded-lg disabled:opacity-50" ' +
+                    ? '<div class="flex justify-between items-center">' +
+                      '<button class="px-3 py-2 border rounded-lg disabled:opacity-50" ' +
                       (data.current_page <= 1 ? 'disabled' : '') +
                       ' onclick="cargar(' + (data.current_page - 1) + ')">Anterior</button>' +
                       '<span class="text-sm text-gray-500">Página ' + data.current_page + ' de ' + data.last_page + '</span>' +
                       '<button class="px-3 py-2 border rounded-lg disabled:opacity-50" ' +
                       (data.current_page >= data.last_page ? 'disabled' : '') +
-                      ' onclick="cargar(' + (data.current_page + 1) + ')">Siguiente</button></div>'
+                      ' onclick="cargar(' + (data.current_page + 1) + ')">Siguiente</button>' +
+                      '</div>'
                     : '';
             } catch (error) {
                 console.error(error);
-                mostrarAlerta(error.message);
+                mostrarAlerta(error.message, 'error');
             }
         }
 
         function fila(item) {
+            const estado = item.pendiente > 0 ? 'PENDIENTE_PALETIZAR' : 'PALETIZADA';
             const accion = item.pendiente > 0
-                ? '<span class="inline-flex items-center px-3 py-1.5 rounded-lg bg-gray-200 text-gray-600 text-xs font-semibold" title="La construcción del pallet se habilitará en el siguiente bloque">PALETIZAR</span>'
+                ? '<a href="' + routeShowBase + '/' + item.id + '" class="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold">PALETIZAR</a>'
                 : '<span class="text-xs text-gray-500">COMPLETO</span>';
 
             return '<tr class="border-t hover:bg-gray-50">' +
-                '<td class="p-3 font-mono font-semibold whitespace-nowrap">' + (item.documento ?? '—') + '</td>' +
-                '<td class="p-3">' + (item.folio_fisico ?? '—') + '</td>' +
-                '<td class="p-3 whitespace-nowrap">' + (item.fecha_entrega ?? '—') + '</td>' +
+                '<td class="p-3 font-mono font-semibold whitespace-nowrap">' + escapeHtml(item.documento || '—') + '</td>' +
+                '<td class="p-3">' + escapeHtml(item.folio_fisico || '—') + '</td>' +
+                '<td class="p-3 whitespace-nowrap">' + escapeHtml(item.fecha_entrega || '—') + '</td>' +
                 '<td class="p-3 text-right">' + formatearNumero(item.total_fisico) + '</td>' +
-                '<td class="p-3 text-right">' + formatearNumero(item.total_paletizado) + '</td>' +
+                '<td class="p-3 text-right">' + formatearNumero(item.cantidad_paletizada) + '</td>' +
                 '<td class="p-3 text-right font-semibold">' + formatearNumero(item.pendiente) + '</td>' +
-                '<td class="p-3"><span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">CONCILIADA</span></td>' +
+                '<td class="p-3"><span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">' + estado + '</span></td>' +
                 '<td class="p-3 text-right">' + accion + '</td>' +
                 '</tr>';
         }
@@ -108,11 +133,24 @@
             return new Intl.NumberFormat('es-BO').format(Number(valor || 0));
         }
 
-        function mostrarAlerta(mensaje) {
+        function escapeHtml(valor) {
+            return String(valor ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+        }
+
+        function mostrarAlerta(mensaje, tipo) {
             const box = document.getElementById('alertBox');
-            box.className = 'mb-4 p-3 rounded-lg text-sm bg-red-100 text-red-800';
+            box.className = 'mb-4 p-3 rounded-lg text-sm ' + (tipo === 'error' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800');
             box.textContent = mensaje;
             box.classList.remove('hidden');
+        }
+
+        function ocultarAlerta() {
+            document.getElementById('alertBox').classList.add('hidden');
         }
     </script>
 </x-app-layout>
