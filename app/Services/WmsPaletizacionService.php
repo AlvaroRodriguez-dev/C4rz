@@ -30,8 +30,6 @@ class WmsPaletizacionService
         }
 
         return DB::transaction(function () use ($entrega, $pallets, $userId) {
-            // Bloqueamos los detalles fuente durante toda la operación para evitar
-            // que dos usuarios paleticen simultáneamente la misma cantidad física.
             $detalles = WmsEntregaDetalle::query()
                 ->where('entrega_id', $entrega->id)
                 ->lockForUpdate()
@@ -43,6 +41,10 @@ class WmsPaletizacionService
                 throw new RuntimeException('La entrega no tiene detalle disponible para paletizar.');
             }
 
+            // Acumulamos lo solicitado por detalle entre todos los pallets de esta operación.
+            // Así evitamos que dos pallets consuman más cantidad de la que realmente queda pendiente.
+            $solicitadoPorDetalle = [];
+
             foreach ($pallets as $index => $pallet) {
                 $items = collect($pallet['items'] ?? []);
 
@@ -50,8 +52,13 @@ class WmsPaletizacionService
                     throw new RuntimeException('El pallet #' . ($index + 1) . ' no tiene productos.');
                 }
 
+                $ids = $items->map(fn ($item) => (int) ($item['entrega_detalle_id'] ?? 0));
+                if ($ids->duplicates()->isNotEmpty()) {
+                    throw new RuntimeException('El pallet #' . ($index + 1) . ' contiene el mismo producto/lote más de una vez.');
+                }
+
                 $formatos = $items->map(function ($item) use ($disponibles) {
-                    $detalle = $disponibles->get((int) $item['entrega_detalle_id']);
+                    $detalle = $disponibles->get((int) ($item['entrega_detalle_id'] ?? 0));
 
                     if (!$detalle) {
                         throw new RuntimeException('Existe un detalle de producción que no pertenece a esta entrega.');
@@ -74,22 +81,24 @@ class WmsPaletizacionService
                 $total = 0;
 
                 foreach ($items as $item) {
-                    $detalle = $disponibles->get((int) $item['entrega_detalle_id']);
+                    $detalleId = (int) $item['entrega_detalle_id'];
+                    $detalle = $disponibles->get($detalleId);
                     $cantidad = (int) $item['cantidad'];
 
                     if ($cantidad < 1) {
                         throw new RuntimeException('Las cantidades de paletización deben ser mayores a cero.');
                     }
 
+                    $solicitadoPorDetalle[$detalleId] = ($solicitadoPorDetalle[$detalleId] ?? 0) + $cantidad;
+                    $total += $cantidad;
+
                     $pendiente = (int) $detalle['cantidad_pendiente'];
-                    if ($cantidad > $pendiente) {
+                    if ($solicitadoPorDetalle[$detalleId] > $pendiente) {
                         throw new RuntimeException("La cantidad solicitada para {$detalle['codigo']} lote {$detalle['lote']} supera la cantidad pendiente ({$pendiente}).");
                     }
-
-                    $total += $cantidad;
                 }
 
-                if ($total > $capacidad) {
+                if ($total > (int) $capacidad) {
                     throw new RuntimeException("El pallet del formato {$formato} supera la capacidad de {$capacidad} cajas (intentado: {$total}).");
                 }
             }
@@ -135,8 +144,6 @@ class WmsPaletizacionService
                     ]);
 
                     $detalles->firstWhere('id', $detalle['id'])?->increment('cantidad_paletizada', $cantidad);
-                    $disponibles[$detalle['id']]['cantidad_paletizada'] += $cantidad;
-                    $disponibles[$detalle['id']]['cantidad_pendiente'] -= $cantidad;
                 }
 
                 $creados[] = [
