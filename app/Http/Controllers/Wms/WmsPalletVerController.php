@@ -18,6 +18,10 @@ class WmsPalletVerController extends Controller
 
     public function index(Request $request)
     {
+        if ($request->get('modo') === 'historico') {
+            return view('wms.pallet-ver.index');
+        }
+
         $buscar = trim((string) $request->get('buscar'));
         $estado = trim((string) $request->get('estado'));
 
