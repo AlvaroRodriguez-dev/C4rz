@@ -35,7 +35,7 @@
 
             <div class="bg-white shadow rounded-xl overflow-hidden">
                 <div class="px-4 py-3 border-b bg-gray-50">
-                    <p class="text-sm text-gray-600">Aquí aparecen las entregas <strong>CONCILIADAS</strong> del almacén operativo pendientes de paletización.</p>
+                    <p class="text-sm text-gray-600">Aquí aparecen las entregas <strong>CONCILIADAS</strong> y <strong>CON_DIFERENCIA</strong> del almacén operativo pendientes de paletización.</p>
                 </div>
 
                 <div class="overflow-x-auto">
@@ -92,7 +92,7 @@
 
                 document.getElementById('tabla').innerHTML = filas.length
                     ? filas.map(fila).join('')
-                    : '<tr><td colspan="8" class="p-6 text-center text-gray-500">No hay entregas conciliadas pendientes de paletización.</td></tr>';
+                    : '<tr><td colspan="8" class="p-6 text-center text-gray-500">No hay entregas conciliadas o con diferencia pendientes de paletización.</td></tr>';
 
                 document.getElementById('paginacion').innerHTML = data.last_page > 1
                     ? '<div class="flex justify-between items-center">' +
@@ -112,7 +112,10 @@
         }
 
         function fila(item) {
-            const estado = item.pendiente > 0 ? 'PENDIENTE_PALETIZAR' : 'PALETIZADA';
+            const estado = item.estado || (item.pendiente > 0 ? 'PENDIENTE_PALETIZAR' : 'PALETIZADA');
+            const estadoClase = estado === 'CON_DIFERENCIA'
+                ? 'bg-yellow-100 text-yellow-800'
+                : 'bg-green-100 text-green-800';
             const accion = item.pendiente > 0
                 ? '<a href="' + routeShowBase + '/' + item.id + '" class="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold">PALETIZAR</a>'
                 : '<span class="text-xs text-gray-500">COMPLETO</span>';
@@ -124,7 +127,7 @@
                 '<td class="p-3 text-right">' + formatearNumero(item.total_fisico) + '</td>' +
                 '<td class="p-3 text-right">' + formatearNumero(item.cantidad_paletizada) + '</td>' +
                 '<td class="p-3 text-right font-semibold">' + formatearNumero(item.pendiente) + '</td>' +
-                '<td class="p-3"><span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">' + estado + '</span></td>' +
+                '<td class="p-3"><span class="px-2 py-1 rounded-full text-xs font-semibold ' + estadoClase + '">' + escapeHtml(estado) + '</span></td>' +
                 '<td class="p-3 text-right">' + accion + '</td>' +
                 '</tr>';
         }
