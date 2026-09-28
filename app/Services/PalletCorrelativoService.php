@@ -76,38 +76,33 @@ class PalletCorrelativoService
             return $registro;
         }
 
-        $registro = WmsPalletCorrelativo::create([
+        // El registro histórico del almacén 110 ya contiene el correlativo real
+        // desde el cual debe continuar la numeración (3192 -> 3193).
+        // Para un almacén/año que todavía no tenga historial, iniciamos en 0.
+        // Así cada almacén mantiene su propia secuencia independiente.
+        DB::table('wms_pallet_correlativos')->insertOrIgnore([
             'almacen_id' => $almacen->id,
             'anio' => $anio,
-            'correlativo' => $this->extraerCorrelativoBase($almacen),
+            'correlativo' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         return WmsPalletCorrelativo::query()
-            ->whereKey($registro->id)
+            ->where('almacen_id', $almacen->id)
+            ->where('anio', $anio)
             ->lockForUpdate()
             ->firstOrFail();
     }
 
-    /**
-     * Conservamos la compatibilidad del valor inicial existente.
-     * La configuración histórica puede seguir proporcionando la base
-     * cuando no exista todavía un correlativo para el almacén/año.
-     */
-    private function extraerCorrelativoBase(WmsAlmacen $almacen): int
+    private function formatear(WmsAlmacen $almacen, string $anio, int $correlativo): string
     {
-        $palletInicio = (string) config('wms.pallet_inicio');
-
-        if ($palletInicio === '') {
+        if ($correlativo > 9999) {
             throw new RuntimeException(
-                "No existe configuración de pallet inicial para el almacén {$almacen->codigo}."
+                "El correlativo de pallets del almacén {$almacen->codigo} superó el límite de 4 dígitos."
             );
         }
 
-        return (int) substr($palletInicio, -5);
-    }
-
-    private function formatear(WmsAlmacen $almacen, string $anio, int $correlativo): string
-    {
         return sprintf(
             '%s-%s%04d',
             $almacen->codigo,
