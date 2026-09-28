@@ -39,6 +39,7 @@ use App\Http\Controllers\Wms\WmsSalidaVerController;
 use App\Http\Controllers\Wms\WmsTicketLoteController;
 use App\Http\Controllers\Wms\WmsProduccionVerificacionController;
 use App\Http\Controllers\Wms\WmsLiberacionProduccionController;
+use App\Http\Controllers\Wms\WmsPaletizacionController;
 
 
 Route::get('/', [WelcomeController::class, 'index'])->name('welcome');
@@ -175,7 +176,17 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
         Route::post('/', [WmsLiberacionProduccionController::class, 'store'])->name('store');
     });
 
-    Route::middleware(['permission:wms.produccion.paletizar'])->prefix('paletizacion')->name('paletizacion.')->group(function () {\n        Route::get('/', [WmsPaletizacionController::class, 'index'])->name('index');\n        Route::get('/buscar', [WmsPaletizacionController::class, 'buscar'])->name('buscar');\n        Route::get('/{entrega}', [WmsPaletizacionController::class, 'show'])->name('show');\n        Route::post('/{entrega}', [WmsPaletizacionController::class, 'store'])->name('store');\n    });\n\n    Route::middleware(['permission:wms.produccion.verificar'])->prefix('produccion-verificacion')->name('produccion.verificacion.')->group(function () {
+    Route::middleware(['permission:wms.produccion.paletizar'])
+        ->prefix('paletizacion')
+        ->name('paletizacion.')
+        ->group(function () {
+            Route::get('/', [WmsPaletizacionController::class, 'index'])->name('index');
+            Route::get('/buscar', [WmsPaletizacionController::class, 'buscar'])->name('buscar');
+            Route::get('/{entrega}', [WmsPaletizacionController::class, 'show'])->name('show');
+            Route::post('/{entrega}', [WmsPaletizacionController::class, 'store'])->name('store');
+        });
+
+    Route::middleware(['permission:wms.produccion.verificar'])->prefix('produccion-verificacion')->name('produccion.verificacion.')->group(function () {
         Route::get('/', [WmsProduccionVerificacionController::class, 'index'])->name('index');
         Route::get('/buscar', [WmsProduccionVerificacionController::class, 'buscar'])->name('buscar');
         Route::get('/{entrega}', [WmsProduccionVerificacionController::class, 'show'])->name('show');
