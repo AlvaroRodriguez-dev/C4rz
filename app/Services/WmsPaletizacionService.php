@@ -169,6 +169,23 @@ class WmsPaletizacionService
                 ];
             }
 
+            // La entrega cambia a PALETIZADA solamente cuando toda la cantidad
+            // conciliada ya fue distribuida en HUs. Si todavía quedan cajas,
+            // permanece CONCILIADA para permitir continuar en otra operación.
+            $pendienteTotal = $detalles->sum(function (WmsEntregaDetalle $detalle) {
+                return max(
+                    (int) $detalle->cantidad_fisica - (int) $detalle->cantidad_paletizada,
+                    0
+                );
+            });
+
+            if ($pendienteTotal === 0) {
+                $entrega->update([
+                    'estado' => 'PALETIZADA',
+                    'update_id' => $userId,
+                ]);
+            }
+
             return $creados;
         });
     }
