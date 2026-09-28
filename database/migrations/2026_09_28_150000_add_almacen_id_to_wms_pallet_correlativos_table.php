@@ -16,12 +16,10 @@ return new class extends Migration
         }
 
         // La fila histórica existente corresponde al almacén 110.
-        if (Schema::hasColumn('wms_pallet_correlativos', 'almacen_id')) {
-            DB::table('wms_pallet_correlativos')
-                ->whereNull('almacen_id')
-                ->where('anio', '26')
-                ->update(['almacen_id' => 1]);
-        }
+        DB::table('wms_pallet_correlativos')
+            ->whereNull('almacen_id')
+            ->where('anio', '26')
+            ->update(['almacen_id' => 1]);
 
         $indices = collect(DB::select("SHOW INDEX FROM wms_pallet_correlativos"))
             ->pluck('Key_name')
@@ -50,7 +48,14 @@ return new class extends Migration
             });
         }
 
-        if (!in_array('wms_pallet_correlativos_almacen_id_foreign', $indices, true)) {
+        $foreignKeyExists = DB::table('information_schema.TABLE_CONSTRAINTS')
+            ->where('CONSTRAINT_SCHEMA', DB::getDatabaseName())
+            ->where('TABLE_NAME', 'wms_pallet_correlativos')
+            ->where('CONSTRAINT_NAME', 'wms_pallet_correlativos_almacen_id_foreign')
+            ->where('CONSTRAINT_TYPE', 'FOREIGN KEY')
+            ->exists();
+
+        if (!$foreignKeyExists) {
             Schema::table('wms_pallet_correlativos', function (Blueprint $table) {
                 $table->foreign('almacen_id', 'wms_pallet_correlativos_almacen_id_foreign')
                     ->references('id')
@@ -62,13 +67,25 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (Schema::hasColumn('wms_pallet_correlativos', 'almacen_id')) {
-            Schema::table('wms_pallet_correlativos', function (Blueprint $table) {
-                $table->dropForeign('wms_pallet_correlativos_almacen_id_foreign');
-                $table->dropUnique('wms_pallet_correlativos_almacen_anio_unique');
-                $table->dropColumn('almacen_id');
-            });
+        if (!Schema::hasColumn('wms_pallet_correlativos', 'almacen_id')) {
+            return;
         }
+
+        $foreignKeyExists = DB::table('information_schema.TABLE_CONSTRAINTS')
+            ->where('CONSTRAINT_SCHEMA', DB::getDatabaseName())
+            ->where('TABLE_NAME', 'wms_pallet_correlativos')
+            ->where('CONSTRAINT_NAME', 'wms_pallet_correlativos_almacen_id_foreign')
+            ->where('CONSTRAINT_TYPE', 'FOREIGN KEY')
+            ->exists();
+
+        Schema::table('wms_pallet_correlativos', function (Blueprint $table) use ($foreignKeyExists) {
+            if ($foreignKeyExists) {
+                $table->dropForeign('wms_pallet_correlativos_almacen_id_foreign');
+            }
+
+            $table->dropUnique('wms_pallet_correlativos_almacen_anio_unique');
+            $table->dropColumn('almacen_id');
+        });
 
         $indices = collect(DB::select("SHOW INDEX FROM wms_pallet_correlativos"))
             ->pluck('Key_name')
