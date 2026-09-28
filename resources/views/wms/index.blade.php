@@ -63,6 +63,21 @@
                     </a>
                 @endcan
 
+                <!-- Paletización Producción -->
+                @can('wms.produccion.paletizar')
+                    <a href="{{ route('wms.paletizacion.index') }}"
+                        class="bg-blue-600 hover:bg-blue-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <div class="flex justify-center">
+                            <svg class="w-9 h-9" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M3 7h18M5 7v10h14V7M8 11h8M8 15h8" />
+                            </svg>
+                        </div>
+                        <div class="mt-3 font-bold text-base leading-tight">Paletización</div>
+                        <div class="text-xs opacity-90">Producción</div>
+                    </a>
+                @endcan
+
                 <!-- Registrar Ingreso -->
                 @can('wms.ingresos.create')
                     <a href="{{ route('wms.ingresos.create') }}"
