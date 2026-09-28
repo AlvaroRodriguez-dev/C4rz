@@ -103,7 +103,20 @@ class WmsPaletizacionService
                 }
             }
 
-            $numeros = app(PalletCorrelativoService::class)->generarSiguientes(count($pallets));
+            // Los correlativos se generan para el almacén de la entrega.
+            // Esto mantiene la numeración independiente por almacén:
+            // 110-26xxxx, 210-26xxxx, etc.
+            $almacen = $entrega->almacen;
+
+            if (!$almacen) {
+                throw new RuntimeException('La entrega no tiene un almacén válido para generar los números de pallet.');
+            }
+
+            $numeros = app(PalletCorrelativoService::class)->generarSiguientes(
+                $almacen,
+                count($pallets)
+            );
+
             $creados = [];
 
             foreach ($pallets as $index => $pallet) {
