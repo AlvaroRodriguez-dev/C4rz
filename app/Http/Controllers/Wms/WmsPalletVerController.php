@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Wms;
 
 use App\Http\Controllers\Controller;
+use App\Models\WmsHu;
 use App\Models\WmsIngreso;
 use App\Services\SaldoService;
 use Illuminate\Http\Request;
@@ -15,9 +16,36 @@ class WmsPalletVerController extends Controller
 {
     public function __construct(private SaldoService $saldoService) {}
 
-    public function index()
+    public function index(Request $request)
     {
-        return view('wms.pallet-ver.index');
+        $buscar = trim((string) $request->get('buscar'));
+        $estado = trim((string) $request->get('estado'));
+
+        $hus = WmsHu::query()
+            ->with(['almacen', 'entrega'])
+            ->when($buscar !== '', function ($query) use ($buscar) {
+                $query->where(function ($q) use ($buscar) {
+                    $q->where('numero', 'like', "%{$buscar}%")
+                        ->orWhere('formato', 'like', "%{$buscar}%")
+                        ->orWhereHas('entrega', function ($entrega) use ($buscar) {
+                            $entrega->where('documento_id', 'like', "%{$buscar}%")
+                                ->orWhere('folio_fisico', 'like', "%{$buscar}%");
+                        });
+                });
+            })
+            ->when($estado !== '', fn ($query) => $query->where('estado', $estado))
+            ->orderByDesc('id')
+            ->paginate(25)
+            ->withQueryString();
+
+        $estados = WmsHu::query()
+            ->select('estado')
+            ->whereNotNull('estado')
+            ->distinct()
+            ->orderBy('estado')
+            ->pluck('estado');
+
+        return view('wms.pallet-ver.hu-index', compact('hus', 'estados', 'buscar', 'estado'));
     }
 
     /** AJAX - Select2: pallets existentes que coinciden con el término. */
@@ -64,21 +92,14 @@ class WmsPalletVerController extends Controller
     }
 
     /** AJAX - Select2: combinaciones Galpón/Ubicación existentes. */
-    
-    /** AJAX - Select2: combinaciones Galpón/Ubicación existentes en TODAS las fuentes. */
     public function buscarUbicaciones(Request $request)
     {
         $q = trim((string) $request->get('q'));
 
         $deIngresos = WmsIngreso::query()->select('galpon', 'ubicacion');
-
         $deSalidas = WmsSalida::query()->select('galpon', 'ubicacion');
-
-        $deReubicacionesOrigen = WmsReubicacion::query()
-            ->select('galpon_origen as galpon', 'ubicacion_origen as ubicacion');
-
-        $deReubicacionesDestino = WmsReubicacion::query()
-            ->select('galpon_destino as galpon', 'ubicacion_destino as ubicacion');
+        $deReubicacionesOrigen = WmsReubicacion::query()->select('galpon_origen as galpon', 'ubicacion_origen as ubicacion');
+        $deReubicacionesDestino = WmsReubicacion::query()->select('galpon_destino as galpon', 'ubicacion_destino as ubicacion');
 
         $ubicaciones = $deIngresos
             ->unionAll($deSalidas)
