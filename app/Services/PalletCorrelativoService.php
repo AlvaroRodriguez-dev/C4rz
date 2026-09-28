@@ -11,7 +11,7 @@ class PalletCorrelativoService
 {
     /**
      * Genera el siguiente código físico de pallet:
-     * {codigo_almacen}-{anio}{correlativo de 5 dígitos}
+     * {codigo_almacen}-{anio}{correlativo de 4 dígitos}
      *
      * Ejemplo para el almacén 110, año 26 y correlativo 3193:
      * 110-263193
@@ -109,7 +109,7 @@ class PalletCorrelativoService
     private function formatear(WmsAlmacen $almacen, string $anio, int $correlativo): string
     {
         return sprintf(
-            '%s-%s%05d',
+            '%s-%s%04d',
             $almacen->codigo,
             $anio,
             $correlativo
