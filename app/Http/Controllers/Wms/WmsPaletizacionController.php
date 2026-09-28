@@ -31,7 +31,7 @@ class WmsPaletizacionController extends Controller
         $resultado = WmsEntregaProduccion::query()
             ->with(['documento', 'detalles'])
             ->where('almacen_id', $almacen->id)
-            ->where('estado', 'CONCILIADA')
+            ->whereIn('estado', ['CONCILIADA', 'CON_DIFERENCIA'])
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($sub) use ($search) {
                     $sub->where('folio_fisico', 'like', "%{$search}%")
@@ -57,7 +57,7 @@ class WmsPaletizacionController extends Controller
                     'total_fisico' => (int) $entrega->total_fisico,
                     'cantidad_paletizada' => $paletizado,
                     'pendiente' => $pendiente,
-                    'estado' => $pendiente === 0 ? 'PALETIZADA' : 'PENDIENTE_PALETIZAR',
+                    'estado' => $entrega->estado,
                 ];
             })->filter(fn (array $item) => $item['pendiente'] > 0)->values()->all(),
             'current_page' => $resultado->currentPage(),
@@ -70,10 +70,10 @@ class WmsPaletizacionController extends Controller
     {
         $this->validarAlmacen($entrega);
 
-        if ($entrega->estado !== 'CONCILIADA') {
+        if (!in_array($entrega->estado, ['CONCILIADA', 'CON_DIFERENCIA'], true)) {
             return redirect()
                 ->route('wms.paletizacion.index')
-                ->with('error', 'La entrega debe estar conciliada antes de iniciar la paletización.');
+                ->with('error', 'La entrega debe estar conciliada o con diferencia antes de iniciar la paletización.');
         }
 
         $entrega->load(['documento', 'almacen']);
