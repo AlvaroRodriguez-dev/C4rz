@@ -22,6 +22,14 @@ class WmsPalletVerController extends Controller
             return view('wms.pallet-ver.index');
         }
 
+        if ($request->filled('hu')) {
+            $hu = WmsHu::query()
+                ->with(['almacen', 'entrega', 'detalles.entregaDetalle'])
+                ->findOrFail((int) $request->get('hu'));
+
+            return view('wms.hu.show', compact('hu'));
+        }
+
         $buscar = trim((string) $request->get('buscar'));
         $estado = trim((string) $request->get('estado'));
 
@@ -52,7 +60,6 @@ class WmsPalletVerController extends Controller
         return view('wms.pallet-ver.hu-index', compact('hus', 'estados', 'buscar', 'estado'));
     }
 
-    /** AJAX - Select2: pallets existentes que coinciden con el término. */
     public function buscarPallets(Request $request)
     {
         $q = trim((string) $request->get('q'));
@@ -67,7 +74,6 @@ class WmsPalletVerController extends Controller
         return response()->json(['results' => $pallets->map(fn($p) => ['id' => $p, 'text' => $p])]);
     }
 
-    /** AJAX - Contenido del pallet (por número o leído por QR). */
     public function contenidoPallet(string $pallet)
     {
         $items = $this->saldoService->calcular(['pallet' => $pallet]);
@@ -80,7 +86,6 @@ class WmsPalletVerController extends Controller
         ]);
     }
 
-    /** AJAX - Contenido de una ubicación (por QR de Galpón/Ubicación). */
     public function contenidoUbicacion(string $galpon, string $ubicacion)
     {
         $items = $this->saldoService->calcular(['galpon' => $galpon, 'ubicacion' => $ubicacion]);
@@ -95,7 +100,6 @@ class WmsPalletVerController extends Controller
         ]);
     }
 
-    /** AJAX - Select2: combinaciones Galpón/Ubicación existentes. */
     public function buscarUbicaciones(Request $request)
     {
         $q = trim((string) $request->get('q'));
