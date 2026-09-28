@@ -54,7 +54,7 @@
                             @forelse($hus as $hu)
                                 <tr class="hover:bg-gray-50">
                                     <td class="px-4 py-3">
-                                        <a href="{{ url('wms/pallet-ver/hu/'.$hu->id) }}" class="font-mono font-bold text-blue-700 hover:underline">{{ $hu->numero }}</a>
+                                        <a href="{{ route('wms.pallet.ver.index', ['hu' => $hu->id]) }}" class="font-mono font-bold text-blue-700 hover:underline">{{ $hu->numero }}</a>
                                         @if($hu->entrega)
                                             <div class="text-xs text-gray-500 mt-1">{{ $hu->entrega->documento_id }} · Folio {{ $hu->entrega->folio_fisico }}</div>
                                         @endif
@@ -63,9 +63,7 @@
                                     <td class="px-4 py-3 font-semibold">{{ $hu->formato }}</td>
                                     <td class="px-4 py-3 text-right">{{ number_format((int) $hu->cantidad_total) }} / {{ number_format((int) $hu->capacidad_estandar) }}</td>
                                     <td class="px-4 py-3">{{ $hu->tipo }}</td>
-                                    <td class="px-4 py-3">
-                                        <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">{{ $hu->estado }}</span>
-                                    </td>
+                                    <td class="px-4 py-3"><span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">{{ $hu->estado }}</span></td>
                                     <td class="px-4 py-3">{{ $hu->ubicacion_id ?? '-' }}</td>
                                 </tr>
                             @empty
