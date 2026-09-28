@@ -6,7 +6,7 @@
     <div class="py-4 px-3 sm:py-6 sm:px-4">
         <div class="max-w-5xl mx-auto">
             <div class="mb-4">
-                <a href="{{ route('wms.hu.index') }}" class="text-sm text-gray-600 inline-flex items-center gap-1">&larr; Volver a HU</a>
+                <a href="{{ route('wms.pallet.ver.index') }}" class="text-sm text-gray-600 inline-flex items-center gap-1">&larr; Volver a HU</a>
             </div>
 
             <div class="bg-white shadow rounded-xl p-5 mb-4">
