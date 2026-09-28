@@ -16,10 +16,18 @@ return new class extends Migration
         }
 
         // La fila histórica existente corresponde al almacén 110.
-        DB::table('wms_pallet_correlativos')
-            ->whereNull('almacen_id')
-            ->where('anio', '26')
-            ->update(['almacen_id' => 1]);
+        // Buscamos el ID por código para no depender de que sea el ID 1
+        // en otra base de datos.
+        $almacen110Id = DB::table('wms_almacenes')
+            ->where('codigo', '110')
+            ->value('id');
+
+        if ($almacen110Id) {
+            DB::table('wms_pallet_correlativos')
+                ->whereNull('almacen_id')
+                ->where('anio', '26')
+                ->update(['almacen_id' => $almacen110Id]);
+        }
 
         $indices = collect(DB::select("SHOW INDEX FROM wms_pallet_correlativos"))
             ->pluck('Key_name')
