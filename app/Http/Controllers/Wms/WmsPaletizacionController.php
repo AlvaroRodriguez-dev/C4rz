@@ -79,9 +79,18 @@ class WmsPaletizacionController extends Controller
         $entrega->load(['documento', 'almacen']);
         $detalles = $this->paletizacion->detalleDisponible($entrega);
         $pendienteTotal = (int) collect($detalles)->sum('cantidad_pendiente');
+        $palletsPrevistos = $pendienteTotal > 0
+            ? $this->paletizacion->calcularPallets($entrega)
+            : [];
         $hus = $entrega->hu()->with(['detalles'])->orderBy('id')->get();
 
-        return view('wms.produccion.paletizacion-detalle', compact('entrega', 'detalles', 'hus', 'pendienteTotal'));
+        return view('wms.produccion.paletizacion-detalle', compact(
+            'entrega',
+            'detalles',
+            'hus',
+            'pendienteTotal',
+            'palletsPrevistos'
+        ));
     }
 
     public function store(Request $request, WmsEntregaProduccion $entrega)
@@ -89,7 +98,7 @@ class WmsPaletizacionController extends Controller
         $this->validarAlmacen($entrega);
 
         try {
-            // La distribucion de pallets ya no la decide el navegador.
+            // La distribucion de pallets no la decide el navegador.
             // El servicio genera los HUs automaticamente a partir de la
             // cantidad conciliada y las reglas del WMS.
             $creados = $this->paletizacion->guardar(
