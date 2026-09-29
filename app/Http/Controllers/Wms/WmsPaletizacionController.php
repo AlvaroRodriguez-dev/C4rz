@@ -79,9 +79,9 @@ class WmsPaletizacionController extends Controller
         $entrega->load(['documento', 'almacen']);
         $detalles = $this->paletizacion->detalleDisponible($entrega);
         $pendienteTotal = (int) collect($detalles)->sum('cantidad_pendiente');
-        $hUs = $entrega->hUs()->with(['detalles'])->orderBy('id')->get();
+        $hus = $entrega->hu()->with(['detalles'])->orderBy('id')->get();
 
-        return view('wms.produccion.paletizacion-detalle', compact('entrega', 'detalles', 'hUs', 'pendienteTotal'));
+        return view('wms.produccion.paletizacion-detalle', compact('entrega', 'detalles', 'hus', 'pendienteTotal'));
     }
 
     public function store(Request $request, WmsEntregaProduccion $entrega)
