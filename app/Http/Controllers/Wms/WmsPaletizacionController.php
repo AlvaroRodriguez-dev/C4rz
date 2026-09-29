@@ -92,20 +92,13 @@ class WmsPaletizacionController extends Controller
     {
         $this->validarAlmacen($entrega);
 
-        $validated = $request->validate([
-            'pallets' => ['required', 'string'],
-        ]);
-
-        $pallets = json_decode($validated['pallets'], true);
-
-        if (!is_array($pallets)) {
-            return back()->withInput()->with('error', 'La información de paletización no es válida.');
-        }
-
         try {
+            // La distribucion de pallets ya no la decide el navegador.
+            // El servicio genera los HUs automaticamente a partir de la
+            // cantidad conciliada y las reglas del WMS.
             $creados = $this->paletizacion->guardar(
                 $entrega,
-                $pallets,
+                [],
                 (int) auth()->id()
             );
 
