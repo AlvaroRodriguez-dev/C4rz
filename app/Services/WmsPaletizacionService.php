@@ -20,6 +20,25 @@ class WmsPaletizacionService
     }
 
     /**
+     * Calcula la paletización que se generará sin consumir correlativos ni
+     * modificar datos. Es la misma regla que utiliza guardar().
+     */
+    public function calcularPallets(WmsEntregaProduccion $entrega): array
+    {
+        if (!in_array($entrega->estado, ['CONCILIADA', 'CON_DIFERENCIA'], true)) {
+            throw new RuntimeException('Solo se puede calcular la paletización de una entrega en estado CONCILIADA o CON_DIFERENCIA.');
+        }
+
+        $entrega->loadMissing('detalles');
+
+        $disponibles = collect($this->construirDisponible($entrega->detalles));
+
+        return $this->construirDefiniciones(
+            $disponibles->filter(fn (array $detalle) => (int) $detalle['cantidad_pendiente'] > 0)->values()
+        );
+    }
+
+    /**
      * Genera automaticamente los pallets a partir de la cantidad conciliada.
      *
      * Las reglas son las mismas del ingreso WMS:
@@ -27,9 +46,6 @@ class WmsPaletizacionService
      * - no se mezclan producto/lote/tono/calibre;
      * - se respeta la capacidad configurada por formato;
      * - el remanente se registra como SALDO.
-     *
-     * Los HUs quedan vinculados a la misma entrega/documento y posteriormente
-     * seran utilizados para preparar el ingreso WMS.
      */
     public function guardar(WmsEntregaProduccion $entrega, array $pallets, int $userId): array
     {
@@ -54,70 +70,7 @@ class WmsPaletizacionService
                 throw new RuntimeException('La entrega no tiene cantidades pendientes de paletizar.');
             }
 
-            $definiciones = [];
-
-            // Un grupo representa una combinacion homogenea de producto,
-            // formato y lote. El lote mantiene la separacion por tono/calibre.
-            $grupos = $pendientes->groupBy(function (array $detalle) {
-                return implode('|', [
-                    $detalle['codigo'],
-                    $detalle['formato'],
-                    $detalle['lote'] ?? '',
-                    $detalle['tono'] ?? '',
-                    $detalle['calibre'] ?? '',
-                ]);
-            });
-
-            foreach ($grupos as $items) {
-                $primerDetalle = $items->first();
-                $formato = $primerDetalle['formato'];
-                $capacidad = (int) ($primerDetalle['capacidad'] ?? 0);
-
-                if ($capacidad <= 0) {
-                    throw new RuntimeException("El formato {$formato} no tiene configuración de capacidad de pallet.");
-                }
-
-                // Conservamos una copia mutable de las cantidades pendientes
-                // para repartirlas correctamente entre los pallets.
-                $restantes = $items->map(function (array $detalle) {
-                    return [
-                        'detalle_id' => $detalle['id'],
-                        'cantidad' => (int) $detalle['cantidad_pendiente'],
-                    ];
-                })->values()->all();
-
-                while (collect($restantes)->sum('cantidad') > 0) {
-                    $restantePallet = $capacidad;
-                    $itemsPallet = [];
-
-                    foreach ($restantes as $indice => &$restante) {
-                        if ($restante['cantidad'] <= 0 || $restantePallet <= 0) {
-                            continue;
-                        }
-
-                        $tomar = min($restante['cantidad'], $restantePallet);
-                        $itemsPallet[] = [
-                            'detalle_id' => $restante['detalle_id'],
-                            'cantidad' => $tomar,
-                        ];
-
-                        $restante['cantidad'] -= $tomar;
-                        $restantePallet -= $tomar;
-                    }
-                    unset($restante);
-
-                    if (empty($itemsPallet) || $restantePallet === $capacidad) {
-                        throw new RuntimeException('No fue posible distribuir toda la cantidad pendiente en pallets.');
-                    }
-
-                    $definiciones[] = [
-                        'formato' => $formato,
-                        'capacidad' => $capacidad,
-                        'cantidad_total' => $capacidad - $restantePallet,
-                        'items' => $itemsPallet,
-                    ];
-                }
-            }
+            $definiciones = $this->construirDefiniciones($pendientes);
 
             $almacen = $entrega->almacen;
 
@@ -199,6 +152,80 @@ class WmsPaletizacionService
 
             return $creados;
         });
+    }
+
+    /**
+     * Divide las cantidades pendientes en pallets completos y saldos.
+     * La clave de agrupación conserva producto, formato, lote, tono y calibre.
+     */
+    private function construirDefiniciones($pendientes): array
+    {
+        $definiciones = [];
+
+        $grupos = $pendientes->groupBy(function (array $detalle) {
+            return implode('|', [
+                $detalle['codigo'],
+                $detalle['formato'],
+                $detalle['lote'] ?? '',
+                $detalle['tono'] ?? '',
+                $detalle['calibre'] ?? '',
+            ]);
+        });
+
+        foreach ($grupos as $items) {
+            $primerDetalle = $items->first();
+            $formato = $primerDetalle['formato'];
+            $capacidad = (int) ($primerDetalle['capacidad'] ?? 0);
+
+            if ($capacidad <= 0) {
+                throw new RuntimeException("El formato {$formato} no tiene configuración de capacidad de pallet.");
+            }
+
+            $restantes = $items->map(function (array $detalle) {
+                return [
+                    'detalle_id' => $detalle['id'],
+                    'cantidad' => (int) $detalle['cantidad_pendiente'],
+                ];
+            })->values()->all();
+
+            while (collect($restantes)->sum('cantidad') > 0) {
+                $restantePallet = $capacidad;
+                $itemsPallet = [];
+
+                foreach ($restantes as &$restante) {
+                    if ($restante['cantidad'] <= 0 || $restantePallet <= 0) {
+                        continue;
+                    }
+
+                    $tomar = min($restante['cantidad'], $restantePallet);
+                    $itemsPallet[] = [
+                        'detalle_id' => $restante['detalle_id'],
+                        'cantidad' => $tomar,
+                    ];
+
+                    $restante['cantidad'] -= $tomar;
+                    $restantePallet -= $tomar;
+                }
+                unset($restante);
+
+                if (empty($itemsPallet) || $restantePallet === $capacidad) {
+                    throw new RuntimeException('No fue posible distribuir toda la cantidad pendiente en pallets.');
+                }
+
+                $cantidadTotal = $capacidad - $restantePallet;
+
+                $definiciones[] = [
+                    'formato' => $formato,
+                    'capacidad' => $capacidad,
+                    'cantidad_total' => $cantidadTotal,
+                    'tipo' => $cantidadTotal === $capacidad ? 'COMPLETO' : 'SALDO',
+                    'items' => $itemsPallet,
+                    'detalle_referencia' => $primerDetalle,
+                ];
+            }
+        }
+
+        return $definiciones;
     }
 
     private function construirDisponible($detalles): array
