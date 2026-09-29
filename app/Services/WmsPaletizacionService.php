@@ -19,93 +19,112 @@ class WmsPaletizacionService
         return $this->construirDisponible($entrega->detalles);
     }
 
+    /**
+     * Genera automaticamente los pallets a partir de la cantidad conciliada.
+     *
+     * Las reglas de palletizacion son las mismas del ingreso WMS:
+     * - un pallet no mezcla formatos;
+     * - un pallet no mezcla producto/lote/tono/calibre;
+     * - se respeta la capacidad configurada por formato;
+     * - el remanente se registra como SALDO.
+     *
+     * Los HUs generados quedan vinculados a la misma entrega/documento y
+     * posteriormente seran utilizados para preparar el ingreso WMS.
+     */
     public function guardar(WmsEntregaProduccion $entrega, array $pallets, int $userId): array
     {
-        if ($entrega->estado !== 'CONCILIADA') {
-            throw new RuntimeException('Solo se puede paletizar una entrega en estado CONCILIADA.');
+        if (!in_array($entrega->estado, ['CONCILIADA', 'CON_DIFERENCIA'], true)) {
+            throw new RuntimeException('Solo se puede paletizar una entrega en estado CONCILIADA o CON_DIFERENCIA.');
         }
 
-        if (empty($pallets)) {
-            throw new RuntimeException('Debe existir al menos un pallet para guardar la paletización.');
-        }
-
-        return DB::transaction(function () use ($entrega, $pallets, $userId) {
+        return DB::transaction(function () use ($entrega, $userId) {
             $detalles = WmsEntregaDetalle::query()
                 ->where('entrega_id', $entrega->id)
                 ->lockForUpdate()
                 ->get();
 
-            $disponibles = collect($this->construirDisponible($detalles))->keyBy('id');
+            $disponibles = collect($this->construirDisponible($detalles))
+                ->keyBy('id');
 
-            if ($disponibles->isEmpty()) {
-                throw new RuntimeException('La entrega no tiene detalle disponible para paletizar.');
+            $pendientes = $disponibles
+                ->filter(fn (array $detalle) => (int) $detalle['cantidad_pendiente'] > 0)
+                ->values();
+
+            if ($pendientes->isEmpty()) {
+                throw new RuntimeException('La entrega no tiene cantidades pendientes de paletizar.');
             }
 
-            // Acumulamos lo solicitado por detalle entre todos los pallets de esta operación.
-            // Así evitamos que dos pallets consuman más cantidad de la que realmente queda pendiente.
-            $solicitadoPorDetalle = [];
+            $definiciones = [];
 
-            foreach ($pallets as $index => $pallet) {
-                $items = collect($pallet['items'] ?? []);
+            // Cada grupo representa una combinacion homogenea de producto,
+            // formato y lote (el lote conserva tono y calibre).
+            $grupos = $pendientes->groupBy(function (array $detalle) {
+                return implode('|', [
+                    $detalle['codigo'],
+                    $detalle['formato'],
+                    $detalle['lote'] ?? '',
+                    $detalle['tono'] ?? '',
+                    $detalle['calibre'] ?? '',
+                ]);
+            });
 
-                if ($items->isEmpty()) {
-                    throw new RuntimeException('El pallet #' . ($index + 1) . ' no tiene productos.');
-                }
+            foreach ($grupos as $items) {
+                $primerDetalle = $items->first();
+                $formato = $primerDetalle['formato'];
+                $capacidad = (int) ($primerDetalle['capacidad'] ?? 0);
 
-                $ids = $items->map(fn ($item) => (int) ($item['entrega_detalle_id'] ?? 0));
-                if ($ids->duplicates()->isNotEmpty()) {
-                    throw new RuntimeException('El pallet #' . ($index + 1) . ' contiene el mismo producto/lote más de una vez.');
-                }
-
-                $formatos = $items->map(function ($item) use ($disponibles) {
-                    $detalle = $disponibles->get((int) ($item['entrega_detalle_id'] ?? 0));
-
-                    if (!$detalle) {
-                        throw new RuntimeException('Existe un detalle de producción que no pertenece a esta entrega.');
-                    }
-
-                    return $detalle['formato'];
-                })->unique()->values();
-
-                if ($formatos->count() !== 1) {
-                    throw new RuntimeException('Un pallet no puede contener productos de distinto formato.');
-                }
-
-                $formato = $formatos->first();
-                $capacidad = $disponibles->firstWhere('formato', $formato)['capacidad'] ?? null;
-
-                if (!$capacidad) {
+                if ($capacidad <= 0) {
                     throw new RuntimeException("El formato {$formato} no tiene configuración de capacidad de pallet.");
                 }
 
-                $total = 0;
+                $restanteGrupo = (int) $items->sum('cantidad_pendiente');
+                $posicion = 0;
 
-                foreach ($items as $item) {
-                    $detalleId = (int) $item['entrega_detalle_id'];
-                    $detalle = $disponibles->get($detalleId);
-                    $cantidad = (int) $item['cantidad'];
+                while ($restanteGrupo > 0) {
+                    $cantidadPallet = min($capacidad, $restanteGrupo);
+                    $itemsPallet = [];
+                    $restantePallet = $cantidadPallet;
 
-                    if ($cantidad < 1) {
-                        throw new RuntimeException('Las cantidades de paletización deben ser mayores a cero.');
+                    while ($restantePallet > 0 && $posicion < $items->count()) {
+                        $detalle = $items->values()->get($posicion);
+                        $disponibleDetalle = (int) $detalle['cantidad_pendiente'];
+
+                        if ($disponibleDetalle <= 0) {
+                            $posicion++;
+                            continue;
+                        }
+
+                        $tomar = min($disponibleDetalle, $restantePallet);
+                        $itemsPallet[] = [
+                            'detalle_id' => $detalle['id'],
+                            'cantidad' => $tomar,
+                        ];
+
+                        $items->values()->get($posicion)['cantidad_pendiente'] = $disponibleDetalle - $tomar;
+                        $restantePallet -= $tomar;
+                        $restanteGrupo -= $tomar;
+
+                        if ($tomar === $disponibleDetalle) {
+                            $posicion++;
+                        } else {
+                            // El mismo detalle puede continuar en el siguiente pallet.
+                            break;
+                        }
                     }
 
-                    $solicitadoPorDetalle[$detalleId] = ($solicitadoPorDetalle[$detalleId] ?? 0) + $cantidad;
-                    $total += $cantidad;
-
-                    $pendiente = (int) $detalle['cantidad_pendiente'];
-                    if ($solicitadoPorDetalle[$detalleId] > $pendiente) {
-                        throw new RuntimeException("La cantidad solicitada para {$detalle['codigo']} lote {$detalle['lote']} supera la cantidad pendiente ({$pendiente}).");
+                    if ($restantePallet > 0) {
+                        throw new RuntimeException('No fue posible distribuir toda la cantidad pendiente en pallets.');
                     }
-                }
 
-                if ($total > (int) $capacidad) {
-                    throw new RuntimeException("El pallet del formato {$formato} supera la capacidad de {$capacidad} cajas (intentado: {$total}).");
+                    $definiciones[] = [
+                        'formato' => $formato,
+                        'capacidad' => $capacidad,
+                        'cantidad_total' => $cantidadPallet,
+                        'items' => $itemsPallet,
+                    ];
                 }
             }
 
-            // Los correlativos se generan para el almacén de la entrega.
-            // Esto mantiene la numeración independiente por almacén:
-            // 110-26xxxx, 210-26xxxx, etc.
             $almacen = $entrega->almacen;
 
             if (!$almacen) {
@@ -114,35 +133,33 @@ class WmsPaletizacionService
 
             $numeros = app(PalletCorrelativoService::class)->generarSiguientes(
                 $almacen,
-                count($pallets)
+                count($definiciones)
             );
 
             $creados = [];
 
-            foreach ($pallets as $index => $pallet) {
-                $items = collect($pallet['items']);
-                $primerDetalle = $disponibles->get((int) $items->first()['entrega_detalle_id']);
-                $formato = $primerDetalle['formato'];
-                $capacidad = $primerDetalle['capacidad'];
-                $cantidadTotal = $items->sum(fn ($item) => (int) $item['cantidad']);
-
+            foreach ($definiciones as $index => $definicion) {
                 $hu = WmsHu::create([
                     'numero' => $numeros[$index],
                     'entrega_id' => $entrega->id,
                     'almacen_id' => $entrega->almacen_id,
                     'ubicacion_id' => null,
-                    'formato' => $formato,
-                    'capacidad_estandar' => $capacidad,
-                    'cantidad_total' => $cantidadTotal,
-                    'tipo' => $cantidadTotal === (int) $capacidad ? 'COMPLETO' : 'SALDO',
+                    'formato' => $definicion['formato'],
+                    'capacidad_estandar' => $definicion['capacidad'],
+                    'cantidad_total' => $definicion['cantidad_total'],
+                    'tipo' => $definicion['cantidad_total'] === $definicion['capacidad'] ? 'COMPLETO' : 'SALDO',
                     'estado' => 'PALETIZADO',
                     'created_id' => $userId,
                     'update_id' => $userId,
                 ]);
 
-                foreach ($items as $item) {
-                    $detalle = $disponibles->get((int) $item['entrega_detalle_id']);
+                foreach ($definicion['items'] as $item) {
+                    $detalle = $disponibles->get((int) $item['detalle_id']);
                     $cantidad = (int) $item['cantidad'];
+
+                    if (!$detalle || $cantidad <= 0) {
+                        throw new RuntimeException('Existe un detalle inválido al generar los HUs.');
+                    }
 
                     WmsHuDetalle::create([
                         'hu_id' => $hu->id,
@@ -156,7 +173,10 @@ class WmsPaletizacionService
                         'cantidad' => $cantidad,
                     ]);
 
-                    $detalles->firstWhere('id', $detalle['id'])?->increment('cantidad_paletizada', $cantidad);
+                    $detalleModelo = $detalles->firstWhere('id', $detalle['id']);
+                    if ($detalleModelo) {
+                        $detalleModelo->increment('cantidad_paletizada', $cantidad);
+                    }
                 }
 
                 $creados[] = [
@@ -169,9 +189,6 @@ class WmsPaletizacionService
                 ];
             }
 
-            // La entrega cambia a PALETIZADA solamente cuando toda la cantidad
-            // conciliada ya fue distribuida en HUs. Si todavía quedan cajas,
-            // permanece CONCILIADA para permitir continuar en otra operación.
             $pendienteTotal = $detalles->sum(function (WmsEntregaDetalle $detalle) {
                 return max(
                     (int) $detalle->cantidad_fisica - (int) $detalle->cantidad_paletizada,
