@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Wms;
 
 use App\Http\Controllers\Controller;
 use App\Models\WmsConfigPallet;
+use App\Models\WmsEntregaProduccion;
+use App\Models\WmsHu;
 use App\Models\WmsIngreso;
 use App\Services\PalletCorrelativoService;
 use App\Services\WmsContextService;
@@ -11,6 +13,7 @@ use App\Services\WmsUbicacionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class WmsIngresoController extends Controller
 {
@@ -26,6 +29,174 @@ class WmsIngresoController extends Controller
         $almacen = $this->context->almacen();
 
         return view('wms.ingresos.create', compact('almacen'));
+    }
+
+    /**
+     * Nueva etapa: recupera las entregas que ya fueron paletizadas.
+     * No modifica el flujo historico de ingreso; prepara la recuperacion
+     * del documento HU para que el usuario solo complete ubicaciones.
+     */
+    public function paletizados()
+    {
+        return view('wms.ingresos.paletizados');
+    }
+
+    public function buscarPaletizados(Request $request)
+    {
+        $almacen = $this->context->almacen();
+        $search = trim((string) $request->query('q'));
+
+        $entregas = WmsEntregaProduccion::query()
+            ->with('documento')
+            ->where('almacen_id', $almacen->id)
+            ->whereIn('estado', ['PALETIZADA'])
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($sub) use ($search) {
+                    $sub->where('folio_fisico', 'like', "%{$search}%")
+                        ->orWhere('origen', 'like', "%{$search}%")
+                        ->orWhere('documento_id', 'like', "%{$search}%");
+                });
+            })
+            ->orderByDesc('id')
+            ->limit(30)
+            ->get();
+
+        return response()->json([
+            'results' => $entregas->map(function (WmsEntregaProduccion $entrega) {
+                return [
+                    'id' => $entrega->id,
+                    'text' => sprintf(
+                        '%s · Folio %s · %s · %s',
+                        $entrega->documento?->id_documento ?? 'SIN DOCUMENTO',
+                        $entrega->folio_fisico ?? '—',
+                        $entrega->origen ?? '—',
+                        optional($entrega->fecha_entrega)->format('d/m/Y')
+                    ),
+                    'documento' => $entrega->documento?->id_documento,
+                    'folio_fisico' => $entrega->folio_fisico,
+                    'origen' => $entrega->origen,
+                    'fecha' => optional($entrega->fecha_entrega)->format('d/m/Y'),
+                ];
+            })->values(),
+        ]);
+    }
+
+    public function detallePaletizado(WmsEntregaProduccion $entrega)
+    {
+        $this->validarAlmacenEntrega($entrega);
+
+        if (!in_array($entrega->estado, ['PALETIZADA', 'UBICADA'], true)) {
+            return response()->json([
+                'message' => 'La entrega todavía no está disponible para ingreso desde HU.',
+            ], 422);
+        }
+
+        $entrega->load([
+            'documento',
+            'almacen',
+            'hu' => fn ($query) => $query
+                ->with('detalles')
+                ->orderBy('id'),
+        ]);
+
+        return response()->json([
+            'entrega' => [
+                'id' => $entrega->id,
+                'documento' => $entrega->documento?->id_documento,
+                'folio_fisico' => $entrega->folio_fisico,
+                'origen' => $entrega->origen,
+                'fecha' => optional($entrega->fecha_entrega)->format('d/m/Y'),
+                'estado' => $entrega->estado,
+                'almacen' => $entrega->almacen?->codigo,
+            ],
+            'hus' => $entrega->hu->map(function (WmsHu $hu) {
+                return [
+                    'id' => $hu->id,
+                    'numero' => $hu->numero,
+                    'formato' => $hu->formato,
+                    'tipo' => $hu->tipo,
+                    'capacidad' => (int) $hu->capacidad_estandar,
+                    'cantidad' => (int) $hu->cantidad_total,
+                    'estado' => $hu->estado,
+                    'ubicacion_id' => $hu->ubicacion_id,
+                    'ubicacion' => $hu->ubicacion?->codigo,
+                    'detalles' => $hu->detalles->map(fn ($detalle) => [
+                        'codigo' => $detalle->codigo,
+                        'lote' => $detalle->lote,
+                        'formato' => $detalle->formato,
+                        'cantidad' => (int) $detalle->cantidad,
+                    ])->values(),
+                ];
+            })->values(),
+        ]);
+    }
+
+    /**
+     * Registra unicamente la ubicacion de los HUs ya creados por paletizacion.
+     * No crea ni modifica registros en wms_ingresos.
+     */
+    public function ubicarPaletizado(Request $request, WmsEntregaProduccion $entrega)
+    {
+        $this->validarAlmacenEntrega($entrega);
+
+        $validator = Validator::make($request->all(), [
+            'hus' => ['required', 'array', 'min:1'],
+            'hus.*.id' => ['required', 'integer'],
+            'hus.*.galpon' => ['required', 'string', 'max:20'],
+            'hus.*.ubicacion' => ['required', 'string', 'max:20'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $data = $validator->validated();
+        $almacen = $this->context->almacen();
+
+        DB::transaction(function () use ($data, $entrega, $almacen) {
+            $hus = WmsHu::query()
+                ->where('entrega_id', $entrega->id)
+                ->where('almacen_id', $almacen->id)
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
+            foreach ($data['hus'] as $item) {
+                $hu = $hus->get((int) $item['id']);
+
+                if (!$hu) {
+                    throw ValidationException::withMessages([
+                        'hus' => ["El HU {$item['id']} no pertenece a la entrega seleccionada."],
+                    ]);
+                }
+
+                $ubicacion = $this->ubicacionService->validarNormal(
+                    $almacen->id,
+                    $item['galpon'],
+                    $item['ubicacion']
+                );
+
+                $hu->update([
+                    'ubicacion_id' => $ubicacion->id,
+                    'ubicado_at' => now(),
+                    'estado' => 'UBICADO',
+                    'update_id' => auth()->id(),
+                ]);
+            }
+
+            $pendientesUbicacion = $hus->filter(fn (WmsHu $hu) => !$hu->ubicacion_id)->isNotEmpty();
+
+            if (!$pendientesUbicacion) {
+                $entrega->update([
+                    'estado' => 'UBICADA',
+                    'update_id' => auth()->id(),
+                ]);
+            }
+        });
+
+        return response()->json([
+            'message' => 'Ubicaciones registradas correctamente. Los HUs mantienen sus pallets y cantidades originales.',
+        ]);
     }
 
     public function buscarNotas(Request $request)
@@ -62,10 +233,6 @@ class WmsIngresoController extends Controller
     }
 
 
-    /**
-     * Devuelve los GRUPOS generados por la nota (uno por eventual pallet),
-     * SIN asignar ningún número de pallet real ni de vista previa.
-     */
     public function detalleNota(string $rdocum)
     {
         $items = DB::connection('sisinvconsolidado2026')
@@ -166,10 +333,6 @@ class WmsIngresoController extends Controller
         ]);
     }
 
-    /**
-     * Recibe GRUPOS ya fusionados por el usuario (uno o varios items por grupo).
-     * Genera UN número de pallet real por grupo, solo aquí.
-     */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -191,9 +354,6 @@ class WmsIngresoController extends Controller
         }
 
         $data = $validator->validated();
-
-        // La ubicación operativa se determina y valida contra el maestro WMS.
-        // El almacén enviado por el navegador no participa en esta decisión.
         $almacen = $this->context->almacen();
 
         foreach ($data['grupos'] as $idx => $grupo) {
@@ -203,17 +363,14 @@ class WmsIngresoController extends Controller
                     $grupo['galpon'],
                     $grupo['ubicacion']
                 );
-            } catch (\Illuminate\Validation\ValidationException $e) {
-                return response()->json([
-                    'errors' => $e->errors(),
-                ], 422);
+            } catch (ValidationException $e) {
+                return response()->json(['errors' => $e->errors()], 422);
             }
 
             $data['grupos'][$idx]['galpon'] = $ubicacion->galpon->codigo;
             $data['grupos'][$idx]['ubicacion'] = $ubicacion->codigo;
         }
 
-        // --- Control de duplicados ---
         $yaRegistrado = WmsIngreso::where('rdocum', $data['rdocum'])
             ->select('codigo', 'clote', DB::raw('SUM(cantidad) as total'))
             ->groupBy('codigo', 'clote')
@@ -224,41 +381,28 @@ class WmsIngresoController extends Controller
             foreach ($grupo['items'] as $item) {
                 $key = "{$item['codigo']}|" . ($item['clote'] ?? '');
                 if (isset($yaRegistrado[$key])) {
-                    return response()->json([
-                        'errors' => ['general' => ["El producto {$item['codigo']} (lote {$item['clote']}) de esta nota ya fue registrado anteriormente."]],
-                    ], 422);
+                    return response()->json(['errors' => ['general' => ["El producto {$item['codigo']} (lote {$item['clote']}) de esta nota ya fue registrado anteriormente."]]], 422);
                 }
             }
         }
 
-        // --- Blindaje: formato único y límite de cajas por GRUPO (pallet final) ---
         $configs = WmsConfigPallet::pluck('cajas_x_pallet', 'codigo');
 
         foreach ($data['grupos'] as $grupo) {
-            $formatos = collect($grupo['items'])
-                ->map(fn ($i) => strtoupper(substr($i['codigo'], 5, 4)))
-                ->unique();
-
+            $formatos = collect($grupo['items'])->map(fn ($i) => strtoupper(substr($i['codigo'], 5, 4)))->unique();
             if ($formatos->count() > 1) {
-                return response()->json([
-                    'errors' => ['general' => ['Un pallet no puede contener productos de distinto formato.']],
-                ], 422);
+                return response()->json(['errors' => ['general' => ['Un pallet no puede contener productos de distinto formato.']]], 422);
             }
-
             $limite = $configs[$formatos->first()] ?? null;
-
             if ($limite) {
                 $total = collect($grupo['items'])->sum('cantidad');
                 if ($total > $limite) {
-                    return response()->json([
-                        'errors' => ['general' => ["Un pallet del formato {$formatos->first()} supera el límite de {$limite} cajas (intentado: {$total})."]],
-                    ], 422);
+                    return response()->json(['errors' => ['general' => ["Un pallet del formato {$formatos->first()} supera el límite de {$limite} cajas (intentado: {$total})."]]], 422);
                 }
             }
         }
 
-        // --- Asignación real: UN correlativo por grupo, y solo en este momento ---
-        $palletsReales = $this->palletService->generarSiguientes(count($data['grupos']));
+        $palletsReales = $this->palletService->generarSiguientes($almacen, count($data['grupos']));
         $resumenPallets = [];
 
         DB::transaction(function () use ($data, $almacen, $palletsReales, &$resumenPallets) {
@@ -284,9 +428,15 @@ class WmsIngresoController extends Controller
             }
         });
 
-        return response()->json([
-            'message' => 'Ingreso registrado correctamente.',
-            'pallets' => $resumenPallets,
-        ]);
+        return response()->json(['message' => 'Ingreso registrado correctamente.', 'pallets' => $resumenPallets]);
+    }
+
+    private function validarAlmacenEntrega(WmsEntregaProduccion $entrega): void
+    {
+        $almacen = $this->context->almacen();
+
+        if ((int) $entrega->almacen_id !== (int) $almacen->id) {
+            abort(403, 'La entrega no pertenece al almacén operativo del usuario.');
+        }
     }
 }
