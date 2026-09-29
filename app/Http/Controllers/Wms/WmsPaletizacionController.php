@@ -78,14 +78,10 @@ class WmsPaletizacionController extends Controller
 
         $entrega->load(['documento', 'almacen']);
         $detalles = $this->paletizacion->detalleDisponible($entrega);
+        $pendienteTotal = (int) collect($detalles)->sum('cantidad_pendiente');
+        $hUs = $entrega->hUs()->with(['detalles'])->orderBy('id')->get();
 
-        if (collect($detalles)->sum('cantidad_pendiente') <= 0) {
-            return redirect()
-                ->route('wms.paletizacion.index')
-                ->with('success', 'La entrega ya no tiene cantidades pendientes de paletizar.');
-        }
-
-        return view('wms.produccion.paletizacion-detalle', compact('entrega', 'detalles'));
+        return view('wms.produccion.paletizacion-detalle', compact('entrega', 'detalles', 'hUs', 'pendienteTotal'));
     }
 
     public function store(Request $request, WmsEntregaProduccion $entrega)
