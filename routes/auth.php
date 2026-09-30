@@ -46,13 +46,4 @@ Route::middleware(['auth', 'permission:wms.ingresos.create'])
         Route::get('/{entrega}/detalle', [WmsIngresoController::class, 'detallePaletizado'])->name('detalle');
         Route::post('/{entrega}/ubicar', [WmsIngresoController::class, 'ubicarPaletizado'])->name('ubicar');
     });
-
-// Revision de registros ya paletizados y sus pallets/QR.
-Route::middleware(['auth', 'permission:wms.produccion.paletizar'])
-    ->prefix('wms/paletizacion')
-    ->name('wms.paletizacion.')
-    ->group(function () {
-        Route::get('/revision', [WmsPaletizacionController::class, 'revision'])->name('revision');
-        Route::get('/revision/buscar', [WmsPaletizacionController::class, 'buscarRevision'])->name('revision.buscar');
-        Route::get('/revision/{entrega}', [WmsPaletizacionController::class, 'revisionShow'])->name('revision.show');
-    });
+ 
