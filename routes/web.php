@@ -39,6 +39,7 @@ use App\Http\Controllers\Wms\WmsSalidaVerController;
 use App\Http\Controllers\Wms\WmsTicketLoteController;
 use App\Http\Controllers\Wms\WmsProduccionVerificacionController;
 use App\Http\Controllers\Wms\WmsLiberacionProduccionController;
+use App\Http\Controllers\Wms\WmsPaletizacionController;
 
 
 Route::get('/', [WelcomeController::class, 'index'])->name('welcome');
