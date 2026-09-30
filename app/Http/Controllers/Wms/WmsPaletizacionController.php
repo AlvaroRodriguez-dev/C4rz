@@ -22,6 +22,81 @@ class WmsPaletizacionController extends Controller
         return view('wms.produccion.paletizacion');
     }
 
+    /**
+     * Pantalla de consulta para revisar entregas ya paletizadas.
+     * Es independiente del flujo de creación de pallets.
+     */
+    public function revision()
+    {
+        return view('wms.produccion.paletizacion-revision');
+    }
+
+    public function buscarRevision(Request $request)
+    {
+        $almacen = $this->context->almacen();
+        $search = trim((string) $request->get('q'));
+        $page = max(1, (int) $request->get('page', 1));
+
+        $resultado = WmsEntregaProduccion::query()
+            ->with('documento')
+            ->where('almacen_id', $almacen->id)
+            ->whereIn('estado', ['PALETIZADA', 'UBICADA'])
+            ->when($search !== '', function ($q) use ($search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('folio_fisico', 'like', "%{$search}%")
+                        ->orWhere('origen', 'like', "%{$search}%")
+                        ->orWhereHas('documento', fn ($doc) => $doc->where('id_documento', 'like', "%{$search}%"));
+                });
+            })
+            ->orderByDesc('id')
+            ->paginate(20, ['*'], 'page', $page);
+
+        return response()->json([
+            'data' => $resultado->through(function (WmsEntregaProduccion $entrega) {
+                $huCount = $entrega->hu()->count();
+                $cajas = (int) $entrega->hu()->sum('cantidad_total');
+
+                return [
+                    'id' => $entrega->id,
+                    'documento' => $entrega->documento?->id_documento,
+                    'folio_fisico' => $entrega->folio_fisico,
+                    'fecha_entrega' => optional($entrega->fecha_entrega)->format('d/m/Y'),
+                    'origen' => $entrega->origen,
+                    'total_fisico' => (int) $entrega->total_fisico,
+                    'pallets' => $huCount,
+                    'cajas' => $cajas,
+                    'estado' => $entrega->estado,
+                ];
+            })->values()->all(),
+            'current_page' => $resultado->currentPage(),
+            'last_page' => $resultado->lastPage(),
+            'total' => $resultado->total(),
+        ]);
+    }
+
+    /**
+     * Muestra los HUs/pallets reales generados para una entrega,
+     * incluyendo sus datos y un QR por pallet.
+     */
+    public function revisionShow(WmsEntregaProduccion $entrega)
+    {
+        $this->validarAlmacen($entrega);
+
+        if (!in_array($entrega->estado, ['PALETIZADA', 'UBICADA'], true)) {
+            return redirect()
+                ->route('wms.paletizacion.revision')
+                ->with('error', 'La entrega todavía no tiene pallets generados para revisar.');
+        }
+
+        $entrega->load([
+            'documento',
+            'almacen',
+            'hu' => fn ($query) => $query->with('detalles')->orderBy('id'),
+        ]);
+
+        return view('wms.produccion.paletizacion-revision-detalle', compact('entrega'));
+    }
+
     public function buscar(Request $request)
     {
         $almacen = $this->context->almacen();
@@ -98,9 +173,6 @@ class WmsPaletizacionController extends Controller
         $this->validarAlmacen($entrega);
 
         try {
-            // La distribucion de pallets no la decide el navegador.
-            // El servicio genera los HUs automaticamente a partir de la
-            // cantidad conciliada y las reglas del WMS.
             $creados = $this->paletizacion->guardar(
                 $entrega,
                 [],
