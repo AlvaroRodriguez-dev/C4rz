@@ -74,7 +74,7 @@ class WmsVerificacionPalletService
             $entrega = WmsEntregaProduccion::query()->lockForUpdate()->findOrFail($entrega->id);
             $hu = WmsHu::query()->lockForUpdate()->findOrFail($hu->id);
 
-            if ($hu->entrega_id !== $entrega->id) {
+            if ((int) $hu->entrega_id !== (int) $entrega->id) {
                 throw new RuntimeException('El pallet no pertenece a la liberación indicada.');
             }
 
