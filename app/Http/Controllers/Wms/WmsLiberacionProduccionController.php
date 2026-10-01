@@ -30,6 +30,10 @@ class WmsLiberacionProduccionController extends Controller
 
     public function create(Request $request)
     {
+        if ($request->boolean('buscar')) {
+            return $this->buscar($request);
+        }
+
         if ($request->boolean('pdf')) {
             $entrega = WmsEntregaProduccion::findOrFail($request->integer('id'));
             return $this->pdf($entrega);
