@@ -7,6 +7,7 @@ use App\Models\WmsConfigPallet;
 use App\Models\WmsEntregaProduccion;
 use App\Services\WmsContextService;
 use App\Services\WmsLiberacionProduccionService;
+use App\Services\WmsPaletizacionService;
 use App\Services\WmsProductoCatalogoService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -17,7 +18,8 @@ class WmsLiberacionProduccionController extends Controller
     public function __construct(
         private WmsContextService $context,
         private WmsLiberacionProduccionService $service,
-        private WmsProductoCatalogoService $catalogo
+        private WmsProductoCatalogoService $catalogo,
+        private WmsPaletizacionService $paletizacion
     ) {
     }
 
@@ -75,10 +77,12 @@ class WmsLiberacionProduccionController extends Controller
                     'id' => $entrega->id,
                     'documento' => $entrega->documento?->id_documento,
                     'rdocum_sas' => $entrega->rdocum_sas,
+                    'folio_fisico' => $entrega->folio_fisico,
                     'fecha_entrega' => optional($entrega->fecha_entrega)->format('d/m/Y'),
                     'origen' => $entrega->origen,
                     'total_declarado' => $entrega->total_declarado,
                     'total_fisico' => $entrega->total_fisico,
+                    'pallets' => $entrega->hu()->count(),
                     'estado' => $entrega->estado,
                 ];
             })->items(),
@@ -86,6 +90,50 @@ class WmsLiberacionProduccionController extends Controller
             'last_page' => $resultado->lastPage(),
             'total' => $resultado->total(),
         ]);
+    }
+
+    public function generarPallets(WmsEntregaProduccion $entrega)
+    {
+        $this->validarAlmacen($entrega);
+
+        if ($entrega->estado !== 'PENDIENTE_PALLET') {
+            return back()->with('error', 'La liberación no está pendiente de generación de pallets.');
+        }
+
+        try {
+            $creados = $this->paletizacion->guardar(
+                $entrega,
+                [],
+                (int) auth()->id()
+            );
+
+            return redirect()
+                ->route('wms.produccion.liberacion.pallets', $entrega)
+                ->with('success', count($creados) === 1
+                    ? '1 pallet fue generado correctamente.'
+                    : count($creados) . ' pallets fueron generados correctamente.');
+        } catch (RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function pallets(WmsEntregaProduccion $entrega)
+    {
+        $this->validarAlmacen($entrega);
+
+        if (!in_array($entrega->estado, ['PENDIENTE_VERIFICACION', 'PALETIZADA', 'UBICADA'], true)) {
+            return redirect()
+                ->route('wms.produccion.liberacion.create')
+                ->with('error', 'La liberación todavía no tiene pallets generados.');
+        }
+
+        $entrega->load([
+            'documento',
+            'almacen',
+            'hu' => fn ($query) => $query->with('detalles')->orderBy('id'),
+        ]);
+
+        return view('wms.produccion.paletizacion-revision-detalle', compact('entrega'));
     }
 
     public function pdf(WmsEntregaProduccion $entrega)
