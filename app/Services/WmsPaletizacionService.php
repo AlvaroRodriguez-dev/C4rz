@@ -19,10 +19,6 @@ class WmsPaletizacionService
         return $this->construirDisponible($entrega->detalles);
     }
 
-    /**
-     * Calcula la paletización que se generará sin consumir correlativos ni
-     * modificar datos. Es la misma regla que utiliza guardar().
-     */
     public function calcularPallets(WmsEntregaProduccion $entrega): array
     {
         if (!in_array($entrega->estado, ['PENDIENTE_PALLET', 'CONCILIADA', 'CON_DIFERENCIA'], true)) {
@@ -31,7 +27,6 @@ class WmsPaletizacionService
 
         $entrega->loadMissing('detalles');
         $usarDeclarado = $entrega->estado === 'PENDIENTE_PALLET';
-
         $disponibles = collect($this->construirDisponible($entrega->detalles, $usarDeclarado));
 
         return $this->construirDefiniciones(
@@ -48,7 +43,7 @@ class WmsPaletizacionService
      *
      * Reglas:
      * - no se mezclan formatos;
-     * - no se mezclan producto/lote/tono/calibre;
+     * - dentro del mismo formato se pueden mezclar productos y lotes;
      * - se respeta la capacidad configurada por formato;
      * - el remanente se registra como SALDO.
      */
@@ -65,8 +60,7 @@ class WmsPaletizacionService
                 ->get();
 
             $usarDeclarado = $entrega->estado === 'PENDIENTE_PALLET';
-            $disponibles = collect($this->construirDisponible($detalles, $usarDeclarado))
-                ->keyBy('id');
+            $disponibles = collect($this->construirDisponible($detalles, $usarDeclarado))->keyBy('id');
 
             $pendientes = $disponibles
                 ->filter(fn (array $detalle) => (int) $detalle['cantidad_pendiente'] > 0)
@@ -77,18 +71,13 @@ class WmsPaletizacionService
             }
 
             $definiciones = $this->construirDefiniciones($pendientes);
-
             $almacen = $entrega->almacen;
 
             if (!$almacen) {
                 throw new RuntimeException('La entrega no tiene un almacén válido para generar los números de pallet.');
             }
 
-            $numeros = app(PalletCorrelativoService::class)->generarSiguientes(
-                $almacen,
-                count($definiciones)
-            );
-
+            $numeros = app(PalletCorrelativoService::class)->generarSiguientes($almacen, count($definiciones));
             $creados = [];
 
             foreach ($definiciones as $index => $definicion) {
@@ -143,10 +132,7 @@ class WmsPaletizacionService
             }
 
             $pendienteTotal = $detalles->sum(function (WmsEntregaDetalle $detalle) use ($usarDeclarado) {
-                $base = $usarDeclarado
-                    ? (int) $detalle->cantidad_declarada
-                    : (int) $detalle->cantidad_fisica;
-
+                $base = $usarDeclarado ? (int) $detalle->cantidad_declarada : (int) $detalle->cantidad_fisica;
                 return max($base - (int) $detalle->cantidad_paletizada, 0);
             });
 
@@ -163,20 +149,15 @@ class WmsPaletizacionService
 
     /**
      * Divide las cantidades pendientes en pallets completos y saldos.
-     * La clave de agrupación conserva producto, formato, lote, tono y calibre.
+     * La agrupación se hace únicamente por formato, permitiendo mezclar
+     * productos y lotes distintos del mismo formato dentro de un pallet.
      */
     private function construirDefiniciones($pendientes): array
     {
         $definiciones = [];
 
         $grupos = $pendientes->groupBy(function (array $detalle) {
-            return implode('|', [
-                $detalle['codigo'],
-                $detalle['formato'],
-                $detalle['lote'] ?? '',
-                $detalle['tono'] ?? '',
-                $detalle['calibre'] ?? '',
-            ]);
+            return $detalle['formato'];
         });
 
         foreach ($grupos as $items) {
@@ -209,7 +190,6 @@ class WmsPaletizacionService
                         'detalle_id' => $restante['detalle_id'],
                         'cantidad' => $tomar,
                     ];
-
                     $restante['cantidad'] -= $tomar;
                     $restantePallet -= $tomar;
                 }
