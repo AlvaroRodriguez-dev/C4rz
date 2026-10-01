@@ -9,9 +9,13 @@
                 <div>
                     <a href="{{ route('wms.produccion.liberacion.create') }}" class="text-sm text-gray-600">&larr; Volver a liberaciones</a>
                     <h1 class="text-2xl font-bold text-gray-900 mt-2">Pallets generados</h1>
-                    <p class="text-sm text-gray-500">Los QR se generan con el número real del pallet y están preparados para impresión de 8 × 8 cm.</p>
+                    <p class="text-sm text-gray-500">Los QR se consultan en pantalla y las etiquetas se generan en PDF de 80 × 80 mm.</p>
                 </div>
-                <button onclick="window.print()" class="px-4 py-2 rounded-lg bg-gray-900 text-white font-semibold">IMPRIMIR QR 8 × 8 CM</button>
+                <a href="{{ route('wms.produccion.liberacion.pallets', ['entrega' => $entrega->id, 'pdf' => 1]) }}"
+                   target="_blank"
+                   class="px-4 py-2 rounded-lg bg-gray-900 text-white font-semibold text-center">
+                    IMPRIMIR ETIQUETAS 8 × 8 CM
+                </a>
             </div>
 
             <div class="bg-white shadow rounded-xl p-4 sm:p-5 mb-5 print:hidden">
@@ -32,7 +36,7 @@
             @if($entrega->hu->isEmpty())
                 <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-5 text-sm text-yellow-800">La liberación no tiene pallets registrados.</div>
             @else
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 print:block">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                     @foreach($entrega->hu as $hu)
                         <article class="bg-white shadow rounded-xl border border-gray-200 overflow-hidden pallet-card">
                             <div class="p-4 border-b border-gray-100 flex items-start justify-between gap-3">
@@ -89,34 +93,4 @@
             });
         });
     </script>
-
-    <style>
-        @media print {
-            @page { size: 80mm 80mm; margin: 0; }
-            html, body { width: 80mm; margin: 0 !important; padding: 0 !important; background: #fff !important; }
-            .pallet-card {
-                width: 80mm;
-                height: 80mm;
-                box-sizing: border-box;
-                margin: 0;
-                padding: 5mm;
-                border: 0 !important;
-                border-radius: 0 !important;
-                box-shadow: none !important;
-                break-after: page;
-                page-break-after: always;
-                overflow: hidden;
-            }
-            .pallet-card:last-child { break-after: auto; page-break-after: auto; }
-            .pallet-card .qr-code { display: flex !important; justify-content: center; }
-            .pallet-card .qr-code canvas,
-            .pallet-card .qr-code img { width: 42mm !important; height: 42mm !important; }
-            .pallet-card .p-4 { padding: 2mm !important; }
-            .pallet-card .text-xl { font-size: 14pt !important; }
-            .pallet-card .text-sm { font-size: 8pt !important; }
-            .pallet-card .text-xs { font-size: 7pt !important; }
-            .pallet-card .mb-4 { margin-bottom: 2mm !important; }
-            .pallet-card .gap-3 { gap: 1mm !important; }
-        }
-    </style>
 </x-app-layout>
