@@ -121,7 +121,14 @@ class WmsLiberacionProduccionController extends Controller
     {
         $this->validarAlmacen($entrega);
 
-        if (!in_array($entrega->estado, ['PENDIENTE_VERIFICACION', 'PALETIZADA', 'UBICADA'], true)) {
+        if (!in_array($entrega->estado, [
+            'PENDIENTE_VERIFICACION',
+            'EN_VERIFICACION',
+            'PALETIZADA',
+            'UBICADA',
+            'CONCILIADA',
+            'CON_DIFERENCIA',
+        ], true)) {
             return redirect()
                 ->route('wms.produccion.liberacion.create')
                 ->with('error', 'La liberación todavía no tiene pallets generados.');
