@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class WmsHu extends Model
 {
@@ -47,5 +48,10 @@ class WmsHu extends Model
     public function detalles(): HasMany
     {
         return $this->hasMany(WmsHuDetalle::class, 'hu_id');
+    }
+
+    public function verificacion(): HasOne
+    {
+        return $this->hasOne(WmsHuVerificacion::class, 'hu_id');
     }
 }
