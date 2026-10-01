@@ -25,13 +25,14 @@ class WmsPaletizacionService
      */
     public function calcularPallets(WmsEntregaProduccion $entrega): array
     {
-        if (!in_array($entrega->estado, ['CONCILIADA', 'CON_DIFERENCIA'], true)) {
-            throw new RuntimeException('Solo se puede calcular la paletización de una entrega en estado CONCILIADA o CON_DIFERENCIA.');
+        if (!in_array($entrega->estado, ['PENDIENTE_PALLET', 'CONCILIADA', 'CON_DIFERENCIA'], true)) {
+            throw new RuntimeException('Solo se puede calcular la paletización de una entrega pendiente de pallet, conciliada o con diferencia.');
         }
 
         $entrega->loadMissing('detalles');
+        $usarDeclarado = $entrega->estado === 'PENDIENTE_PALLET';
 
-        $disponibles = collect($this->construirDisponible($entrega->detalles));
+        $disponibles = collect($this->construirDisponible($entrega->detalles, $usarDeclarado));
 
         return $this->construirDefiniciones(
             $disponibles->filter(fn (array $detalle) => (int) $detalle['cantidad_pendiente'] > 0)->values()
@@ -39,9 +40,13 @@ class WmsPaletizacionService
     }
 
     /**
-     * Genera automaticamente los pallets a partir de la cantidad conciliada.
+     * Genera automaticamente los pallets.
      *
-     * Las reglas son las mismas del ingreso WMS:
+     * Para una liberación nueva se utiliza la cantidad declarada.
+     * El flujo anterior de paletización sigue utilizando la cantidad física
+     * conciliada, manteniendo compatibilidad con los registros existentes.
+     *
+     * Reglas:
      * - no se mezclan formatos;
      * - no se mezclan producto/lote/tono/calibre;
      * - se respeta la capacidad configurada por formato;
@@ -49,8 +54,8 @@ class WmsPaletizacionService
      */
     public function guardar(WmsEntregaProduccion $entrega, array $pallets, int $userId): array
     {
-        if (!in_array($entrega->estado, ['CONCILIADA', 'CON_DIFERENCIA'], true)) {
-            throw new RuntimeException('Solo se puede paletizar una entrega en estado CONCILIADA o CON_DIFERENCIA.');
+        if (!in_array($entrega->estado, ['PENDIENTE_PALLET', 'CONCILIADA', 'CON_DIFERENCIA'], true)) {
+            throw new RuntimeException('Solo se puede generar pallets de una entrega pendiente de pallet, conciliada o con diferencia.');
         }
 
         return DB::transaction(function () use ($entrega, $userId) {
@@ -59,7 +64,8 @@ class WmsPaletizacionService
                 ->lockForUpdate()
                 ->get();
 
-            $disponibles = collect($this->construirDisponible($detalles))
+            $usarDeclarado = $entrega->estado === 'PENDIENTE_PALLET';
+            $disponibles = collect($this->construirDisponible($detalles, $usarDeclarado))
                 ->keyBy('id');
 
             $pendientes = $disponibles
@@ -136,16 +142,17 @@ class WmsPaletizacionService
                 ];
             }
 
-            $pendienteTotal = $detalles->sum(function (WmsEntregaDetalle $detalle) {
-                return max(
-                    (int) $detalle->cantidad_fisica - (int) $detalle->cantidad_paletizada,
-                    0
-                );
+            $pendienteTotal = $detalles->sum(function (WmsEntregaDetalle $detalle) use ($usarDeclarado) {
+                $base = $usarDeclarado
+                    ? (int) $detalle->cantidad_declarada
+                    : (int) $detalle->cantidad_fisica;
+
+                return max($base - (int) $detalle->cantidad_paletizada, 0);
             });
 
             if ($pendienteTotal === 0) {
                 $entrega->update([
-                    'estado' => 'PALETIZADA',
+                    'estado' => $usarDeclarado ? 'PENDIENTE_VERIFICACION' : 'PALETIZADA',
                     'update_id' => $userId,
                 ]);
             }
@@ -228,7 +235,7 @@ class WmsPaletizacionService
         return $definiciones;
     }
 
-    private function construirDisponible($detalles): array
+    private function construirDisponible($detalles, bool $usarDeclarado = false): array
     {
         $ids = $detalles->pluck('id');
 
@@ -238,10 +245,10 @@ class WmsPaletizacionService
             ->groupBy('entrega_detalle_id')
             ->pluck('total', 'entrega_detalle_id');
 
-        return $detalles->map(function (WmsEntregaDetalle $detalle) use ($paletizado) {
+        return $detalles->map(function (WmsEntregaDetalle $detalle) use ($paletizado, $usarDeclarado) {
             $yaPaletizado = (int) ($paletizado[$detalle->id] ?? 0);
-            $fisico = (int) $detalle->cantidad_fisica;
-            $pendiente = max($fisico - $yaPaletizado, 0);
+            $base = $usarDeclarado ? (int) $detalle->cantidad_declarada : (int) $detalle->cantidad_fisica;
+            $pendiente = max($base - $yaPaletizado, 0);
             $formato = $detalle->formato ?: strtoupper(substr($detalle->codigo, 5, 4));
             $config = WmsConfigPallet::find($formato);
 
@@ -254,7 +261,8 @@ class WmsPaletizacionService
                 'calidad' => $detalle->calidad,
                 'formato' => $formato,
                 'lote' => $detalle->lote,
-                'cantidad_fisica' => $fisico,
+                'cantidad_fisica' => (int) $detalle->cantidad_fisica,
+                'cantidad_declarada' => (int) $detalle->cantidad_declarada,
                 'cantidad_paletizada' => $yaPaletizado,
                 'cantidad_pendiente' => $pendiente,
                 'tono' => $detalle->tono,
