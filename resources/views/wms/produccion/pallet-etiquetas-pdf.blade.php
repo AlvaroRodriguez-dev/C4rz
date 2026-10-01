@@ -21,14 +21,18 @@
             box-sizing: border-box;
             padding: 5mm;
             text-align: center;
-            page-break-after: always;
-            break-after: page;
             overflow: hidden;
         }
 
-        .etiqueta:last-child {
-            page-break-after: auto;
-            break-after: auto;
+        /*
+         * DomPDF puede interpretar un page-break-after junto con un
+         * elemento que ya ocupa exactamente una página como una página
+         * adicional en blanco. Por eso el salto se coloca antes de cada
+         * etiqueta, excepto la primera.
+         */
+        .etiqueta + .etiqueta {
+            page-break-before: always;
+            break-before: page;
         }
 
         .qr {
