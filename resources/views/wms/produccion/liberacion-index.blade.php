@@ -12,28 +12,31 @@
         <div id="alertBox" class="hidden mb-4 p-3 rounded-lg text-sm"></div>
         <div class="bg-white shadow rounded-xl p-4 sm:p-5 mb-4"><div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div><label class="block text-sm font-medium text-gray-700 mb-1">Buscar</label><input id="search" type="search" placeholder="Documento WMS, folio u origen..." class="w-full border-gray-300 rounded-lg"></div>
-            <div><label class="block text-sm font-medium text-gray-700 mb-1">Estado</label><select id="estado" class="w-full border-gray-300 rounded-lg"><option value="">Todos</option><option value="PENDIENTE_PALLET">Pendiente de pallet</option><option value="PENDIENTE_VERIFICACION">Pendiente de verificación</option><option value="EN_VERIFICACION">En verificación</option><option value="CONCILIADA">Conciliada</option><option value="CON_DIFERENCIA">Con diferencia</option><option value="PALETIZADA">Paletizada</option><option value="UBICADA">Ubicada</option></select></div>
+            <div><label class="block text-sm font-medium text-gray-700 mb-1">Estado</label><select id="estado" class="w-full border-gray-300 rounded-lg"><option value="">Todos</option><option value="PENDIENTE_PALLET">Pendiente de pallet</option><option value="PENDIENTE_VERIFICACION">Pendiente de verificación</option><option value="EN_VERIFICACION">En verificación</option><option value="VERIFICADA">Verificada</option><option value="CONCILIADA">Conciliada</option><option value="CON_DIFERENCIA">Con diferencia</option><option value="PALETIZADA">Paletizada</option><option value="UBICADA">Ubicada</option></select></div>
             <div class="flex items-end"><button id="btnBuscar" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg">BUSCAR</button></div>
         </div></div>
         <div class="bg-white shadow rounded-xl overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-gray-100 text-gray-600"><tr><th class="text-left p-3">Documento WMS</th><th class="text-left p-3">Folio</th><th class="text-left p-3">Origen</th><th class="text-left p-3">Fecha</th><th class="text-right p-3">Cajas</th><th class="text-right p-3">Pallets</th><th class="text-left p-3">Estado</th><th class="text-right p-3">Acciones</th></tr></thead><tbody id="tabla"></tbody></table></div><div id="paginacion" class="p-3 border-t"></div></div>
     </div></div>
     <script>
-        // Esta grilla utiliza la búsqueda propia de Liberaciones de Producción.
-        // Así el contador de pallets se obtiene directamente desde la relación WmsEntregaProduccion -> WmsHu.
         const routeBuscar = "{{ route('wms.produccion.liberacion.create', ['buscar' => 1]) }}";
         const routePdf = "{{ url('wms/produccion-liberacion') }}";
         const routePallets = "{{ url('wms/produccion-liberacion') }}";
+        const routeVerificacion = "{{ url('wms/produccion-liberacion') }}";
         const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || "{{ csrf_token() }}";
         const puedeGenerar = @json(auth()->user()->can('wms.produccion.verificar'));
+        const puedeVerificar = @json(auth()->user()->can('wms.produccion.verificar.ejecutar'));
         document.addEventListener('DOMContentLoaded', () => { document.getElementById('btnBuscar').addEventListener('click', () => cargar(1)); document.getElementById('search').addEventListener('keydown', e => { if (e.key === 'Enter') cargar(1); }); document.getElementById('estado').addEventListener('change', () => cargar(1)); cargar(1); });
         async function cargar(page) { const params = new URLSearchParams({q:document.getElementById('search').value.trim(),estado:document.getElementById('estado').value,page}); try { const res=await fetch(routeBuscar+'&'+params.toString(),{headers:{'Accept':'application/json'}}); if(!res.ok) throw new Error('No fue posible cargar las liberaciones.'); const data=await res.json(); document.getElementById('tabla').innerHTML=data.data.length?data.data.map(fila).join(''):'<tr><td colspan="8" class="p-6 text-center text-gray-500">No se encontraron liberaciones.</td></tr>'; document.getElementById('paginacion').innerHTML=data.last_page>1?'<div class="flex justify-between items-center"><button class="px-3 py-2 border rounded-lg" '+(data.current_page<=1?'disabled':'')+' onclick="cargar('+(data.current_page-1)+')">Anterior</button><span class="text-sm text-gray-500">Página '+data.current_page+' de '+data.last_page+'</span><button class="px-3 py-2 border rounded-lg" '+(data.current_page>=data.last_page?'disabled':'')+' onclick="cargar('+(data.current_page+1)+')">Siguiente</button></div>':''; } catch(error){console.error(error);mostrarAlerta(error.message,'error');} }
         function fila(item){
             const pdf='<a class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold" href="'+routePdf+'?pdf=1&id='+item.id+'" target="_blank" rel="noopener">PDF</a>';
             let acciones=pdf;
-            const estadosConPallets=['PENDIENTE_VERIFICACION','EN_VERIFICACION','PALETIZADA','UBICADA','CONCILIADA','CON_DIFERENCIA'];
+            const estadosConPallets=['PENDIENTE_VERIFICACION','EN_VERIFICACION','VERIFICADA','PALETIZADA','UBICADA','CONCILIADA','CON_DIFERENCIA'];
             if(estadosConPallets.includes(item.estado)&&Number(item.pallets)>0){
                 acciones+='<a class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold ml-2" href="'+routePallets+'/'+item.id+'/pallets">VER PALLETS</a>';
                 acciones+='<a class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-semibold ml-2" href="'+routePallets+'/'+item.id+'/pallets?pdf=1" target="_blank" rel="noopener">IMPRIMIR QR</a>';
+            }
+            if(['PENDIENTE_VERIFICACION','EN_VERIFICACION'].includes(item.estado)&&Number(item.pallets)>0&&puedeVerificar){
+                acciones+='<a class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-semibold ml-2" href="'+routeVerificacion+'/'+item.id+'/verificacion-pallets">VERIFICAR PALLETS</a>';
             }
             if(item.estado==='PENDIENTE_PALLET'&&puedeGenerar){
                 acciones+='<form method="POST" action="'+routePallets+'/'+item.id+'/pallets/generar" class="inline-block ml-2" onsubmit="return confirmarGeneracion()"><input type="hidden" name="_token" value="'+csrf+'"><button type="submit" class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold">GENERAR PALLET</button></form>';
@@ -42,7 +45,7 @@
         }
         function confirmarGeneracion(){return confirm('¿Desea generar los pallets de esta liberación? Esta acción asignará los números de pallet y cambiará el estado a PENDIENTE_VERIFICACION.');}
         function esc(value){return String(value??'—').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));}
-        function claseEstado(estado){return {PENDIENTE_PALLET:'bg-orange-100 text-orange-800',PENDIENTE_VERIFICACION:'bg-yellow-100 text-yellow-800',EN_VERIFICACION:'bg-blue-100 text-blue-800',CONCILIADA:'bg-green-100 text-green-800',CON_DIFERENCIA:'bg-red-100 text-red-800',PALETIZADA:'bg-indigo-100 text-indigo-800',UBICADA:'bg-green-100 text-green-800'}[estado]??'bg-gray-100 text-gray-800';}
+        function claseEstado(estado){return {PENDIENTE_PALLET:'bg-orange-100 text-orange-800',PENDIENTE_VERIFICACION:'bg-yellow-100 text-yellow-800',EN_VERIFICACION:'bg-blue-100 text-blue-800',VERIFICADA:'bg-green-100 text-green-800',CONCILIADA:'bg-green-100 text-green-800',CON_DIFERENCIA:'bg-red-100 text-red-800',PALETIZADA:'bg-indigo-100 text-indigo-800',UBICADA:'bg-green-100 text-green-800'}[estado]??'bg-gray-100 text-gray-800';}
         function mostrarAlerta(mensaje,tipo){const box=document.getElementById('alertBox');box.className='mb-4 p-3 rounded-lg text-sm '+(tipo==='success'?'bg-green-100 text-green-800':'bg-red-100 text-red-800');box.textContent=mensaje;box.classList.remove('hidden');}
     </script>
 </x-app-layout>
