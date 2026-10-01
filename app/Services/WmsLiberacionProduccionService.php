@@ -49,8 +49,7 @@ class WmsLiberacionProduccionService
             }
 
             // El documento WMS se genera al emitir el RG-CB-36.
-            // La nota/rdocum oficial del SAS se generará posteriormente,
-            // después de conciliación, paletización y ubicación.
+            // La nota/rdocum oficial del SAS se generará posteriormente.
             $documento = $this->documentos->generar(
                 $almacen,
                 self::TIPO_DOCUMENTO_LIBERACION_PRODUCCION,
@@ -58,8 +57,6 @@ class WmsLiberacionProduccionService
             );
 
             $entrega = WmsEntregaProduccion::create([
-                // Seguimiento documental: se almacena el código WMS (ej. A010202609004),
-                // no el id interno autoincremental de wms_documentos.
                 'documento_id' => $documento->id_documento,
                 'folio_fisico' => $data['folio_fisico'] ?? null,
                 'almacen_id' => $almacen->id,
@@ -71,7 +68,7 @@ class WmsLiberacionProduccionService
                 'turno_hora' => null,
                 'total_declarado' => 0,
                 'total_fisico' => 0,
-                'estado' => 'PENDIENTE_VERIFICACION',
+                'estado' => 'PENDIENTE_PALLET',
                 'rdocum_sas' => null,
                 'posteado_erp_at' => null,
                 'observaciones' => $data['observaciones'] ?? null,
