@@ -136,6 +136,35 @@ class WmsLiberacionProduccionController extends Controller
         return view('wms.produccion.paletizacion-revision-detalle', compact('entrega'));
     }
 
+    public function imprimirPallets(WmsEntregaProduccion $entrega)
+    {
+        $this->validarAlmacen($entrega);
+
+        if (!in_array($entrega->estado, ['PENDIENTE_VERIFICACION', 'PALETIZADA', 'UBICADA'], true)) {
+            return redirect()
+                ->route('wms.produccion.liberacion.create')
+                ->with('error', 'La liberación todavía no tiene pallets generados.');
+        }
+
+        $entrega->load([
+            'documento',
+            'hu' => fn ($query) => $query->orderBy('id'),
+        ]);
+
+        if ($entrega->hu->isEmpty()) {
+            return back()->with('error', 'La liberación no tiene pallets para imprimir.');
+        }
+
+        $pdf = Pdf::loadView('wms.produccion.pallet-etiquetas-pdf', compact('entrega'))
+            ->setPaper([0, 0, 226.7716535, 226.7716535], 'portrait')
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('dpi', 203);
+
+        $documento = $entrega->documento?->id_documento ?? ('RG-CB-36-' . $entrega->id);
+
+        return $pdf->stream('ETIQUETAS-PALLETS-' . $documento . '.pdf');
+    }
+
     public function pdf(WmsEntregaProduccion $entrega)
     {
         $this->validarAlmacen($entrega);
