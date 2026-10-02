@@ -65,6 +65,34 @@ class WmsVerificacionPalletController extends Controller
         }
     }
 
+    public function opciones(WmsEntregaProduccion $entrega, Request $request)
+    {
+        $this->validarPermiso();
+        $this->validarAlmacen($entrega);
+
+        $q = trim((string) $request->input('q', ''));
+
+        $query = WmsHu::query()
+            ->where('entrega_id', $entrega->id)
+            ->when($q !== '', fn ($builder) => $builder->where('numero', 'like', "%{$q}%"))
+            ->with('verificacion')
+            ->orderBy('numero')
+            ->limit(30);
+
+        $results = $query->get()->map(function (WmsHu $hu) {
+            $estado = $hu->verificacion
+                ? ($hu->verificacion->resultado === 'CONFIRMADO_CON_DIFERENCIA' ? 'CONFIRMADO CON DIFERENCIA' : 'CONFIRMADO')
+                : 'PENDIENTE';
+
+            return [
+                'id' => $hu->numero,
+                'text' => $hu->numero . ' · ' . $estado,
+            ];
+        })->values();
+
+        return response()->json(['results' => $results]);
+    }
+
     public function confirmar(WmsEntregaProduccion $entrega, WmsHu $hu, Request $request)
     {
         $this->validarPermiso();
