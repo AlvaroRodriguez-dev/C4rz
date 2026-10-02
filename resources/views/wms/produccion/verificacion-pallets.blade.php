@@ -283,46 +283,49 @@
             if (!pallet.contenido.length) {
                 html += '<div class="text-sm text-gray-500">Sin detalle de contenido.</div>';
             } else {
-                html += '<div class="divide-y border rounded-lg">' + pallet.contenido.map(item => '<div class="flex justify-between gap-3 p-3 text-sm"><div><div class="font-mono">' + esc(item.codigo) + '</div><div class="text-gray-500">Lote: ' + esc(item.lote || 'S/L') + '</div></div><div class="font-bold">' + item.cantidad + '</div></div>').join('') + '</div>';
+                html += '<div class="divide-y border rounded-lg">' + pallet.contenido.map(item => {
+                    const nombre = [item.descripcion, item.descripcion1].filter(Boolean).join(' ').trim();
+                    return '<div class="p-3 text-sm flex justify-between gap-3">' +
+                        '<div class="min-w-0">' +
+                            '<div class="font-semibold text-gray-800 break-words">' + esc(nombre || 'Producto sin descripción') + '</div>' +
+                            '<div class="font-mono text-gray-600 break-all">Código: ' + esc(item.codigo) + '</div>' +
+                            '<div class="text-gray-500">Lote: ' + esc(item.lote || 'S/L') + '</div>' +
+                        '</div>' +
+                        '<div class="font-bold shrink-0">' + item.cantidad + '</div>' +
+                    '</div>';
+                }).join('') + '</div>';
             }
             dom('contenidoBox').innerHTML = html;
 
             if (pallet.verificado) {
-                dom('cantidadVerificada').disabled = true;
                 dom('btnConfirmar').classList.add('hidden');
                 dom('btnConfirmarDiferencia').classList.add('hidden');
-                dom('observacionBox').classList.add('hidden');
+                dom('cantidadVerificada').disabled = true;
+                dom('observacion').disabled = true;
+                dom('observacionBox').classList.toggle('hidden', pallet.resultado !== 'CONFIRMADO_CON_DIFERENCIA');
             } else {
                 dom('cantidadVerificada').disabled = false;
+                dom('observacion').disabled = false;
                 actualizarDiferencia();
-                dom('cantidadVerificada').focus();
-                dom('cantidadVerificada').select();
             }
         }
 
         function actualizarDiferencia() {
             if (!palletActual || palletActual.verificado) return;
-            const verificada = Number(dom('cantidadVerificada').value);
-            const esperada = Number(palletActual.cantidad_esperada);
-            if (!Number.isInteger(verificada) || verificada < 0) {
-                dom('diferenciaBox').textContent = 'Ingrese una cantidad válida.';
-                dom('diferenciaBox').className = 'flex-1 rounded-lg p-3 text-sm bg-gray-50 text-gray-600';
-                dom('btnConfirmar').classList.add('hidden');
-                dom('btnConfirmarDiferencia').classList.add('hidden');
-                dom('observacionBox').classList.add('hidden');
-                return;
-            }
-
+            const esperada = Number(palletActual.cantidad_esperada || 0);
+            const verificada = Number(dom('cantidadVerificada').value || 0);
             const diferencia = verificada - esperada;
+            const box = dom('diferenciaBox');
+
             if (diferencia === 0) {
-                dom('diferenciaBox').textContent = 'Cantidad correcta. No existe diferencia.';
-                dom('diferenciaBox').className = 'flex-1 rounded-lg p-3 text-sm bg-green-100 text-green-800';
+                box.textContent = 'La cantidad coincide con lo esperado.';
+                box.className = 'flex-1 rounded-lg p-3 text-sm bg-green-50 text-green-700';
                 dom('btnConfirmar').classList.remove('hidden');
                 dom('btnConfirmarDiferencia').classList.add('hidden');
                 dom('observacionBox').classList.add('hidden');
             } else {
-                dom('diferenciaBox').textContent = 'Diferencia: ' + (diferencia > 0 ? '+' : '') + diferencia + ' cajas.';
-                dom('diferenciaBox').className = 'flex-1 rounded-lg p-3 text-sm bg-orange-100 text-orange-800';
+                box.textContent = `Diferencia: ${diferencia > 0 ? '+' : ''}${diferencia} cajas`;
+                box.className = 'flex-1 rounded-lg p-3 text-sm bg-orange-50 text-orange-700';
                 dom('btnConfirmar').classList.add('hidden');
                 dom('btnConfirmarDiferencia').classList.remove('hidden');
                 dom('observacionBox').classList.remove('hidden');
@@ -333,67 +336,88 @@
             if (!palletActual || palletActual.verificado) return;
             const cantidad = Number(dom('cantidadVerificada').value);
             const esperada = Number(palletActual.cantidad_esperada);
-            const diferencia = cantidad - esperada;
-
-            if (conDiferencia && diferencia === 0) {
-                mostrarAlerta('La cantidad coincide. Utilice CONFIRMAR.', 'error');
+            if (!Number.isInteger(cantidad) || cantidad < 0) {
+                mostrarAlerta('Ingrese una cantidad válida.', 'error');
                 return;
             }
-            if (!conDiferencia && diferencia !== 0) {
-                mostrarAlerta('Existe una diferencia. Utilice CONFIRMAR CON DIFERENCIA.', 'error');
+            if (conDiferencia && cantidad === esperada) {
+                mostrarAlerta('La cantidad coincide. Use CONFIRMAR.', 'error');
                 return;
             }
-            if (conDiferencia && !dom('observacion').value.trim()) {
-                if (!confirm('Existe una diferencia. ¿Desea confirmar la diferencia sin observación adicional?')) return;
+            if (!conDiferencia && cantidad !== esperada) {
+                mostrarAlerta('Existe una diferencia. Debe usar CONFIRMAR CON DIFERENCIA.', 'error');
+                return;
             }
 
             try {
-                const res = await fetch(baseUrl + '/' + encodeURIComponent(palletActual.id) + '/confirmar', {
+                const response = await fetch(baseUrl + '/pallet/' + palletActual.id + '/confirmar', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf},
-                    body: JSON.stringify({cantidad_verificada: cantidad, observacion: dom('observacion').value.trim() || null})
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrf,
+                    },
+                    body: JSON.stringify({
+                        cantidad_verificada: cantidad,
+                        observacion: dom('observacion').value.trim() || null,
+                    }),
                 });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.message || 'No fue posible confirmar el pallet.');
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || 'No fue posible confirmar el pallet.');
 
-                mostrarAlerta(data.message, data.resultado === 'CONFIRMADO' ? 'success' : 'warning');
+                mostrarAlerta(data.message, 'success');
+                palletActual.verificado = true;
+                palletActual.resultado = data.resultado;
+                palletActual.cantidad_verificada = cantidad;
+                palletActual.diferencia = data.diferencia;
+                mostrarPallet(palletActual);
                 actualizarResumen(data.resumen, data.estado_entrega);
-                limpiarPanel();
+                actualizarOpcionPallet(palletActual.numero, data.resultado);
             } catch (error) {
                 mostrarAlerta(error.message, 'error');
             }
         }
 
+        function actualizarOpcionPallet(numero, resultado) {
+            const select = jq('#selectPallet');
+            const option = select.find('option').filter(function () { return this.value === numero; });
+            if (!option.length) return;
+            option.text(numero + ' · ' + (resultado === 'CONFIRMADO_CON_DIFERENCIA' ? 'CONFIRMADO CON DIFERENCIA' : 'CONFIRMADO'));
+            select.trigger('change.select2');
+        }
+
         function actualizarResumen(resumen, estado) {
-            dom('progreso').textContent = resumen.verificados + ' / ' + resumen.total;
-            dom('pendientes').textContent = resumen.pendientes + ' pendientes';
+            dom('progreso').textContent = `${resumen.verificados} / ${resumen.total}`;
+            dom('pendientes').textContent = `${resumen.pendientes} pendientes`;
             dom('conDiferencia').textContent = resumen.con_diferencia;
-            dom('barraProgreso').style.width = (resumen.total ? ((resumen.verificados / resumen.total) * 100) : 0) + '%';
             dom('estadoEntrega').textContent = estado;
-            if (estado === 'VERIFICADA') {
-                dom('pendientes').className = 'px-3 py-1 rounded-full bg-green-100 text-green-800 text-xs font-semibold';
-                mostrarAlerta('La verificación de todos los pallets fue completada. La liberación quedó en estado VERIFICADA.', 'success');
-            }
+            dom('barraProgreso').style.width = `${resumen.total ? ((resumen.verificados / resumen.total) * 100).toFixed(2) : 0}%`;
         }
 
         function limpiarPanel() {
             palletActual = null;
-            dom('palletPanel').classList.add('hidden');
-            dom('cantidadVerificada').value = '';
-            dom('observacion').value = '';
             jq('#selectPallet').val(null).trigger('change');
-            setTimeout(() => jq('#selectPallet').select2('open'), 50);
+            jq('#palletPanel').addClass('hidden');
+            dom('observacionBox').classList.add('hidden');
+            dom('btnConfirmar').classList.add('hidden');
+            dom('btnConfirmarDiferencia').classList.add('hidden');
         }
 
         function mostrarAlerta(mensaje, tipo) {
             const box = dom('alertBox');
             box.textContent = mensaje;
-            box.className = 'rounded-lg p-3 mb-4 text-sm ' + (tipo === 'success' ? 'bg-green-100 text-green-800' : tipo === 'warning' ? 'bg-orange-100 text-orange-800' : 'bg-red-100 text-red-800');
+            box.className = 'rounded-lg p-3 mb-4 text-sm ' + (tipo === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800');
             box.classList.remove('hidden');
+            window.setTimeout(() => box.classList.add('hidden'), 5000);
         }
 
         function esc(value) {
-            return String(value ?? '—').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
+            return String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
         }
     </script>
 </x-app-layout>
