@@ -9,18 +9,8 @@
     <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
     <style>
-        .select2-container .select2-selection--single {
-            height: 48px !important;
-            display: flex;
-            align-items: center;
-            border-radius: 0.75rem !important;
-            border-color: #d1d5db !important;
-        }
-        .select2-container--default .select2-selection--single .select2-selection__rendered {
-            line-height: 48px !important;
-            font-size: 16px;
-            padding-left: 12px !important;
-        }
+        .select2-container .select2-selection--single { height: 48px !important; display: flex; align-items: center; border-radius: 0.75rem !important; border-color: #d1d5db !important; }
+        .select2-container--default .select2-selection--single .select2-selection__rendered { line-height: 48px !important; font-size: 16px; padding-left: 12px !important; }
     </style>
 
     <div class="py-4 px-3 sm:py-6 sm:px-4">
@@ -126,10 +116,11 @@
         let palletActual = null;
         let html5QrCode = null;
 
-        const $ = id => document.getElementById(id);
+        const dom = id => document.getElementById(id);
+        const jq = window.jQuery;
 
-        $(document).ready(function () {
-            $('#selectPallet').select2({
+        jq(document).ready(function () {
+            jq('#selectPallet').select2({
                 placeholder: 'Selecciona o escribe un pallet...',
                 minimumInputLength: 1,
                 width: '100%',
@@ -142,24 +133,24 @@
                 }
             });
 
-            $('#selectPallet').on('select2:select', e => cargarPallet(e.params.data.id));
-            $('#btnEscanear').on('click', toggleScanner);
-            $('#qrZoom').on('input', function () { aplicarZoom(Number(this.value)); });
-            $('cantidadVerificada').addEventListener('input', actualizarDiferencia);
-            $('btnConfirmar').addEventListener('click', () => confirmar(false));
-            $('btnConfirmarDiferencia').addEventListener('click', () => confirmar(true));
-            $('btnCancelar').addEventListener('click', limpiarPanel);
+            jq('#selectPallet').on('select2:select', e => cargarPallet(e.params.data.id));
+            jq('#btnEscanear').on('click', toggleScanner);
+            jq('#qrZoom').on('input', function () { aplicarZoom(Number(this.value)); });
+            dom('cantidadVerificada').addEventListener('input', actualizarDiferencia);
+            dom('btnConfirmar').addEventListener('click', () => confirmar(false));
+            dom('btnConfirmarDiferencia').addEventListener('click', () => confirmar(true));
+            dom('btnCancelar').addEventListener('click', limpiarPanel);
         });
 
         function ocultarZoom() {
-            $('#qrZoomControl').addClass('hidden');
+            jq('#qrZoomControl').addClass('hidden');
         }
 
         function configurarZoom() {
             try {
                 const capabilities = html5QrCode.getRunningTrackCapabilities();
                 const zoom = capabilities.zoom;
-                const slider = document.getElementById('qrZoom');
+                const slider = dom('qrZoom');
                 const settings = html5QrCode.getRunningTrackSettings();
 
                 if (zoom && zoom.max > zoom.min) {
@@ -168,7 +159,7 @@
                     slider.step = zoom.step || 0.1;
                     slider.value = settings.zoom ?? zoom.min;
                     actualizarTextoZoom(slider.value);
-                    $('#qrZoomControl').removeClass('hidden');
+                    jq('#qrZoomControl').removeClass('hidden');
                 } else {
                     ocultarZoom();
                 }
@@ -185,11 +176,11 @@
         }
 
         function actualizarTextoZoom(valor) {
-            document.getElementById('qrZoomValue').textContent = `${Number(valor).toFixed(1)}×`;
+            dom('qrZoomValue').textContent = `${Number(valor).toFixed(1)}×`;
         }
 
         function toggleScanner() {
-            const reader = document.getElementById('qrReader');
+            const reader = dom('qrReader');
 
             if (!reader.classList.contains('hidden')) {
                 detenerScanner();
@@ -225,7 +216,7 @@
         }
 
         function detenerScanner() {
-            const reader = document.getElementById('qrReader');
+            const reader = dom('qrReader');
             if (html5QrCode) {
                 html5QrCode.stop().catch(() => {});
                 html5QrCode.clear();
@@ -242,7 +233,7 @@
                 return;
             }
 
-            $('#palletPanel').addClass('hidden');
+            jq('#palletPanel').addClass('hidden');
 
             try {
                 const res = await fetch(baseUrl + '/buscar?numero=' + encodeURIComponent(numero), {
@@ -256,13 +247,13 @@
                 seleccionarPallet(numero);
             } catch (error) {
                 mostrarAlerta(error.message, 'error');
-                $('#selectPallet').val(null).trigger('change');
+                jq('#selectPallet').val(null).trigger('change');
             }
         }
 
         function seleccionarPallet(numero) {
-            const select = $('#selectPallet');
-            if (!select.find(`option[value="${CSS.escape(numero)}"]`).length) {
+            const select = jq('#selectPallet');
+            if (!select.find('option').filter(function () { return this.value === numero; }).length) {
                 const option = new Option(numero, numero, true, true);
                 select.append(option);
             }
@@ -270,16 +261,16 @@
         }
 
         function mostrarPallet(pallet) {
-            $('palletPanel').classList.remove('hidden');
-            $('palletNumero').textContent = pallet.numero;
-            $('palletFormato').textContent = pallet.formato || '—';
-            $('palletTipo').textContent = pallet.tipo || '—';
-            $('palletCapacidad').textContent = pallet.capacidad ?? '—';
-            $('cantidadEsperada').textContent = pallet.cantidad_esperada;
-            $('cantidadVerificada').value = pallet.cantidad_verificada ?? pallet.cantidad_esperada;
-            $('observacion').value = pallet.observacion || '';
+            dom('palletPanel').classList.remove('hidden');
+            dom('palletNumero').textContent = pallet.numero;
+            dom('palletFormato').textContent = pallet.formato || '—';
+            dom('palletTipo').textContent = pallet.tipo || '—';
+            dom('palletCapacidad').textContent = pallet.capacidad ?? '—';
+            dom('cantidadEsperada').textContent = pallet.cantidad_esperada;
+            dom('cantidadVerificada').value = pallet.cantidad_verificada ?? pallet.cantidad_esperada;
+            dom('observacion').value = pallet.observacion || '';
 
-            const resultado = $('palletResultado');
+            const resultado = dom('palletResultado');
             if (pallet.verificado) {
                 resultado.textContent = pallet.resultado === 'CONFIRMADO_CON_DIFERENCIA' ? 'CONFIRMADO CON DIFERENCIA' : 'CONFIRMADO';
                 resultado.className = 'px-3 py-1 rounded-full text-xs font-semibold ' + (pallet.resultado === 'CONFIRMADO_CON_DIFERENCIA' ? 'bg-orange-100 text-orange-800' : 'bg-green-100 text-green-800');
@@ -294,53 +285,53 @@
             } else {
                 html += '<div class="divide-y border rounded-lg">' + pallet.contenido.map(item => '<div class="flex justify-between gap-3 p-3 text-sm"><div><div class="font-mono">' + esc(item.codigo) + '</div><div class="text-gray-500">Lote: ' + esc(item.lote || 'S/L') + '</div></div><div class="font-bold">' + item.cantidad + '</div></div>').join('') + '</div>';
             }
-            $('contenidoBox').innerHTML = html;
+            dom('contenidoBox').innerHTML = html;
 
             if (pallet.verificado) {
-                $('cantidadVerificada').disabled = true;
-                $('btnConfirmar').classList.add('hidden');
-                $('btnConfirmarDiferencia').classList.add('hidden');
-                $('observacionBox').classList.add('hidden');
+                dom('cantidadVerificada').disabled = true;
+                dom('btnConfirmar').classList.add('hidden');
+                dom('btnConfirmarDiferencia').classList.add('hidden');
+                dom('observacionBox').classList.add('hidden');
             } else {
-                $('cantidadVerificada').disabled = false;
+                dom('cantidadVerificada').disabled = false;
                 actualizarDiferencia();
-                $('cantidadVerificada').focus();
-                $('cantidadVerificada').select();
+                dom('cantidadVerificada').focus();
+                dom('cantidadVerificada').select();
             }
         }
 
         function actualizarDiferencia() {
             if (!palletActual || palletActual.verificado) return;
-            const verificada = Number($('cantidadVerificada').value);
+            const verificada = Number(dom('cantidadVerificada').value);
             const esperada = Number(palletActual.cantidad_esperada);
             if (!Number.isInteger(verificada) || verificada < 0) {
-                $('diferenciaBox').textContent = 'Ingrese una cantidad válida.';
-                $('diferenciaBox').className = 'flex-1 rounded-lg p-3 text-sm bg-gray-50 text-gray-600';
-                $('btnConfirmar').classList.add('hidden');
-                $('btnConfirmarDiferencia').classList.add('hidden');
-                $('observacionBox').classList.add('hidden');
+                dom('diferenciaBox').textContent = 'Ingrese una cantidad válida.';
+                dom('diferenciaBox').className = 'flex-1 rounded-lg p-3 text-sm bg-gray-50 text-gray-600';
+                dom('btnConfirmar').classList.add('hidden');
+                dom('btnConfirmarDiferencia').classList.add('hidden');
+                dom('observacionBox').classList.add('hidden');
                 return;
             }
 
             const diferencia = verificada - esperada;
             if (diferencia === 0) {
-                $('diferenciaBox').textContent = 'Cantidad correcta. No existe diferencia.';
-                $('diferenciaBox').className = 'flex-1 rounded-lg p-3 text-sm bg-green-100 text-green-800';
-                $('btnConfirmar').classList.remove('hidden');
-                $('btnConfirmarDiferencia').classList.add('hidden');
-                $('observacionBox').classList.add('hidden');
+                dom('diferenciaBox').textContent = 'Cantidad correcta. No existe diferencia.';
+                dom('diferenciaBox').className = 'flex-1 rounded-lg p-3 text-sm bg-green-100 text-green-800';
+                dom('btnConfirmar').classList.remove('hidden');
+                dom('btnConfirmarDiferencia').classList.add('hidden');
+                dom('observacionBox').classList.add('hidden');
             } else {
-                $('diferenciaBox').textContent = 'Diferencia: ' + (diferencia > 0 ? '+' : '') + diferencia + ' cajas.';
-                $('diferenciaBox').className = 'flex-1 rounded-lg p-3 text-sm bg-orange-100 text-orange-800';
-                $('btnConfirmar').classList.add('hidden');
-                $('btnConfirmarDiferencia').classList.remove('hidden');
-                $('observacionBox').classList.remove('hidden');
+                dom('diferenciaBox').textContent = 'Diferencia: ' + (diferencia > 0 ? '+' : '') + diferencia + ' cajas.';
+                dom('diferenciaBox').className = 'flex-1 rounded-lg p-3 text-sm bg-orange-100 text-orange-800';
+                dom('btnConfirmar').classList.add('hidden');
+                dom('btnConfirmarDiferencia').classList.remove('hidden');
+                dom('observacionBox').classList.remove('hidden');
             }
         }
 
         async function confirmar(conDiferencia) {
             if (!palletActual || palletActual.verificado) return;
-            const cantidad = Number($('cantidadVerificada').value);
+            const cantidad = Number(dom('cantidadVerificada').value);
             const esperada = Number(palletActual.cantidad_esperada);
             const diferencia = cantidad - esperada;
 
@@ -352,7 +343,7 @@
                 mostrarAlerta('Existe una diferencia. Utilice CONFIRMAR CON DIFERENCIA.', 'error');
                 return;
             }
-            if (conDiferencia && !$('observacion').value.trim()) {
+            if (conDiferencia && !dom('observacion').value.trim()) {
                 if (!confirm('Existe una diferencia. ¿Desea confirmar la diferencia sin observación adicional?')) return;
             }
 
@@ -360,7 +351,7 @@
                 const res = await fetch(baseUrl + '/' + encodeURIComponent(palletActual.id) + '/confirmar', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf},
-                    body: JSON.stringify({cantidad_verificada: cantidad, observacion: $('observacion').value.trim() || null})
+                    body: JSON.stringify({cantidad_verificada: cantidad, observacion: dom('observacion').value.trim() || null})
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.message || 'No fue posible confirmar el pallet.');
@@ -374,28 +365,28 @@
         }
 
         function actualizarResumen(resumen, estado) {
-            $('progreso').textContent = resumen.verificados + ' / ' + resumen.total;
-            $('pendientes').textContent = resumen.pendientes + ' pendientes';
-            $('conDiferencia').textContent = resumen.con_diferencia;
-            $('barraProgreso').style.width = (resumen.total ? ((resumen.verificados / resumen.total) * 100) : 0) + '%';
-            $('estadoEntrega').textContent = estado;
+            dom('progreso').textContent = resumen.verificados + ' / ' + resumen.total;
+            dom('pendientes').textContent = resumen.pendientes + ' pendientes';
+            dom('conDiferencia').textContent = resumen.con_diferencia;
+            dom('barraProgreso').style.width = (resumen.total ? ((resumen.verificados / resumen.total) * 100) : 0) + '%';
+            dom('estadoEntrega').textContent = estado;
             if (estado === 'VERIFICADA') {
-                $('pendientes').className = 'px-3 py-1 rounded-full bg-green-100 text-green-800 text-xs font-semibold';
+                dom('pendientes').className = 'px-3 py-1 rounded-full bg-green-100 text-green-800 text-xs font-semibold';
                 mostrarAlerta('La verificación de todos los pallets fue completada. La liberación quedó en estado VERIFICADA.', 'success');
             }
         }
 
         function limpiarPanel() {
             palletActual = null;
-            $('palletPanel').classList.add('hidden');
-            $('cantidadVerificada').value = '';
-            $('observacion').value = '';
-            $('#selectPallet').val(null).trigger('change');
-            setTimeout(() => $('#selectPallet').select2('open'), 50);
+            dom('palletPanel').classList.add('hidden');
+            dom('cantidadVerificada').value = '';
+            dom('observacion').value = '';
+            jq('#selectPallet').val(null).trigger('change');
+            setTimeout(() => jq('#selectPallet').select2('open'), 50);
         }
 
         function mostrarAlerta(mensaje, tipo) {
-            const box = $('alertBox');
+            const box = dom('alertBox');
             box.textContent = mensaje;
             box.className = 'rounded-lg p-3 mb-4 text-sm ' + (tipo === 'success' ? 'bg-green-100 text-green-800' : tipo === 'warning' ? 'bg-orange-100 text-orange-800' : 'bg-red-100 text-red-800');
             box.classList.remove('hidden');
