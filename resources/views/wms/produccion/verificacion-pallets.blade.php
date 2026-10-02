@@ -142,9 +142,7 @@
             dom('btnCancelar').addEventListener('click', limpiarPanel);
         });
 
-        function ocultarZoom() {
-            jq('#qrZoomControl').addClass('hidden');
-        }
+        function ocultarZoom() { jq('#qrZoomControl').addClass('hidden'); }
 
         function configurarZoom() {
             try {
@@ -152,20 +150,12 @@
                 const zoom = capabilities.zoom;
                 const slider = dom('qrZoom');
                 const settings = html5QrCode.getRunningTrackSettings();
-
                 if (zoom && zoom.max > zoom.min) {
-                    slider.min = zoom.min;
-                    slider.max = zoom.max;
-                    slider.step = zoom.step || 0.1;
-                    slider.value = settings.zoom ?? zoom.min;
-                    actualizarTextoZoom(slider.value);
+                    slider.min = zoom.min; slider.max = zoom.max; slider.step = zoom.step || 0.1;
+                    slider.value = settings.zoom ?? zoom.min; actualizarTextoZoom(slider.value);
                     jq('#qrZoomControl').removeClass('hidden');
-                } else {
-                    ocultarZoom();
-                }
-            } catch (error) {
-                console.warn('No fue posible obtener las capacidades de la cámara.', error);
-            }
+                } else ocultarZoom();
+            } catch (error) { console.warn('No fue posible obtener las capacidades de la cámara.', error); }
         }
 
         function aplicarZoom(valor) {
@@ -175,87 +165,43 @@
                 .catch(error => console.warn('No fue posible aplicar el zoom.', error));
         }
 
-        function actualizarTextoZoom(valor) {
-            dom('qrZoomValue').textContent = `${Number(valor).toFixed(1)}×`;
-        }
+        function actualizarTextoZoom(valor) { dom('qrZoomValue').textContent = `${Number(valor).toFixed(1)}×`; }
 
         function toggleScanner() {
             const reader = dom('qrReader');
-
-            if (!reader.classList.contains('hidden')) {
-                detenerScanner();
-                return;
-            }
-
+            if (!reader.classList.contains('hidden')) { detenerScanner(); return; }
             reader.classList.remove('hidden');
             html5QrCode = new Html5Qrcode('qrReader');
-
             html5QrCode.start(
                 { facingMode: 'environment' },
-                {
-                    fps: 10,
-                    qrbox: { width: 250, height: 250 },
-                    videoConstraints: {
-                        facingMode: { ideal: 'environment' },
-                        width: { ideal: 1920, min: 1280 },
-                        height: { ideal: 2560, min: 720 },
-                        frameRate: { ideal: 30, min: 15 }
-                    }
-                },
-                decodedText => {
-                    const numero = decodedText.trim();
-                    detenerScanner();
-                    cargarPallet(numero);
-                }
+                { fps: 10, qrbox: { width: 250, height: 250 }, videoConstraints: { facingMode: { ideal: 'environment' }, width: { ideal: 1920, min: 1280 }, height: { ideal: 2560, min: 720 }, frameRate: { ideal: 30, min: 15 } } },
+                decodedText => { const numero = decodedText.trim(); detenerScanner(); cargarPallet(numero); }
             ).then(() => configurarZoom())
-             .catch(error => {
-                 console.error('No fue posible iniciar la cámara.', error);
-                 detenerScanner();
-                 mostrarAlerta('No fue posible acceder a la cámara. Revise los permisos del navegador.', 'error');
-             });
+             .catch(error => { console.error('No fue posible iniciar la cámara.', error); detenerScanner(); mostrarAlerta('No fue posible acceder a la cámara. Revise los permisos del navegador.', 'error'); });
         }
 
         function detenerScanner() {
             const reader = dom('qrReader');
-            if (html5QrCode) {
-                html5QrCode.stop().catch(() => {});
-                html5QrCode.clear();
-                html5QrCode = null;
-            }
-            ocultarZoom();
-            reader.classList.add('hidden');
+            if (html5QrCode) { html5QrCode.stop().catch(() => {}); html5QrCode.clear(); html5QrCode = null; }
+            ocultarZoom(); reader.classList.add('hidden');
         }
 
         async function cargarPallet(numero) {
             numero = String(numero || '').trim();
-            if (!numero) {
-                mostrarAlerta('Seleccione o escanee un número de pallet.', 'error');
-                return;
-            }
-
+            if (!numero) { mostrarAlerta('Seleccione o escanee un número de pallet.', 'error'); return; }
             jq('#palletPanel').addClass('hidden');
-
             try {
-                const res = await fetch(baseUrl + '/buscar?numero=' + encodeURIComponent(numero), {
-                    headers: { 'Accept': 'application/json' }
-                });
+                const res = await fetch(baseUrl + '/buscar?numero=' + encodeURIComponent(numero), { headers: { 'Accept': 'application/json' } });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.message || 'No fue posible consultar el pallet.');
-
-                palletActual = data.pallet;
-                mostrarPallet(palletActual);
-                seleccionarPallet(numero);
-            } catch (error) {
-                mostrarAlerta(error.message, 'error');
-                jq('#selectPallet').val(null).trigger('change');
-            }
+                palletActual = data.pallet; mostrarPallet(palletActual); seleccionarPallet(numero);
+            } catch (error) { mostrarAlerta(error.message, 'error'); jq('#selectPallet').val(null).trigger('change'); }
         }
 
         function seleccionarPallet(numero) {
             const select = jq('#selectPallet');
             if (!select.find('option').filter(function () { return this.value === numero; }).length) {
-                const option = new Option(numero, numero, true, true);
-                select.append(option);
+                select.append(new Option(numero, numero, true, true));
             }
             select.val(numero).trigger('change');
         }
@@ -275,8 +221,7 @@
                 resultado.textContent = pallet.resultado === 'CONFIRMADO_CON_DIFERENCIA' ? 'CONFIRMADO CON DIFERENCIA' : 'CONFIRMADO';
                 resultado.className = 'px-3 py-1 rounded-full text-xs font-semibold ' + (pallet.resultado === 'CONFIRMADO_CON_DIFERENCIA' ? 'bg-orange-100 text-orange-800' : 'bg-green-100 text-green-800');
             } else {
-                resultado.textContent = 'PENDIENTE';
-                resultado.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800';
+                resultado.textContent = 'PENDIENTE'; resultado.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800';
             }
 
             let html = '<div class="text-sm font-semibold text-gray-700 mb-2">Contenido del pallet</div>';
@@ -298,15 +243,11 @@
             dom('contenidoBox').innerHTML = html;
 
             if (pallet.verificado) {
-                dom('btnConfirmar').classList.add('hidden');
-                dom('btnConfirmarDiferencia').classList.add('hidden');
-                dom('cantidadVerificada').disabled = true;
-                dom('observacion').disabled = true;
+                dom('btnConfirmar').classList.add('hidden'); dom('btnConfirmarDiferencia').classList.add('hidden');
+                dom('cantidadVerificada').disabled = true; dom('observacion').disabled = true;
                 dom('observacionBox').classList.toggle('hidden', pallet.resultado !== 'CONFIRMADO_CON_DIFERENCIA');
             } else {
-                dom('cantidadVerificada').disabled = false;
-                dom('observacion').disabled = false;
-                actualizarDiferencia();
+                dom('cantidadVerificada').disabled = false; dom('observacion').disabled = false; actualizarDiferencia();
             }
         }
 
@@ -316,19 +257,12 @@
             const verificada = Number(dom('cantidadVerificada').value || 0);
             const diferencia = verificada - esperada;
             const box = dom('diferenciaBox');
-
             if (diferencia === 0) {
-                box.textContent = 'La cantidad coincide con lo esperado.';
-                box.className = 'flex-1 rounded-lg p-3 text-sm bg-green-50 text-green-700';
-                dom('btnConfirmar').classList.remove('hidden');
-                dom('btnConfirmarDiferencia').classList.add('hidden');
-                dom('observacionBox').classList.add('hidden');
+                box.textContent = 'La cantidad coincide con lo esperado.'; box.className = 'flex-1 rounded-lg p-3 text-sm bg-green-50 text-green-700';
+                dom('btnConfirmar').classList.remove('hidden'); dom('btnConfirmarDiferencia').classList.add('hidden'); dom('observacionBox').classList.add('hidden');
             } else {
-                box.textContent = `Diferencia: ${diferencia > 0 ? '+' : ''}${diferencia} cajas`;
-                box.className = 'flex-1 rounded-lg p-3 text-sm bg-orange-50 text-orange-700';
-                dom('btnConfirmar').classList.add('hidden');
-                dom('btnConfirmarDiferencia').classList.remove('hidden');
-                dom('observacionBox').classList.remove('hidden');
+                box.textContent = `Diferencia: ${diferencia > 0 ? '+' : ''}${diferencia} cajas`; box.className = 'flex-1 rounded-lg p-3 text-sm bg-orange-50 text-orange-700';
+                dom('btnConfirmar').classList.add('hidden'); dom('btnConfirmarDiferencia').classList.remove('hidden'); dom('observacionBox').classList.remove('hidden');
             }
         }
 
@@ -336,46 +270,21 @@
             if (!palletActual || palletActual.verificado) return;
             const cantidad = Number(dom('cantidadVerificada').value);
             const esperada = Number(palletActual.cantidad_esperada);
-            if (!Number.isInteger(cantidad) || cantidad < 0) {
-                mostrarAlerta('Ingrese una cantidad válida.', 'error');
-                return;
-            }
-            if (conDiferencia && cantidad === esperada) {
-                mostrarAlerta('La cantidad coincide. Use CONFIRMAR.', 'error');
-                return;
-            }
-            if (!conDiferencia && cantidad !== esperada) {
-                mostrarAlerta('Existe una diferencia. Debe usar CONFIRMAR CON DIFERENCIA.', 'error');
-                return;
-            }
+            if (!Number.isInteger(cantidad) || cantidad < 0) { mostrarAlerta('Ingrese una cantidad válida.', 'error'); return; }
+            if (conDiferencia && cantidad === esperada) { mostrarAlerta('La cantidad coincide. Use CONFIRMAR.', 'error'); return; }
+            if (!conDiferencia && cantidad !== esperada) { mostrarAlerta('Existe una diferencia. Debe usar CONFIRMAR CON DIFERENCIA.', 'error'); return; }
 
             try {
                 const response = await fetch(baseUrl + '/pallet/' + palletActual.id + '/confirmar', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': csrf,
-                    },
-                    body: JSON.stringify({
-                        cantidad_verificada: cantidad,
-                        observacion: dom('observacion').value.trim() || null,
-                    }),
+                    method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+                    body: JSON.stringify({ cantidad_verificada: cantidad, observacion: dom('observacion').value.trim() || null }),
                 });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.message || 'No fue posible confirmar el pallet.');
-
                 mostrarAlerta(data.message, 'success');
-                palletActual.verificado = true;
-                palletActual.resultado = data.resultado;
-                palletActual.cantidad_verificada = cantidad;
-                palletActual.diferencia = data.diferencia;
-                mostrarPallet(palletActual);
-                actualizarResumen(data.resumen, data.estado_entrega);
-                actualizarOpcionPallet(palletActual.numero, data.resultado);
-            } catch (error) {
-                mostrarAlerta(error.message, 'error');
-            }
+                palletActual.verificado = true; palletActual.resultado = data.resultado; palletActual.cantidad_verificada = cantidad; palletActual.diferencia = data.diferencia;
+                mostrarPallet(palletActual); actualizarResumen(data.resumen, data.estado_entrega); actualizarOpcionPallet(palletActual.numero, data.resultado);
+            } catch (error) { mostrarAlerta(error.message, 'error'); }
         }
 
         function actualizarOpcionPallet(numero, resultado) {
@@ -395,29 +304,18 @@
         }
 
         function limpiarPanel() {
-            palletActual = null;
-            jq('#selectPallet').val(null).trigger('change');
-            jq('#palletPanel').addClass('hidden');
-            dom('observacionBox').classList.add('hidden');
-            dom('btnConfirmar').classList.add('hidden');
-            dom('btnConfirmarDiferencia').classList.add('hidden');
+            palletActual = null; jq('#selectPallet').val(null).trigger('change'); jq('#palletPanel').addClass('hidden');
+            dom('observacionBox').classList.add('hidden'); dom('btnConfirmar').classList.add('hidden'); dom('btnConfirmarDiferencia').classList.add('hidden');
         }
 
         function mostrarAlerta(mensaje, tipo) {
-            const box = dom('alertBox');
-            box.textContent = mensaje;
+            const box = dom('alertBox'); box.textContent = mensaje;
             box.className = 'rounded-lg p-3 mb-4 text-sm ' + (tipo === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800');
-            box.classList.remove('hidden');
-            window.setTimeout(() => box.classList.add('hidden'), 5000);
+            box.classList.remove('hidden'); window.setTimeout(() => box.classList.add('hidden'), 5000);
         }
 
         function esc(value) {
-            return String(value ?? '')
-                .replaceAll('&', '&amp;')
-                .replaceAll('<', '&lt;')
-                .replaceAll('>', '&gt;')
-                .replaceAll('"', '&quot;')
-                .replaceAll("'", '&#039;');
+            return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
         }
     </script>
 </x-app-layout>
