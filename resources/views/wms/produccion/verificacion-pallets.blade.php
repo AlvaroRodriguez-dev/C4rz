@@ -112,6 +112,7 @@
     <script>
         const baseUrl = @json(url('/wms/produccion-liberacion/' . $entrega->id . '/verificacion-pallets'));
         const routeBuscar = @json(route('wms.produccion.liberacion.verificacion.pallets.buscar', $entrega));
+        const routeConfirmarTemplate = @json(route('wms.produccion.liberacion.verificacion.pallets.confirmar', [$entrega, '__HU__']));
         const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || @json(csrf_token());
         let palletActual = null;
         let html5QrCode = null;
@@ -191,7 +192,7 @@
             if (!numero) { mostrarAlerta('Seleccione o escanee un número de pallet.', 'error'); return; }
             jq('#palletPanel').addClass('hidden');
             try {
-                const res = await fetch(baseUrl + '/buscar?numero=' + encodeURIComponent(numero), { headers: { 'Accept': 'application/json' } });
+                const res = await fetch(baseUrl + '/buscar?numero=' + encodeURIComponent(numero), { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.message || 'No fue posible consultar el pallet.');
                 palletActual = data.pallet; mostrarPallet(palletActual); seleccionarPallet(numero);
@@ -274,9 +275,18 @@
             if (conDiferencia && cantidad === esperada) { mostrarAlerta('La cantidad coincide. Use CONFIRMAR.', 'error'); return; }
             if (!conDiferencia && cantidad !== esperada) { mostrarAlerta('Existe una diferencia. Debe usar CONFIRMAR CON DIFERENCIA.', 'error'); return; }
 
+            const confirmarUrl = routeConfirmarTemplate.replace('__HU__', encodeURIComponent(palletActual.id));
+
             try {
-                const response = await fetch(baseUrl + '/pallet/' + palletActual.id + '/confirmar', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+                const response = await fetch(confirmarUrl, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': csrf,
+                    },
                     body: JSON.stringify({ cantidad_verificada: cantidad, observacion: dom('observacion').value.trim() || null }),
                 });
                 const data = await response.json();
