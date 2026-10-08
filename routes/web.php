@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\VerificarBdController;
 use App\Http\Controllers\MigrarContablesController;
 use App\Http\Controllers\MigrarInvController;
+use App\Http\Controllers\FlujoEfectivoController;
 use App\Http\Controllers\NovedadController;
 use App\Http\Controllers\RrhhAgenciasController;
 use App\Http\Controllers\WelcomeController;
@@ -52,6 +53,9 @@ Route::middleware(['auth', 'role:SIS-ADMIN'])->prefix('admin/usuarios')->name('a
 });
 
 Route::middleware(['auth'])->group(function () {
+    Route::get('/flujo-efectivo', [FlujoEfectivoController::class, 'index'])->name('flujo-efectivo.index');
+    Route::post('/flujo-efectivo/generar', [FlujoEfectivoController::class, 'generar'])->name('flujo-efectivo.generar');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
