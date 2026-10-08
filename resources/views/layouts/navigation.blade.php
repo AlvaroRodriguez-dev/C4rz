@@ -17,6 +17,12 @@
                         {{ __('Dashboard') }}
                     </x-nav-link>
 
+                    @hasanyrole('SIS-ADMIN')
+                        <x-nav-link :href="route('flujo-efectivo.index')" :active="request()->routeIs('flujo-efectivo.*')">
+                            Flujo de efectivo
+                        </x-nav-link>
+                    @endhasanyrole
+
                     {{-- WMS - visible si tiene algún permiso de WMS --}}
                     @hasanyrole('WMS-ADMIN|WMS-ALMACEN|WMS-MONTACARGA|SIS-ADMIN')
                         <x-nav-link :href="route('wms.index')" :active="request()->routeIs('wms.*')">
@@ -241,6 +247,12 @@
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
+
+            @hasanyrole('SIS-ADMIN')
+                <x-responsive-nav-link :href="route('flujo-efectivo.index')" :active="request()->routeIs('flujo-efectivo.*')">
+                    Flujo de efectivo
+                </x-responsive-nav-link>
+            @endhasanyrole
 
             @hasanyrole('WMS-ADMIN|WMS-ALMACEN|WMS-MONTACARGA|SIS-ADMIN')
                 <x-responsive-nav-link :href="route('wms.index')" :active="request()->routeIs('wms.*')">
