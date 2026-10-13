@@ -105,6 +105,11 @@ class WmsVerificacionPalletController extends Controller
         $data = $request->validate([
             'cantidad_verificada' => ['required', 'integer', 'min:0'],
             'observacion' => ['nullable', 'string', 'max:1000'],
+            'discrepancias' => ['nullable', 'array', 'max:20'],
+            'discrepancias.*.hu_detalle_id' => ['required', 'integer'],
+            'discrepancias.*.tipo' => ['required', 'string', 'in:TONO,CALIBRE,CALIDAD_PRODUCTO'],
+            'discrepancias.*.valor_observado' => ['required', 'string', 'max:255'],
+            'discrepancias.*.observacion' => ['nullable', 'string', 'max:1000'],
         ]);
 
         try {
@@ -112,7 +117,8 @@ class WmsVerificacionPalletController extends Controller
                 $entrega,
                 $hu,
                 (int) $data['cantidad_verificada'],
-                $data['observacion'] ?? null
+                $data['observacion'] ?? null,
+                $data['discrepancias'] ?? []
             );
 
             $entrega->refresh();
@@ -147,6 +153,14 @@ class WmsVerificacionPalletController extends Controller
             'cantidad_verificada' => $hu->verificacion?->cantidad_verificada,
             'diferencia' => $hu->verificacion?->diferencia,
             'observacion' => $hu->verificacion?->observacion,
+            'discrepancias' => $hu->discrepancias->map(fn ($d) => [
+                'id' => $d->id,
+                'tipo' => $d->tipo,
+                'valor_esperado' => $d->valor_esperado,
+                'valor_observado' => $d->valor_observado,
+                'observacion' => $d->observacion,
+                'estado' => $d->estado,
+            ])->values(),
             'contenido' => $hu->detalles->map(fn ($detalle) => [
                 'codigo' => $detalle->codigo,
                 'descripcion' => $detalle->descripcion,
