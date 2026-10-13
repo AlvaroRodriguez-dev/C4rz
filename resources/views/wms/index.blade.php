@@ -63,6 +63,15 @@
                     </a>
                 @endcan
 
+                <!-- Verificación física de pallets: acceso independiente para Almacén -->
+                @can('wms.produccion.verificar.ejecutar')
+                    <a href="{{ route('wms.produccion.liberacion.verificacion.index') }}" class="bg-violet-600 hover:bg-violet-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A9 9 0 1112 3a9 9 0 014.618 13.984z" /></svg>
+                        <div class="mt-3 font-bold text-base leading-tight">Verificar pallets</div>
+                        <div class="text-xs opacity-90">Almacén de Producto Terminado</div>
+                    </a>
+                @endcan
+
                 <!-- Paletización Producción -->
                 @can('wms.produccion.paletizar')
                     <a href="{{ route('wms.paletizacion.index') }}"
