@@ -134,6 +134,8 @@ class WmsLiberacionProduccionController extends Controller
         if (!in_array($entrega->estado, [
             'PENDIENTE_VERIFICACION',
             'EN_VERIFICACION',
+            'OBSERVADA',
+            'PENDIENTE_REVERIFICACION',
             'VERIFICADA',
             'PALETIZADA',
             'UBICADA',
