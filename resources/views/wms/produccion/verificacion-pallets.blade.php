@@ -17,7 +17,7 @@
         <div class="max-w-6xl mx-auto">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 <div>
-                    <a href="{{ route('wms.produccion.liberacion.create') }}" class="text-sm text-gray-600">&larr; Volver a liberaciones</a>
+                    <a href="{{ route('wms.produccion.liberacion.verificacion.index') }}" class="text-sm text-gray-600">&larr; Volver a liberaciones</a>
                     <h1 class="text-2xl font-bold text-gray-900 mt-2">Verificación de pallets</h1>
                     <p class="text-sm text-gray-500">Busque o escanee cada pallet, confirme la cantidad física y complete la verificación de toda la liberación.</p>
                 </div>
