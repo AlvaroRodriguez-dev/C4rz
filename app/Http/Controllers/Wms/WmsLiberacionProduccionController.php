@@ -318,6 +318,12 @@ class WmsLiberacionProduccionController extends Controller
                 if ($cantidadTotal <= 0) {
                     throw new RuntimeException('La corrección debe dejar al menos una caja en el pallet.');
                 }
+                $discrepanciaCantidad = $incidencias->firstWhere('tipo', 'CANTIDAD');
+                if ($discrepanciaCantidad && $cantidadTotal !== (int) $discrepanciaCantidad->valor_observado) {
+                    throw new RuntimeException(
+                        'La suma de cantidades corregidas (' . $cantidadTotal . ') debe coincidir con la cantidad física observada (' . (int) $discrepanciaCantidad->valor_observado . ').'
+                    );
+                }
                 if ($cantidadTotal > (int) $hu->capacidad_estandar) {
                     throw new RuntimeException('La cantidad corregida supera la capacidad configurada del pallet.');
                 }
