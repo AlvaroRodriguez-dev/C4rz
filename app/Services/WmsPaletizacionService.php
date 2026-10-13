@@ -7,6 +7,7 @@ use App\Models\WmsEntregaDetalle;
 use App\Models\WmsEntregaProduccion;
 use App\Models\WmsHu;
 use App\Models\WmsHuDetalle;
+use App\Models\WmsHuVerificacion;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -153,9 +154,9 @@ class WmsPaletizacionService
      * Conserva el número de los HUs cuya composición física no cambió; los demás se
      * marcan como sustituidos y reciben nuevos números correlativos.
      */
-    public function reconstruirDespuesCorreccion(WmsEntregaProduccion $entrega, int $userId): array
+    public function reconstruirDespuesCorreccion(WmsEntregaProduccion $entrega, int $userId, array $huIdsAfectados = []): array
     {
-        return DB::transaction(function () use ($entrega, $userId) {
+        return DB::transaction(function () use ($entrega, $userId, $huIdsAfectados) {
             $entrega = WmsEntregaProduccion::query()->lockForUpdate()->findOrFail($entrega->id);
 
             if (!in_array($entrega->estado, ['OBSERVADA', 'PENDIENTE_CORRECCION'], true)) {
@@ -270,6 +271,14 @@ class WmsPaletizacionService
             $numeros = empty($nuevasDefiniciones)
                 ? []
                 : app(PalletCorrelativoService::class)->generarSiguientes($entrega->almacen, count($nuevasDefiniciones));
+
+            foreach ($conservarIds as $huId) {
+                if (in_array((int) $huId, array_map('intval', $huIdsAfectados), true)) {
+                    // La verificación anterior se conserva en la auditoría de discrepancias.
+                    // Se retira solo el registro vigente para exigir una nueva comprobación física.
+                    WmsHuVerificacion::query()->where('hu_id', $huId)->delete();
+                }
+            }
 
             foreach ($activos as $hu) {
                 if (!in_array($hu->id, $conservarIds, true)) {
