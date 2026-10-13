@@ -453,6 +453,26 @@ class WmsLiberacionProduccionController extends Controller
                     }
                 }
 
+                // Sincroniza la cantidad paletizada por línea con los HUs activos,
+                // incluidos los nuevos pallets SALDO creados por el excedente.
+                $totalesPaletizados = \\App\\Models\\WmsHuDetalle::query()
+                    ->join('wms_hu', 'wms_hu.id', '=', 'wms_hu_detalle.hu_id')
+                    ->where('wms_hu.entrega_id', $actual->id)
+                    ->where('wms_hu.estado', '!=', 'SUSTITUIDO')
+                    ->whereNotNull('wms_hu_detalle.entrega_detalle_id')
+                    ->select('wms_hu_detalle.entrega_detalle_id', DB::raw('SUM(wms_hu_detalle.cantidad) as total'))
+                    ->groupBy('wms_hu_detalle.entrega_detalle_id')
+                    ->pluck('total', 'entrega_detalle_id');
+
+                WmsEntregaDetalle::query()
+                    ->where('entrega_id', $actual->id)
+                    ->get()
+                    ->each(function (WmsEntregaDetalle $linea) use ($totalesPaletizados) {
+                        $linea->update([
+                            'cantidad_paletizada' => (int) ($totalesPaletizados[$linea->id] ?? 0),
+                        ]);
+                    });
+
                 $verificacionAnterior = WmsHuVerificacion::query()->where('hu_id', $hu->id)->first();
                 foreach ($incidencias as $incidencia) {
                     $incidencia->update([
