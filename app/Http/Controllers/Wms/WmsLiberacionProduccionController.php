@@ -90,7 +90,7 @@ class WmsLiberacionProduccionController extends Controller
                     'origen' => $entrega->origen,
                     'total_declarado' => $entrega->total_declarado,
                     'total_fisico' => $entrega->total_fisico,
-                    'pallets' => $entrega->hu()->count(),
+                    'pallets' => $entrega->hu()->where('estado', '!=', 'SUSTITUIDO')->count(),
                     'estado' => $entrega->estado,
                 ];
             })->items(),
@@ -146,7 +146,7 @@ class WmsLiberacionProduccionController extends Controller
         $entrega->load([
             'documento',
             'almacen',
-            'hu' => fn ($query) => $query->with('detalles')->orderBy('id'),
+            'hu' => fn ($query) => $query->where('estado', '!=', 'SUSTITUIDO')->with('detalles')->orderBy('id'),
         ]);
 
         if ($request->boolean('pdf')) {
