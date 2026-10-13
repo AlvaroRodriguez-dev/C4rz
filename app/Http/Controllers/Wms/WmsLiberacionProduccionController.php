@@ -244,9 +244,19 @@ class WmsLiberacionProduccionController extends Controller
 
                 $almacen = $this->context->almacen();
                 $snapshot = [];
+                $snapshotAnterior = [];
                 foreach ($data['lineas'] as $linea) {
                     /** @var WmsEntregaDetalle $detalle */
                     $detalle = $detalles->get((int) $linea['id']);
+                    $snapshotAnterior[] = [
+                        'detalle_id' => $detalle->id,
+                        'codigo' => $detalle->codigo,
+                        'calidad' => $detalle->calidad,
+                        'cantidad_declarada' => (int) $detalle->cantidad_declarada,
+                        'tono' => $detalle->tono,
+                        'calibre' => $detalle->calibre,
+                        'lote' => $detalle->lote,
+                    ];
                     $codigo = strtoupper(trim($linea['codigo']));
                     $calidad = strtoupper(trim($linea['calidad']));
                     $producto = $this->catalogo->validar($almacen, $codigo, $detalle->formato, $calidad);
@@ -294,6 +304,7 @@ class WmsLiberacionProduccionController extends Controller
                         'estado' => 'CORREGIDA',
                         'corregido_id' => auth()->id(),
                         'corregido_at' => now(),
+                        'valor_anterior' => json_encode($snapshotAnterior, JSON_UNESCAPED_UNICODE),
                         'valor_corregido' => json_encode($snapshot, JSON_UNESCAPED_UNICODE),
                         'updated_at' => now(),
                     ]);
