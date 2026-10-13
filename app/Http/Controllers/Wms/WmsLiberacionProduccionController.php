@@ -572,6 +572,42 @@ class WmsLiberacionProduccionController extends Controller
         return $pdf->stream('RG-CB-36-' . $documento . '.pdf');
     }
 
+    public function historial(WmsEntregaProduccion $entrega)
+    {
+        abort_unless(
+            auth()->user()->can('wms.produccion.verificar')
+                || auth()->user()->can('wms.produccion.liberar'),
+            403
+        );
+        $this->validarAlmacen($entrega);
+
+        $entrega->load(['documento', 'almacen']);
+        $verificaciones = WmsHuVerificacion::query()
+            ->with(['hu', 'verificadoPor'])
+            ->where('entrega_id', $entrega->id)
+            ->orderByDesc('verificado_at')
+            ->orderByDesc('id')
+            ->get();
+
+        $discrepancias = WmsHuDiscrepancia::query()
+            ->with(['hu', 'reportadoPor', 'corregidoPor'])
+            ->where('entrega_id', $entrega->id)
+            ->orderByDesc('reportado_at')
+            ->orderByDesc('id')
+            ->get();
+
+        $creador = \\App\\Models\\User::find($entrega->created_id);
+        $ultimoEditor = \\App\\Models\\User::find($entrega->update_id);
+
+        return view('wms.produccion.historial-liberacion', compact(
+            'entrega',
+            'verificaciones',
+            'discrepancias',
+            'creador',
+            'ultimoEditor'
+        ));
+    }
+
     public function buscarProductos(Request $request)
     {
         $q = trim((string) $request->get('q'));
