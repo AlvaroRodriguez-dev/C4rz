@@ -143,6 +143,7 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
     Route::middleware(['permission:wms.produccion.verificar|wms.produccion.liberar'])->prefix('produccion-liberacion')->name('produccion.liberacion.')->group(function () {
         Route::get('/', [WmsLiberacionProduccionController::class, 'create'])->name('create');
         Route::get('/productos/buscar', [WmsLiberacionProduccionController::class, 'buscarProductos'])->name('productos.buscar');
+        Route::get('/{entrega}/historial', [WmsLiberacionProduccionController::class, 'historial'])->name('historial');
     });
 
     Route::middleware(['permission:wms.produccion.verificar'])->prefix('produccion-liberacion')->name('produccion.liberacion.')->group(function () {
