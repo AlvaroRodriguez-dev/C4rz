@@ -79,6 +79,12 @@
 
                                 <div class="space-y-3">
                                     @foreach ($detallesHu as $detalle)
+                                        @php
+                                            $partesLoteActual = explode('-', (string) $detalle->lote);
+                                            $sufijoLoteActual = (string) end($partesLoteActual);
+                                            $tonoActual = strlen($sufijoLoteActual) >= 5 && $sufijoLoteActual !== 'NNNNN' ? (int) substr($sufijoLoteActual, 0, 3) : $detalle->entregaDetalle?->tono;
+                                            $calibreActual = strlen($sufijoLoteActual) >= 5 && $sufijoLoteActual !== 'NNNNN' ? (int) substr($sufijoLoteActual, 3, 2) : $detalle->entregaDetalle?->calibre;
+                                        @endphp
                                         <div class="border rounded-xl p-3 sm:p-4">
                                             <input type="hidden" name="detalles[{{ $detalle->id }}][id]" value="{{ $detalle->id }}">
                                             <div class="text-xs text-gray-500 mb-3">Detalle #{{ $detalle->id }} · Lote actual: {{ $detalle->lote }}</div>
@@ -102,11 +108,11 @@
                                                 <div class="grid grid-cols-2 gap-2">
                                                     <div>
                                                         <label class="block text-xs font-semibold text-gray-600 mb-1">Tono</label>
-                                                        <input name="detalles[{{ $detalle->id }}][tono]" type="number" min="0" max="999" value="{{ old('detalles.'.$detalle->id.'.tono', $detalle->entregaDetalle?->tono) }}" class="w-full border-gray-300 rounded-lg">
+                                                        <input name="detalles[{{ $detalle->id }}][tono]" type="number" min="0" max="999" value="{{ old('detalles.'.$detalle->id.'.tono', $tonoActual) }}" class="w-full border-gray-300 rounded-lg">
                                                     </div>
                                                     <div>
                                                         <label class="block text-xs font-semibold text-gray-600 mb-1">Calibre</label>
-                                                        <input name="detalles[{{ $detalle->id }}][calibre]" type="number" min="0" max="99" value="{{ old('detalles.'.$detalle->id.'.calibre', $detalle->entregaDetalle?->calibre) }}" class="w-full border-gray-300 rounded-lg">
+                                                        <input name="detalles[{{ $detalle->id }}][calibre]" type="number" min="0" max="99" value="{{ old('detalles.'.$detalle->id.'.calibre', $calibreActual) }}" class="w-full border-gray-300 rounded-lg">
                                                     </div>
                                                 </div>
                                             </div>
