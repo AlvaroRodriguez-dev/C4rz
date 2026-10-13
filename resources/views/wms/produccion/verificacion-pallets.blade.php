@@ -24,6 +24,12 @@
                 <a href="{{ route('wms.produccion.liberacion.pallets', $entrega) }}" class="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold text-center">VER PALLETS</a>
             </div>
 
+            @if (session('success'))
+                <div class="rounded-lg bg-green-50 border border-green-200 text-green-800 p-3 mb-4 text-sm">{{ session('success') }}</div>
+            @endif
+            @if (session('error'))
+                <div class="rounded-lg bg-red-50 border border-red-200 text-red-800 p-3 mb-4 text-sm">{{ session('error') }}</div>
+            @endif
             <div id="alertBox" class="hidden rounded-lg p-3 mb-4 text-sm"></div>
 
             <div class="bg-white shadow rounded-xl p-4 sm:p-5 mb-5">
