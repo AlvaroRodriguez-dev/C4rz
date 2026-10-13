@@ -18,18 +18,18 @@ class WmsVerificacionPalletService
                 ->lockForUpdate()
                 ->findOrFail($entrega->id);
 
-            if (!in_array($entrega->estado, ['PENDIENTE_VERIFICACION', 'EN_VERIFICACION'], true)) {
+            if (!in_array($entrega->estado, ['PENDIENTE_VERIFICACION', 'PENDIENTE_REVERIFICACION', 'EN_VERIFICACION'], true)) {
                 throw new RuntimeException(
                     "La liberación {$entrega->id} no está pendiente de verificación de pallets."
                 );
             }
 
-            $totalPallets = $entrega->hu()->count();
+            $totalPallets = $entrega->hu()->where('estado', '!=', 'SUSTITUIDO')->count();
             if ($totalPallets === 0) {
                 throw new RuntimeException('La liberación no tiene pallets generados.');
             }
 
-            if ($entrega->estado === 'PENDIENTE_VERIFICACION') {
+            if (in_array($entrega->estado, ['PENDIENTE_VERIFICACION', 'PENDIENTE_REVERIFICACION'], true)) {
                 $entrega->update([
                     'estado' => 'EN_VERIFICACION',
                     'update_id' => auth()->id() ?: $entrega->update_id,
@@ -51,6 +51,7 @@ class WmsVerificacionPalletService
         $hu = WmsHu::query()
             ->with(['detalles.entregaDetalle', 'verificacion', 'discrepancias'])
             ->where('entrega_id', $entrega->id)
+            ->where('estado', '!=', 'SUSTITUIDO')
             ->where('numero', $numero)
             ->first();
 
@@ -155,6 +156,7 @@ class WmsVerificacionPalletService
 
             $pendientes = WmsHu::query()
                 ->where('entrega_id', $entrega->id)
+                ->where('estado', '!=', 'SUSTITUIDO')
                 ->whereDoesntHave('verificacion')
                 ->count();
 
@@ -183,7 +185,7 @@ class WmsVerificacionPalletService
 
     public function resumen(WmsEntregaProduccion $entrega): array
     {
-        $pallets = $entrega->hu()->with('verificacion')->get();
+        $pallets = $entrega->hu()->where('estado', '!=', 'SUSTITUIDO')->with('verificacion')->get();
 
         return [
             'total' => $pallets->count(),
