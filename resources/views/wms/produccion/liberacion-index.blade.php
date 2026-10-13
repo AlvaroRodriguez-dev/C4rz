@@ -21,6 +21,7 @@
         const routeBuscar = "{{ route('wms.produccion.liberacion.create', ['buscar' => 1]) }}";
         const routePdf = "{{ url('wms/produccion-liberacion') }}";
         const routePallets = "{{ url('wms/produccion-liberacion') }}";
+        const routeHistorial = "{{ url('wms/produccion-liberacion') }}";
         const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || "{{ csrf_token() }}";
         const puedeGenerar = @json(auth()->user()->can('wms.produccion.verificar'));
         const puedeCorregir = @json(auth()->user()->can('wms.produccion.liberar'));
@@ -29,6 +30,7 @@
         function fila(item){
             const pdf='<a class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold" href="'+routePdf+'?pdf=1&id='+item.id+'" target="_blank" rel="noopener">PDF</a>';
             let acciones=pdf;
+            acciones+='<a class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-900 text-white font-semibold ml-2" href="'+routeHistorial+'/'+item.id+'/historial">HISTORIAL</a>';
             const estadosConPallets=['PENDIENTE_VERIFICACION','EN_VERIFICACION','OBSERVADA','PENDIENTE_REVERIFICACION','VERIFICADA','PALETIZADA','UBICADA','CONCILIADA','CON_DIFERENCIA'];
             if(estadosConPallets.includes(item.estado)&&Number(item.pallets)>0){
                 acciones+='<a class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold ml-2" href="'+routePallets+'/'+item.id+'/pallets">VER PALLETS</a>';
