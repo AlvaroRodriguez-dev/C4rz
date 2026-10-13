@@ -62,6 +62,7 @@ class WmsVerificacionPalletController extends Controller
         if ($request->has('q')) {
             $results = WmsHu::query()
                 ->where('entrega_id', $entrega->id)
+                ->where('estado', '!=', 'SUSTITUIDO')
                 ->when($q !== '', fn ($builder) => $builder->where('numero', 'like', "%{$q}%"))
                 ->with('verificacion')
                 ->orderBy('numero')
