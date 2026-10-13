@@ -16,6 +16,7 @@ class WmsHuDiscrepancia extends Model
         'tipo',
         'valor_esperado',
         'valor_observado',
+        'valor_anterior',
         'observacion',
         'estado',
         'reportado_id',
