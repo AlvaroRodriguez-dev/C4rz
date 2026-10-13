@@ -200,6 +200,11 @@ class WmsLiberacionProduccionController extends Controller
             ->orderBy('id')
             ->get();
 
+        if ($discrepancias->isEmpty()) {
+            return redirect()->route('wms.produccion.liberacion.create')
+                ->with('error', 'La liberación no tiene discrepancias pendientes de corrección.');
+        }
+
         return view('wms.produccion.corregir-discrepancias', compact('entrega', 'discrepancias'));
     }
 
@@ -224,6 +229,9 @@ class WmsLiberacionProduccionController extends Controller
                 $actual = WmsEntregaProduccion::query()->lockForUpdate()->findOrFail($entrega->id);
                 if ($actual->estado !== 'OBSERVADA' || $actual->posteado_erp_at !== null) {
                     throw new RuntimeException('La liberación cambió de estado y ya no puede corregirse por este flujo.');
+                }
+                if (!WmsHuDiscrepancia::query()->where('entrega_id', $actual->id)->where('estado', 'PENDIENTE_CORRECCION')->exists()) {
+                    throw new RuntimeException('La liberación no tiene discrepancias pendientes de corrección.');
                 }
                 if ((int) $actual->created_id !== (int) auth()->id()) {
                     throw new RuntimeException('La corrección debe realizarla la persona que registró la liberación.');
