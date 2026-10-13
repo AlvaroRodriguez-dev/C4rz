@@ -436,9 +436,7 @@ class WmsLiberacionProduccionController extends Controller
                 : ' Ya puede iniciar la reverificación de los pallets corregidos.';
 
             return redirect()
-                ->route($resultado['pendientes']
-                    ? 'wms.produccion.liberacion.correccion.discrepancias'
-                    : 'wms.produccion.liberacion.verificacion.pallets', $entrega)
+                ->route('wms.produccion.liberacion.create')
                 ->with('success', $mensaje);
         } catch (RuntimeException $e) {
             return back()->withInput()->with('error', $e->getMessage());
