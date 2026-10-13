@@ -162,7 +162,11 @@ class WmsVerificacionPalletController extends Controller
                 'estado' => $d->estado,
             ])->values(),
             'contenido' => $hu->detalles->map(fn ($detalle) => [
+                'id' => $detalle->id,
                 'codigo' => $detalle->codigo,
+                'calidad' => $detalle->calidad,
+                'tono' => $detalle->entregaDetalle?->tono,
+                'calibre' => $detalle->entregaDetalle?->calibre,
                 'descripcion' => $detalle->descripcion,
                 'descripcion1' => $detalle->descripcion2,
                 'lote' => $detalle->lote,
