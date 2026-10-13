@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Wms;
 
 use App\Http\Controllers\Controller;
 use App\Models\WmsConfigPallet;
+use App\Models\WmsEntregaDetalle;
+use App\Models\WmsHuDiscrepancia;
 use App\Models\WmsEntregaProduccion;
 use App\Services\WmsContextService;
 use App\Services\WmsLiberacionProduccionService;
@@ -11,6 +13,8 @@ use App\Services\WmsPaletizacionService;
 use App\Services\WmsProductoCatalogoService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 class WmsLiberacionProduccionController extends Controller
@@ -161,6 +165,160 @@ class WmsLiberacionProduccionController extends Controller
         }
 
         return view('wms.produccion.paletizacion-revision-detalle', compact('entrega'));
+    }
+
+
+    public function corregirDiscrepancias(WmsEntregaProduccion $entrega)
+    {
+        $this->validarAlmacen($entrega);
+        abort_unless(auth()->user()->can('wms.produccion.liberar'), 403);
+        abort_unless((int) $entrega->created_id === (int) auth()->id(), 403, 'Solo la persona que registró la liberación puede corregirla.');
+
+        if ($entrega->estado !== 'OBSERVADA') {
+            return redirect()->route('wms.produccion.liberacion.create')
+                ->with('error', 'La liberación no tiene discrepancias pendientes de corrección.');
+        }
+
+        if ($entrega->posteado_erp_at !== null || $entrega->hu()->where(function ($q) {
+            $q->whereNotNull('ubicacion_id')->orWhereNotIn('estado', ['PALETIZADO', 'PENDIENTE_VERIFICACION']);
+        })->exists()) {
+            return redirect()->route('wms.produccion.liberacion.create')
+                ->with('error', 'La corrección solo está disponible antes de movimientos físicos y del ingreso al SAS-ERP.');
+        }
+
+        $entrega->load(['documento', 'detalles']);
+        $discrepancias = WmsHuDiscrepancia::query()
+            ->with(['hu', 'detalle'])
+            ->where('entrega_id', $entrega->id)
+            ->where('estado', 'PENDIENTE_CORRECCION')
+            ->orderBy('id')
+            ->get();
+
+        return view('wms.produccion.corregir-discrepancias', compact('entrega', 'discrepancias'));
+    }
+
+    public function guardarCorreccionDiscrepancias(WmsEntregaProduccion $entrega, Request $request)
+    {
+        $this->validarAlmacen($entrega);
+        abort_unless(auth()->user()->can('wms.produccion.liberar'), 403);
+        abort_unless((int) $entrega->created_id === (int) auth()->id(), 403, 'Solo la persona que registró la liberación puede corregirla.');
+
+        $data = $request->validate([
+            'lineas' => ['required', 'array', 'min:1'],
+            'lineas.*.id' => ['required', 'integer'],
+            'lineas.*.codigo' => ['required', 'string', 'max:30'],
+            'lineas.*.calidad' => ['required', 'string', 'in:EXTRA,COMERCIAL,ECONOMICO'],
+            'lineas.*.cantidad_declarada' => ['required', 'integer', 'min:0'],
+            'lineas.*.tono' => ['nullable', 'digits_between:1,3'],
+            'lineas.*.calibre' => ['nullable', 'digits_between:1,2'],
+        ]);
+
+        try {
+            $resultado = DB::transaction(function () use ($entrega, $data) {
+                $actual = WmsEntregaProduccion::query()->lockForUpdate()->findOrFail($entrega->id);
+                if ($actual->estado !== 'OBSERVADA' || $actual->posteado_erp_at !== null) {
+                    throw new RuntimeException('La liberación cambió de estado y ya no puede corregirse por este flujo.');
+                }
+                if ((int) $actual->created_id !== (int) auth()->id()) {
+                    throw new RuntimeException('La corrección debe realizarla la persona que registró la liberación.');
+                }
+                if ($actual->hu()->where(function ($q) {
+                    $q->whereNotNull('ubicacion_id')->orWhereNotIn('estado', ['PALETIZADO', 'PENDIENTE_VERIFICACION']);
+                })->exists()) {
+                    throw new RuntimeException('La liberación tiene pallets ubicados o con movimientos físicos.');
+                }
+
+                $detalles = WmsEntregaDetalle::query()
+                    ->where('entrega_id', $actual->id)
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('id');
+
+                $idsRecibidos = collect($data['lineas'])->pluck('id')->map(fn ($id) => (int) $id)->sort()->values();
+                $idsEsperados = $detalles->keys()->map(fn ($id) => (int) $id)->sort()->values();
+                if ($idsRecibidos->all() !== $idsEsperados->all()) {
+                    throw new RuntimeException('La lista de líneas cambió. Recargue la pantalla antes de guardar.');
+                }
+
+                $almacen = $this->context->almacen();
+                $snapshot = [];
+                foreach ($data['lineas'] as $linea) {
+                    /** @var WmsEntregaDetalle $detalle */
+                    $detalle = $detalles->get((int) $linea['id']);
+                    $codigo = strtoupper(trim($linea['codigo']));
+                    $calidad = strtoupper(trim($linea['calidad']));
+                    $producto = $this->catalogo->validar($almacen, $codigo, $detalle->formato, $calidad);
+                    $tono = $calidad === 'EXTRA' ? ($linea['tono'] ?? null) : null;
+                    $calibre = $calidad === 'EXTRA' ? ($linea['calibre'] ?? null) : null;
+                    $lote = $this->loteCorregido($actual->fecha_entrega, $calidad, $tono, $calibre);
+
+                    $detalle->update([
+                        'codigo' => $codigo,
+                        'descripcion' => $producto->descripcion,
+                        'descripcion2' => $producto->descripcion2,
+                        'calidad' => $calidad,
+                        'modelo' => $producto->modelo,
+                        'cantidad_declarada' => (int) $linea['cantidad_declarada'],
+                        'tono' => $tono,
+                        'calibre' => $calibre,
+                        'lote' => $lote,
+                        'estado' => 'CORREGIDO',
+                    ]);
+
+                    $snapshot[] = [
+                        'detalle_id' => $detalle->id,
+                        'codigo' => $codigo,
+                        'calidad' => $calidad,
+                        'cantidad_declarada' => (int) $linea['cantidad_declarada'],
+                        'tono' => $tono,
+                        'calibre' => $calibre,
+                        'lote' => $lote,
+                    ];
+                }
+
+                if (collect($snapshot)->sum('cantidad_declarada') <= 0) {
+                    throw new RuntimeException('La corrección no puede dejar la liberación sin cantidades.');
+                }
+
+                $actual->update([
+                    'total_declarado' => collect($snapshot)->sum('cantidad_declarada'),
+                    'update_id' => auth()->id(),
+                ]);
+
+                WmsHuDiscrepancia::query()
+                    ->where('entrega_id', $actual->id)
+                    ->where('estado', 'PENDIENTE_CORRECCION')
+                    ->update([
+                        'estado' => 'CORREGIDA',
+                        'corregido_id' => auth()->id(),
+                        'corregido_at' => now(),
+                        'valor_corregido' => json_encode($snapshot, JSON_UNESCAPED_UNICODE),
+                        'updated_at' => now(),
+                    ]);
+
+                return $this->paletizacion->reconstruirDespuesCorreccion($actual, (int) auth()->id());
+            });
+
+            return redirect()->route('wms.produccion.liberacion.create')
+                ->with('success', 'Corrección guardada. Pallets conservados: ' . $resultado['conservados'] .
+                    '; sustituidos: ' . $resultado['sustituidos'] . '; nuevos: ' . $resultado['nuevos'] .
+                    '. Los pallets nuevos quedaron pendientes de reverificación.');
+        } catch (RuntimeException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+    }
+
+    private function loteCorregido($fecha, string $calidad, ?string $tono, ?string $calibre): string
+    {
+        $fechaCodigo = Carbon::parse($fecha)->format('ymd');
+        if ($calidad !== 'EXTRA') {
+            return $fechaCodigo . '-NNNNN';
+        }
+        if ($tono === null || $calibre === null) {
+            throw new RuntimeException('Los productos EXTRA requieren tono y calibre.');
+        }
+
+        return sprintf('%s-%03d%02d', $fechaCodigo, (int) $tono, (int) $calibre);
     }
 
     public function pdf(WmsEntregaProduccion $entrega)
