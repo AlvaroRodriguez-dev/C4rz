@@ -152,6 +152,11 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
         Route::post('/', [WmsLiberacionProduccionController::class, 'store'])->name('store');
     });
 
+    Route::middleware(['permission:wms.produccion.liberar'])->prefix('produccion-liberacion')->name('produccion.liberacion.')->group(function () {
+        Route::get('/{entrega}/corregir-discrepancias', [WmsLiberacionProduccionController::class, 'corregirDiscrepancias'])->name('correccion.discrepancias');
+        Route::post('/{entrega}/corregir-discrepancias', [WmsLiberacionProduccionController::class, 'guardarCorreccionDiscrepancias'])->name('correccion.discrepancias.guardar');
+    });
+
     Route::middleware(['permission:wms.produccion.paletizar'])->prefix('paletizacion')->name('paletizacion.')->group(function () {
         Route::get('/', [WmsPaletizacionController::class, 'index'])->name('index');
         Route::get('/revision', [WmsPaletizacionController::class, 'revision'])->name('revision');
