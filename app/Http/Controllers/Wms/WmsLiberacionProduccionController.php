@@ -86,6 +86,7 @@ class WmsLiberacionProduccionController extends Controller
             'data' => $resultado->through(function (WmsEntregaProduccion $entrega) {
                 return [
                     'id' => $entrega->id,
+                    'puede_corregir' => (int) $entrega->created_id === (int) auth()->id() && auth()->user()->can('wms.produccion.liberar'),
                     'documento' => $entrega->documento?->id_documento,
                     'rdocum_sas' => $entrega->rdocum_sas,
                     'folio_fisico' => $entrega->folio_fisico,
