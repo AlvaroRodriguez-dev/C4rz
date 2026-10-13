@@ -18,6 +18,13 @@ class WmsVerificacionPalletController extends Controller
     ) {
     }
 
+    public function indexVerificacion()
+    {
+        $this->validarPermiso();
+
+        return view('wms.produccion.verificacion-pallets-index');
+    }
+
     public function show(WmsEntregaProduccion $entrega)
     {
         $this->validarPermiso();
