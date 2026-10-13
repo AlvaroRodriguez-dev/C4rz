@@ -34,7 +34,7 @@
                 acciones+='<a class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold ml-2" href="'+routePallets+'/'+item.id+'/pallets">VER PALLETS</a>';
                 acciones+='<a class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-semibold ml-2" href="'+routePallets+'/'+item.id+'/pallets?pdf=1" target="_blank" rel="noopener">IMPRIMIR QR</a>';
             }
-            if(item.estado==='OBSERVADA'&&puedeCorregir){
+            if(item.estado==='OBSERVADA'&&puedeCorregir&&item.puede_corregir){
                 acciones+='<a class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-semibold ml-2" href="'+routePallets+'/'+item.id+'/corregir-discrepancias">CORREGIR DISCREPANCIAS</a>';
             }
             if(item.estado==='PENDIENTE_PALLET'&&puedeGenerar){
