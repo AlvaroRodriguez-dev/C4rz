@@ -596,8 +596,8 @@ class WmsLiberacionProduccionController extends Controller
             ->orderByDesc('id')
             ->get();
 
-        $creador = \\App\\Models\\User::find($entrega->created_id);
-        $ultimoEditor = \\App\\Models\\User::find($entrega->update_id);
+        $creador = \App\Models\User::find($entrega->created_id);
+        $ultimoEditor = \App\Models\User::find($entrega->update_id);
 
         return view('wms.produccion.historial-liberacion', compact(
             'entrega',
