@@ -3,6 +3,16 @@
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">WMS - Corrección por pallet observado</h2>
     </x-slot>
 
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/js/select2.min.js"></script>
+    <style>
+        .select2-container { width: 100% !important; }
+        .select2-container .select2-selection--single { height: 42px !important; display:flex; align-items:center; border-radius:.5rem !important; border-color:#d1d5db !important; }
+        .select2-container--default .select2-selection--single .select2-selection__rendered { line-height:42px !important; padding-left:12px !important; font-size:.875rem; }
+        .select2-container--default .select2-selection--single .select2-selection__arrow { height:40px !important; }
+    </style>
+
     <div class="py-4 px-3 sm:py-6 sm:px-4">
         <div class="max-w-7xl mx-auto space-y-5">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -91,11 +101,13 @@
                                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                                                 <div class="lg:col-span-2">
                                                     <label class="block text-xs font-semibold text-gray-600 mb-1">Código de producto</label>
-                                                    <input name="detalles[{{ $detalle->id }}][codigo]" value="{{ old('detalles.'.$detalle->id.'.codigo', $detalle->codigo) }}" required maxlength="30" class="w-full border-gray-300 rounded-lg font-mono">
+                                                    <select name="detalles[{{ $detalle->id }}][codigo]" class="producto-correccion w-full border-gray-300 rounded-lg font-mono" data-calidad-select="calidad-{{ $detalle->id }}" data-formato="{{ $hu->formato }}" required>
+                                                        <option value="{{ $detalle->codigo }}" selected>{{ $detalle->codigo }} · {{ $detalle->descripcion }}</option>
+                                                    </select>
                                                 </div>
                                                 <div>
                                                     <label class="block text-xs font-semibold text-gray-600 mb-1">Calidad</label>
-                                                    <select name="detalles[{{ $detalle->id }}][calidad]" class="w-full border-gray-300 rounded-lg" required>
+                                                    <select id="calidad-{{ $detalle->id }}" name="detalles[{{ $detalle->id }}][calidad]" class="calidad-correccion w-full border-gray-300 rounded-lg" required>
                                                         @foreach (['EXTRA', 'COMERCIAL', 'ECONOMICO'] as $calidad)
                                                             <option value="{{ $calidad }}" @selected(old('detalles.'.$detalle->id.'.calidad', $detalle->calidad) === $calidad)>{{ $calidad }}</option>
                                                         @endforeach
@@ -141,4 +153,40 @@
             </div>
         </div>
     </div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (!window.jQuery || !jQuery.fn.select2) return;
+
+    jQuery('.producto-correccion').each(function () {
+        const select = jQuery(this);
+        const calidad = document.getElementById(select.data('calidad-select'));
+        const formato = select.data('formato');
+
+        select.select2({
+            placeholder: 'Buscar producto por código o descripción...',
+            minimumInputLength: 1,
+            width: '100%',
+            ajax: {
+                url: @json(route('wms.produccion.liberacion.productos.buscar')),
+                dataType: 'json',
+                delay: 300,
+                data: params => ({ q: params.term || '', formato: formato, calidad: calidad.value }),
+                processResults: data => ({ results: data.results || [] }),
+                cache: true
+            }
+        });
+
+        select.on('select2:opening', function (e) {
+            if (!calidad.value) {
+                e.preventDefault();
+                alert('Seleccione primero la calidad del producto.');
+            }
+        });
+
+        calidad.addEventListener('change', function () {
+            select.val(null).trigger('change');
+        });
+    });
+});
+</script>
 </x-app-layout>
