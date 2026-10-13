@@ -29,7 +29,7 @@
         function fila(item){
             const pdf='<a class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold" href="'+routePdf+'?pdf=1&id='+item.id+'" target="_blank" rel="noopener">PDF</a>';
             let acciones=pdf;
-            const estadosConPallets=['PENDIENTE_VERIFICACION','EN_VERIFICACION','VERIFICADA','PALETIZADA','UBICADA','CONCILIADA','CON_DIFERENCIA'];
+            const estadosConPallets=['PENDIENTE_VERIFICACION','EN_VERIFICACION','OBSERVADA','PENDIENTE_REVERIFICACION','VERIFICADA','PALETIZADA','UBICADA','CONCILIADA','CON_DIFERENCIA'];
             if(estadosConPallets.includes(item.estado)&&Number(item.pallets)>0){
                 acciones+='<a class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold ml-2" href="'+routePallets+'/'+item.id+'/pallets">VER PALLETS</a>';
                 acciones+='<a class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-semibold ml-2" href="'+routePallets+'/'+item.id+'/pallets?pdf=1" target="_blank" rel="noopener">IMPRIMIR QR</a>';
@@ -44,7 +44,7 @@
         }
         function confirmarGeneracion(){return confirm('¿Desea generar los pallets de esta liberación? Esta acción asignará los números de pallet y cambiará el estado a PENDIENTE_VERIFICACION.');}
         function esc(value){return String(value??'—').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));}
-        function claseEstado(estado){return {PENDIENTE_PALLET:'bg-orange-100 text-orange-800',PENDIENTE_VERIFICACION:'bg-yellow-100 text-yellow-800',EN_VERIFICACION:'bg-blue-100 text-blue-800',OBSERVADA:'bg-orange-100 text-orange-800',PENDIENTE_REVERIFICACION:'bg-yellow-100 text-yellow-800',VERIFICADA:'bg-green-100 text-green-800',CONCILIADA:'bg-green-100 text-green-800',CON_DIFERENCIA:'bg-red-100 text-red-800',PALETIZADA:'bg-indigo-100 text-indigo-800',UBICADA:'bg-green-100 text-green-800'}[estado]??'bg-gray-100 text-gray-800';}
+        function claseEstado(estado){return {PENDIENTE_PALLET:'bg-orange-100 text-orange-800',PENDIENTE_VERIFICACION:'bg-yellow-100 text-yellow-800',PENDIENTE_REVERIFICACION:'bg-yellow-100 text-yellow-800',EN_VERIFICACION:'bg-blue-100 text-blue-800',OBSERVADA:'bg-orange-100 text-orange-800',PENDIENTE_REVERIFICACION:'bg-yellow-100 text-yellow-800',VERIFICADA:'bg-green-100 text-green-800',CONCILIADA:'bg-green-100 text-green-800',CON_DIFERENCIA:'bg-red-100 text-red-800',PALETIZADA:'bg-indigo-100 text-indigo-800',UBICADA:'bg-green-100 text-green-800'}[estado]??'bg-gray-100 text-gray-800';}
         function mostrarAlerta(mensaje,tipo){const box=document.getElementById('alertBox');box.className='mb-4 p-3 rounded-lg text-sm '+(tipo==='success'?'bg-green-100 text-green-800':'bg-red-100 text-red-800');box.textContent=mensaje;box.classList.remove('hidden');}
     </script>
 </x-app-layout>
