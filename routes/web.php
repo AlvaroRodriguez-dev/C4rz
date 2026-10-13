@@ -141,11 +141,11 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
     });
 
     Route::middleware(['permission:wms.produccion.verificar|wms.produccion.liberar'])->prefix('produccion-liberacion')->name('produccion.liberacion.')->group(function () {
+        Route::get('/', [WmsLiberacionProduccionController::class, 'create'])->name('create');
         Route::get('/productos/buscar', [WmsLiberacionProduccionController::class, 'buscarProductos'])->name('productos.buscar');
     });
 
     Route::middleware(['permission:wms.produccion.verificar'])->prefix('produccion-liberacion')->name('produccion.liberacion.')->group(function () {
-        Route::get('/', [WmsLiberacionProduccionController::class, 'create'])->name('create');
         Route::get('/{entrega}/pallets', [WmsLiberacionProduccionController::class, 'pallets'])->name('pallets');
         Route::post('/{entrega}/pallets/generar', [WmsLiberacionProduccionController::class, 'generarPallets'])->name('pallets.generar');
         Route::get('/verificacion-pallets', [WmsVerificacionPalletController::class, 'indexVerificacion'])->name('verificacion.index');
