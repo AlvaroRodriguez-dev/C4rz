@@ -401,7 +401,7 @@ class WmsLiberacionProduccionController extends Controller
 
                     if (!empty($excedentes)) {
                         $cantidadPalletsSaldo = (int) ceil(collect($excedentes)->sum('cantidad') / $capacidad);
-                        $numerosSaldo = app(\App\Services\\PalletCorrelativoService::class)
+                        $numerosSaldo = app(\App\Services\PalletCorrelativoService::class)
                             ->generarSiguientes($actual->almacen, $cantidadPalletsSaldo);
                         $indicePallet = 0;
                         $restantePallet = 0;
