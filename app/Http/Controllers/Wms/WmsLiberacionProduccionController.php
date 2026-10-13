@@ -429,7 +429,10 @@ class WmsLiberacionProduccionController extends Controller
                 ? ' Quedan otras discrepancias pendientes en la liberación.'
                 : ' Ya puede iniciar la reverificación de los pallets corregidos.';
 
-            return redirect()->route('wms.produccion.liberacion.correccion.discrepancias', $entrega)
+            return redirect()
+                ->route($resultado['pendientes']
+                    ? 'wms.produccion.liberacion.correccion.discrepancias'
+                    : 'wms.produccion.liberacion.verificacion.pallets', $entrega)
                 ->with('success', $mensaje);
         } catch (RuntimeException $e) {
             return back()->withInput()->with('error', $e->getMessage());
