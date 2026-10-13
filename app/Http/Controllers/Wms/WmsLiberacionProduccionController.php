@@ -185,7 +185,7 @@ class WmsLiberacionProduccionController extends Controller
                 ->with('error', 'La liberación no tiene discrepancias pendientes de corrección.');
         }
 
-        if ($entrega->posteado_erp_at !== null || $entrega->hu()->where(function ($q) {
+        if ($entrega->posteado_erp_at !== null || $entrega->hu()->where('estado', '!=', 'SUSTITUIDO')->where(function ($q) {
             $q->whereNotNull('ubicacion_id')->orWhereNotIn('estado', ['PALETIZADO', 'PENDIENTE_VERIFICACION']);
         })->exists()) {
             return redirect()->route('wms.produccion.liberacion.create')
@@ -237,7 +237,7 @@ class WmsLiberacionProduccionController extends Controller
                 if ((int) $actual->created_id !== (int) auth()->id()) {
                     throw new RuntimeException('La corrección debe realizarla la persona que registró la liberación.');
                 }
-                if ($actual->hu()->where(function ($q) {
+                if ($actual->hu()->where('estado', '!=', 'SUSTITUIDO')->where(function ($q) {
                     $q->whereNotNull('ubicacion_id')->orWhereNotIn('estado', ['PALETIZADO', 'PENDIENTE_VERIFICACION']);
                 })->exists()) {
                     throw new RuntimeException('La liberación tiene pallets ubicados o con movimientos físicos.');
@@ -286,6 +286,12 @@ class WmsLiberacionProduccionController extends Controller
                         $cambioComposicion = true;
                     }
 
+                    $cantidadDetalle = (int) $linea['cantidad'];
+                    if ($cantidadDetalle === 0) {
+                        $cambioComposicion = true;
+                        continue;
+                    }
+
                     $detallesCorregidos[] = [
                         'id' => $detalle->id,
                         'entrega_detalle_id' => $detalle->entrega_detalle_id,
@@ -295,7 +301,7 @@ class WmsLiberacionProduccionController extends Controller
                         'descripcion2' => $producto->descripcion2,
                         'formato' => $hu->formato,
                         'calidad' => $calidad,
-                        'cantidad' => (int) $linea['cantidad'],
+                        'cantidad' => $cantidadDetalle,
                     ];
                 }
 
