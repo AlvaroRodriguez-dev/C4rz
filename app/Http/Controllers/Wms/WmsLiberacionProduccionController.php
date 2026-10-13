@@ -271,6 +271,7 @@ class WmsLiberacionProduccionController extends Controller
                 $almacen = $this->context->almacen();
                 $detallesCorregidos = [];
                 $cambioComposicion = false;
+                $hayCambio = false;
                 foreach ($data['detalles'] as $linea) {
                     $detalle = $hu->detalles->firstWhere('id', (int) $linea['id']);
                     $codigo = strtoupper(trim($linea['codigo']));
@@ -280,15 +281,19 @@ class WmsLiberacionProduccionController extends Controller
                     $calibre = $calidad === 'EXTRA' ? ($linea['calibre'] ?? null) : null;
                     $lote = $this->loteCorregido($actual->fecha_entrega, $calidad, $tono, $calibre);
 
+                    $cantidadDetalle = (int) $linea['cantidad'];
                     if ($codigo !== strtoupper((string) $detalle->codigo)
                         || $calidad !== strtoupper((string) $detalle->calidad)
                         || $lote !== (string) $detalle->lote) {
                         $cambioComposicion = true;
+                        $hayCambio = true;
                     }
-
-                    $cantidadDetalle = (int) $linea['cantidad'];
+                    if ($cantidadDetalle !== (int) $detalle->cantidad) {
+                        $hayCambio = true;
+                    }
                     if ($cantidadDetalle === 0) {
                         $cambioComposicion = true;
+                        $hayCambio = true;
                         continue;
                     }
 
@@ -303,6 +308,10 @@ class WmsLiberacionProduccionController extends Controller
                         'calidad' => $calidad,
                         'cantidad' => $cantidadDetalle,
                     ];
+                }
+
+                if (!$hayCambio) {
+                    throw new RuntimeException('No se detectaron cambios en este pallet. Modifique los datos observados antes de guardar.');
                 }
 
                 $cantidadTotal = collect($detallesCorregidos)->sum('cantidad');
