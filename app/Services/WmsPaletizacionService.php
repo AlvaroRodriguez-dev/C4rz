@@ -44,7 +44,8 @@ class WmsPaletizacionService
      *
      * Reglas:
      * - no se mezclan formatos;
-     * - dentro del mismo formato se pueden mezclar productos y lotes;
+     * - no se mezclan lotes dentro de un pallet;
+     * - dentro del mismo formato y lote se pueden agrupar productos compatibles;
      * - se respeta la capacidad configurada por formato;
      * - el remanente se registra como SALDO.
      */
@@ -357,8 +358,9 @@ class WmsPaletizacionService
     {
         $definiciones = [];
 
+        // Un HU nunca debe mezclar lotes, aunque coincidan el formato y la capacidad.
         $grupos = $pendientes->groupBy(function (array $detalle) {
-            return $detalle['formato'];
+            return $detalle['formato'] . '|' . trim((string) ($detalle['lote'] ?? ''));
         });
 
         foreach ($grupos as $items) {
