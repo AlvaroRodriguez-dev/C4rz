@@ -145,6 +145,7 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
         Route::get('/productos/buscar', [WmsLiberacionProduccionController::class, 'buscarProductos'])->name('productos.buscar');
         Route::get('/{entrega}/pallets', [WmsLiberacionProduccionController::class, 'pallets'])->name('pallets');
         Route::post('/{entrega}/pallets/generar', [WmsLiberacionProduccionController::class, 'generarPallets'])->name('pallets.generar');
+        Route::get('/verificacion-pallets', [WmsVerificacionPalletController::class, 'indexVerificacion'])->name('verificacion.index');
         Route::get('/{entrega}/verificacion-pallets', [WmsVerificacionPalletController::class, 'show'])->name('verificacion.pallets');
         Route::get('/{entrega}/verificacion-pallets/buscar', [WmsVerificacionPalletController::class, 'buscar'])->name('verificacion.pallets.buscar');
         Route::post('/{entrega}/verificacion-pallets/{hu}/confirmar', [WmsVerificacionPalletController::class, 'confirmar'])->name('verificacion.pallets.confirmar');
