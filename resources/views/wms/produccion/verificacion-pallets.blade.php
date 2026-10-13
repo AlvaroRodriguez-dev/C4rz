@@ -82,6 +82,14 @@
 
                     <div id="contenidoBox" class="border-t pt-4 mb-5"></div>
 
+                    <div class="border rounded-xl p-4 mb-5">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                            <div><div class="text-sm font-semibold text-gray-700">Discrepancias de producto o lote</div><p class="text-xs text-gray-500">Registre tono, calibre o calidad/producto distinto al declarado.</p></div>
+                            <button id="btnAgregarDiscrepancia" type="button" class="px-3 py-2 rounded-lg bg-violet-100 hover:bg-violet-200 text-violet-800 font-semibold">+ AGREGAR DISCREPANCIA</button>
+                        </div>
+                        <div id="discrepanciasBox" class="space-y-3"></div>
+                    </div>
+
                     <div id="observacionBox" class="hidden mb-4">
                         <label for="observacion" class="block text-sm font-semibold text-gray-700 mb-1">Observación de la diferencia</label>
                         <textarea id="observacion" rows="2" maxlength="1000" class="w-full border-gray-300 rounded-lg" placeholder="Detalle breve de la diferencia encontrada..."></textarea>
@@ -141,6 +149,7 @@
             dom('btnConfirmar').addEventListener('click', () => confirmar(false));
             dom('btnConfirmarDiferencia').addEventListener('click', () => confirmar(true));
             dom('btnCancelar').addEventListener('click', limpiarPanel);
+            dom('btnAgregarDiscrepancia').addEventListener('click', () => agregarDiscrepancia());
         });
 
         function ocultarZoom() { jq('#qrZoomControl').addClass('hidden'); }
@@ -216,6 +225,8 @@
             dom('cantidadEsperada').textContent = pallet.cantidad_esperada;
             dom('cantidadVerificada').value = pallet.cantidad_verificada ?? pallet.cantidad_esperada;
             dom('observacion').value = pallet.observacion || '';
+            dom('discrepanciasBox').innerHTML = '';
+            (pallet.discrepancias || []).forEach(d => agregarDiscrepancia(d));
 
             const resultado = dom('palletResultado');
             if (pallet.verificado) {
@@ -235,6 +246,7 @@
                         '<div class="min-w-0">' +
                             '<div class="font-semibold text-gray-800 break-words">' + esc(nombre || 'Producto sin descripción') + '</div>' +
                             '<div class="font-mono text-gray-600 break-all">Código: ' + esc(item.codigo) + '</div>' +
+                            '<div class="text-gray-500">Calidad: ' + esc(item.calidad || '—') + '</div>' +
                             '<div class="text-gray-500">Lote: ' + esc(item.lote || 'S/L') + '</div>' +
                         '</div>' +
                         '<div class="font-bold shrink-0">' + item.cantidad + '</div>' +
@@ -258,11 +270,12 @@
             const verificada = Number(dom('cantidadVerificada').value || 0);
             const diferencia = verificada - esperada;
             const box = dom('diferenciaBox');
-            if (diferencia === 0) {
+            const hayDiscrepancias = dom('discrepanciasBox').querySelectorAll('.discrepancia-row').length > 0;
+            if (diferencia === 0 && !hayDiscrepancias) {
                 box.textContent = 'La cantidad coincide con lo esperado.'; box.className = 'flex-1 rounded-lg p-3 text-sm bg-green-50 text-green-700';
                 dom('btnConfirmar').classList.remove('hidden'); dom('btnConfirmarDiferencia').classList.add('hidden'); dom('observacionBox').classList.add('hidden');
             } else {
-                box.textContent = `Diferencia: ${diferencia > 0 ? '+' : ''}${diferencia} cajas`; box.className = 'flex-1 rounded-lg p-3 text-sm bg-orange-50 text-orange-700';
+                box.textContent = diferencia !== 0 ? ('Diferencia: ' + (diferencia > 0 ? '+' : '') + diferencia + ' cajas') : 'Se registraron discrepancias de producto o lote.'; box.className = 'flex-1 rounded-lg p-3 text-sm bg-orange-50 text-orange-700';
                 dom('btnConfirmar').classList.add('hidden'); dom('btnConfirmarDiferencia').classList.remove('hidden'); dom('observacionBox').classList.remove('hidden');
             }
         }
@@ -272,8 +285,9 @@
             const cantidad = Number(dom('cantidadVerificada').value);
             const esperada = Number(palletActual.cantidad_esperada);
             if (!Number.isInteger(cantidad) || cantidad < 0) { mostrarAlerta('Ingrese una cantidad válida.', 'error'); return; }
-            if (conDiferencia && cantidad === esperada) { mostrarAlerta('La cantidad coincide. Use CONFIRMAR.', 'error'); return; }
-            if (!conDiferencia && cantidad !== esperada) { mostrarAlerta('Existe una diferencia. Debe usar CONFIRMAR CON DIFERENCIA.', 'error'); return; }
+            const discrepancias = leerDiscrepancias();
+            if (conDiferencia && cantidad === esperada && discrepancias.length === 0) { mostrarAlerta('Registre una discrepancia o confirme la cantidad coincidente.', 'error'); return; }
+            if (!conDiferencia && (cantidad !== esperada || discrepancias.length > 0)) { mostrarAlerta('Existen diferencias. Use CONFIRMAR CON DIFERENCIA.', 'error'); return; }
 
             const confirmarUrl = routeConfirmarTemplate.replace('__HU__', encodeURIComponent(palletActual.id));
 
@@ -287,14 +301,40 @@
                         'X-Requested-With': 'XMLHttpRequest',
                         'X-CSRF-TOKEN': csrf,
                     },
-                    body: JSON.stringify({ cantidad_verificada: cantidad, observacion: dom('observacion').value.trim() || null }),
+                    body: JSON.stringify({ cantidad_verificada: cantidad, observacion: dom('observacion').value.trim() || null, discrepancias }),
                 });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.message || 'No fue posible confirmar el pallet.');
                 mostrarAlerta(data.message, 'success');
-                palletActual.verificado = true; palletActual.resultado = data.resultado; palletActual.cantidad_verificada = cantidad; palletActual.diferencia = data.diferencia;
+                palletActual.verificado = true; palletActual.resultado = data.resultado; palletActual.cantidad_verificada = cantidad; palletActual.diferencia = data.diferencia; palletActual.discrepancias = discrepancias;
                 mostrarPallet(palletActual); actualizarResumen(data.resumen, data.estado_entrega); actualizarOpcionPallet(palletActual.numero, data.resultado);
             } catch (error) { mostrarAlerta(error.message, 'error'); }
+        }
+
+
+        function agregarDiscrepancia(dato = null) {
+            if (!palletActual || palletActual.verificado) return;
+            const row = document.createElement('div');
+            row.className = 'discrepancia-row grid grid-cols-1 md:grid-cols-4 gap-2 border rounded-lg p-3';
+            const opciones = (palletActual.contenido || []).map(item => '<option value="' + esc(item.id) + '" ' + (dato && Number(dato.hu_detalle_id) === Number(item.id) ? 'selected' : '') + '>' + esc(item.codigo) + ' · ' + esc(item.lote || 'S/L') + '</option>').join('');
+            row.innerHTML = '<div><label class="block text-xs font-semibold text-gray-600 mb-1">Detalle del pallet</label><select class="disc-detalle w-full border-gray-300 rounded-lg">' + opciones + '</select></div>' +
+                '<div><label class="block text-xs font-semibold text-gray-600 mb-1">Tipo</label><select class="disc-tipo w-full border-gray-300 rounded-lg"><option value="TONO">Tono</option><option value="CALIBRE">Calibre</option><option value="CALIDAD_PRODUCTO">Calidad / producto</option></select></div>' +
+                '<div><label class="block text-xs font-semibold text-gray-600 mb-1">Valor físico observado</label><input class="disc-valor w-full border-gray-300 rounded-lg" maxlength="255" value="' + esc(dato?.valor_observado || '') + '" placeholder="Valor encontrado"></div>' +
+                '<div><label class="block text-xs font-semibold text-gray-600 mb-1">Observación</label><div class="flex gap-2"><input class="disc-observacion min-w-0 w-full border-gray-300 rounded-lg" maxlength="1000" value="' + esc(dato?.observacion || '') + '" placeholder="Opcional"><button type="button" class="disc-eliminar px-3 rounded-lg bg-red-100 text-red-700" title="Quitar">×</button></div></div>';
+            if (dato?.tipo) row.querySelector('.disc-tipo').value = dato.tipo;
+            row.querySelector('.disc-eliminar').addEventListener('click', () => { row.remove(); actualizarDiferencia(); });
+            row.querySelectorAll('input,select').forEach(el => el.addEventListener('input', actualizarDiferencia));
+            dom('discrepanciasBox').appendChild(row);
+            actualizarDiferencia();
+        }
+
+        function leerDiscrepancias() {
+            return Array.from(dom('discrepanciasBox').querySelectorAll('.discrepancia-row')).map(row => ({
+                hu_detalle_id: Number(row.querySelector('.disc-detalle').value),
+                tipo: row.querySelector('.disc-tipo').value,
+                valor_observado: row.querySelector('.disc-valor').value.trim(),
+                observacion: row.querySelector('.disc-observacion').value.trim() || null,
+            })).filter(d => d.valor_observado !== '');
         }
 
         function actualizarOpcionPallet(numero, resultado) {
@@ -314,7 +354,7 @@
         }
 
         function limpiarPanel() {
-            palletActual = null; jq('#selectPallet').val(null).trigger('change'); jq('#palletPanel').addClass('hidden');
+            palletActual = null; dom('discrepanciasBox').innerHTML = ''; jq('#selectPallet').val(null).trigger('change'); jq('#palletPanel').addClass('hidden');
             dom('observacionBox').classList.add('hidden'); dom('btnConfirmar').classList.add('hidden'); dom('btnConfirmarDiferencia').classList.add('hidden');
         }
 
