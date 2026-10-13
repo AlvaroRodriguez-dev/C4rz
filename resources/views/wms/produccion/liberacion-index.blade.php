@@ -21,10 +21,8 @@
         const routeBuscar = "{{ route('wms.produccion.liberacion.create', ['buscar' => 1]) }}";
         const routePdf = "{{ url('wms/produccion-liberacion') }}";
         const routePallets = "{{ url('wms/produccion-liberacion') }}";
-        const routeVerificacion = "{{ url('wms/produccion-liberacion') }}";
         const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || "{{ csrf_token() }}";
         const puedeGenerar = @json(auth()->user()->can('wms.produccion.verificar'));
-        const puedeVerificar = @json(auth()->user()->can('wms.produccion.verificar.ejecutar'));
         document.addEventListener('DOMContentLoaded', () => { document.getElementById('btnBuscar').addEventListener('click', () => cargar(1)); document.getElementById('search').addEventListener('keydown', e => { if (e.key === 'Enter') cargar(1); }); document.getElementById('estado').addEventListener('change', () => cargar(1)); cargar(1); });
         async function cargar(page) { const params = new URLSearchParams({q:document.getElementById('search').value.trim(),estado:document.getElementById('estado').value,page}); try { const res=await fetch(routeBuscar+'&'+params.toString(),{headers:{'Accept':'application/json'}}); if(!res.ok) throw new Error('No fue posible cargar las liberaciones.'); const data=await res.json(); document.getElementById('tabla').innerHTML=data.data.length?data.data.map(fila).join(''):'<tr><td colspan="8" class="p-6 text-center text-gray-500">No se encontraron liberaciones.</td></tr>'; document.getElementById('paginacion').innerHTML=data.last_page>1?'<div class="flex justify-between items-center"><button class="px-3 py-2 border rounded-lg" '+(data.current_page<=1?'disabled':'')+' onclick="cargar('+(data.current_page-1)+')">Anterior</button><span class="text-sm text-gray-500">Página '+data.current_page+' de '+data.last_page+'</span><button class="px-3 py-2 border rounded-lg" '+(data.current_page>=data.last_page?'disabled':'')+' onclick="cargar('+(data.current_page+1)+')">Siguiente</button></div>':''; } catch(error){console.error(error);mostrarAlerta(error.message,'error');} }
         function fila(item){
@@ -34,9 +32,6 @@
             if(estadosConPallets.includes(item.estado)&&Number(item.pallets)>0){
                 acciones+='<a class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold ml-2" href="'+routePallets+'/'+item.id+'/pallets">VER PALLETS</a>';
                 acciones+='<a class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-semibold ml-2" href="'+routePallets+'/'+item.id+'/pallets?pdf=1" target="_blank" rel="noopener">IMPRIMIR QR</a>';
-            }
-            if(['PENDIENTE_VERIFICACION','EN_VERIFICACION'].includes(item.estado)&&Number(item.pallets)>0&&puedeVerificar){
-                acciones+='<a class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-semibold ml-2" href="'+routeVerificacion+'/'+item.id+'/verificacion-pallets">VERIFICAR PALLETS</a>';
             }
             if(item.estado==='PENDIENTE_PALLET'&&puedeGenerar){
                 acciones+='<form method="POST" action="'+routePallets+'/'+item.id+'/pallets/generar" class="inline-block ml-2" onsubmit="return confirmarGeneracion()"><input type="hidden" name="_token" value="'+csrf+'"><button type="submit" class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold">GENERAR PALLET</button></form>';
