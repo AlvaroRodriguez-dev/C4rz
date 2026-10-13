@@ -31,7 +31,7 @@
             cargar(1);
         });
         async function cargar(page) {
-            const params = new URLSearchParams({q: document.getElementById('search').value.trim(), page});
+            const params = new URLSearchParams({q: document.getElementById('search').value.trim(), estado: document.getElementById('estado').value, page});
             try {
                 const res = await fetch(routeBuscar + '&' + params.toString(), {headers: {'Accept':'application/json'}, credentials:'same-origin'});
                 if (!res.ok) throw new Error('No fue posible cargar las liberaciones.');
