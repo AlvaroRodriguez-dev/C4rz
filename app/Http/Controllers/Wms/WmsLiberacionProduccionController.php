@@ -180,7 +180,7 @@ class WmsLiberacionProduccionController extends Controller
         abort_unless(auth()->user()->can('wms.produccion.liberar'), 403);
         abort_unless((int) $entrega->created_id === (int) auth()->id(), 403, 'Solo la persona que registró la liberación puede corregirla.');
 
-        if ($entrega->estado !== 'OBSERVADA') {
+        if (!in_array($entrega->estado, ['OBSERVADA', 'PENDIENTE_CORRECCION'], true)) {
             return redirect()->route('wms.produccion.liberacion.create')
                 ->with('error', 'La liberación no tiene discrepancias pendientes de corrección.');
         }
@@ -192,13 +192,15 @@ class WmsLiberacionProduccionController extends Controller
                 ->with('error', 'La corrección solo está disponible antes de movimientos físicos y del ingreso al SAS-ERP.');
         }
 
-        $entrega->load(['documento', 'detalles']);
+        $entrega->load('documento');
         $discrepancias = WmsHuDiscrepancia::query()
-            ->with(['hu', 'detalle'])
+            ->with(['hu.detalles', 'detalle'])
             ->where('entrega_id', $entrega->id)
             ->where('estado', 'PENDIENTE_CORRECCION')
+            ->orderBy('hu_id')
             ->orderBy('id')
-            ->get();
+            ->get()
+            ->groupBy('hu_id');
 
         if ($discrepancias->isEmpty()) {
             return redirect()->route('wms.produccion.liberacion.create')
@@ -215,23 +217,22 @@ class WmsLiberacionProduccionController extends Controller
         abort_unless((int) $entrega->created_id === (int) auth()->id(), 403, 'Solo la persona que registró la liberación puede corregirla.');
 
         $data = $request->validate([
-            'lineas' => ['required', 'array', 'min:1'],
-            'lineas.*.id' => ['required', 'integer'],
-            'lineas.*.codigo' => ['required', 'string', 'max:30'],
-            'lineas.*.calidad' => ['required', 'string', 'in:EXTRA,COMERCIAL,ECONOMICO'],
-            'lineas.*.cantidad_declarada' => ['required', 'integer', 'min:0'],
-            'lineas.*.tono' => ['nullable', 'digits_between:1,3'],
-            'lineas.*.calibre' => ['nullable', 'digits_between:1,2'],
+            'hu_id' => ['required', 'integer'],
+            'detalles' => ['required', 'array', 'min:1'],
+            'detalles.*.id' => ['required', 'integer'],
+            'detalles.*.codigo' => ['required', 'string', 'max:30'],
+            'detalles.*.calidad' => ['required', 'string', 'in:EXTRA,COMERCIAL,ECONOMICO'],
+            'detalles.*.cantidad' => ['required', 'integer', 'min:0'],
+            'detalles.*.tono' => ['nullable', 'digits_between:1,3'],
+            'detalles.*.calibre' => ['nullable', 'digits_between:1,2'],
+            'observacion_correccion' => ['required', 'string', 'min:3', 'max:1000'],
         ]);
 
         try {
             $resultado = DB::transaction(function () use ($entrega, $data) {
                 $actual = WmsEntregaProduccion::query()->lockForUpdate()->findOrFail($entrega->id);
-                if ($actual->estado !== 'OBSERVADA' || $actual->posteado_erp_at !== null) {
+                if (!in_array($actual->estado, ['OBSERVADA', 'PENDIENTE_CORRECCION'], true) || $actual->posteado_erp_at !== null) {
                     throw new RuntimeException('La liberación cambió de estado y ya no puede corregirse por este flujo.');
-                }
-                if (!WmsHuDiscrepancia::query()->where('entrega_id', $actual->id)->where('estado', 'PENDIENTE_CORRECCION')->exists()) {
-                    throw new RuntimeException('La liberación no tiene discrepancias pendientes de corrección.');
                 }
                 if ((int) $actual->created_id !== (int) auth()->id()) {
                     throw new RuntimeException('La corrección debe realizarla la persona que registró la liberación.');
@@ -242,104 +243,179 @@ class WmsLiberacionProduccionController extends Controller
                     throw new RuntimeException('La liberación tiene pallets ubicados o con movimientos físicos.');
                 }
 
-                $detalles = WmsEntregaDetalle::query()
+                $hu = \App\Models\WmsHu::query()
                     ->where('entrega_id', $actual->id)
+                    ->whereKey((int) $data['hu_id'])
+                    ->where('estado', '!=', 'SUSTITUIDO')
+                    ->with('detalles')
                     ->lockForUpdate()
-                    ->get()
-                    ->keyBy('id');
+                    ->firstOrFail();
 
-                $idsRecibidos = collect($data['lineas'])->pluck('id')->map(fn ($id) => (int) $id)->sort()->values();
-                $idsEsperados = $detalles->keys()->map(fn ($id) => (int) $id)->sort()->values();
+                $incidencias = WmsHuDiscrepancia::query()
+                    ->where('entrega_id', $actual->id)
+                    ->where('hu_id', $hu->id)
+                    ->where('estado', 'PENDIENTE_CORRECCION')
+                    ->lockForUpdate()
+                    ->get();
+
+                if ($incidencias->isEmpty()) {
+                    throw new RuntimeException('Este pallet ya no tiene discrepancias pendientes de corrección.');
+                }
+
+                $idsRecibidos = collect($data['detalles'])->pluck('id')->map(fn ($id) => (int) $id)->sort()->values();
+                $idsEsperados = $hu->detalles->pluck('id')->map(fn ($id) => (int) $id)->sort()->values();
                 if ($idsRecibidos->all() !== $idsEsperados->all()) {
-                    throw new RuntimeException('La lista de líneas cambió. Recargue la pantalla antes de guardar.');
+                    throw new RuntimeException('Los detalles del pallet cambiaron. Recargue la pantalla antes de guardar.');
                 }
 
                 $almacen = $this->context->almacen();
-                $snapshot = [];
-                $snapshotAnterior = [];
-                foreach ($data['lineas'] as $linea) {
-                    /** @var WmsEntregaDetalle $detalle */
-                    $detalle = $detalles->get((int) $linea['id']);
-                    $snapshotAnterior[] = [
-                        'detalle_id' => $detalle->id,
-                        'codigo' => $detalle->codigo,
-                        'calidad' => $detalle->calidad,
-                        'cantidad_declarada' => (int) $detalle->cantidad_declarada,
-                        'tono' => $detalle->tono,
-                        'calibre' => $detalle->calibre,
-                        'lote' => $detalle->lote,
-                    ];
+                $detallesCorregidos = [];
+                $cambioComposicion = false;
+                foreach ($data['detalles'] as $linea) {
+                    $detalle = $hu->detalles->firstWhere('id', (int) $linea['id']);
                     $codigo = strtoupper(trim($linea['codigo']));
                     $calidad = strtoupper(trim($linea['calidad']));
-                    $producto = $this->catalogo->validar($almacen, $codigo, $detalle->formato, $calidad);
+                    $producto = $this->catalogo->validar($almacen, $codigo, $hu->formato, $calidad);
                     $tono = $calidad === 'EXTRA' ? ($linea['tono'] ?? null) : null;
                     $calibre = $calidad === 'EXTRA' ? ($linea['calibre'] ?? null) : null;
                     $lote = $this->loteCorregido($actual->fecha_entrega, $calidad, $tono, $calibre);
 
-                    $detalle->update([
+                    if ($codigo !== strtoupper((string) $detalle->codigo)
+                        || $calidad !== strtoupper((string) $detalle->calidad)
+                        || $lote !== (string) $detalle->lote) {
+                        $cambioComposicion = true;
+                    }
+
+                    $detallesCorregidos[] = [
+                        'id' => $detalle->id,
+                        'entrega_detalle_id' => $detalle->entrega_detalle_id,
                         'codigo' => $codigo,
+                        'lote' => $lote,
                         'descripcion' => $producto->descripcion,
                         'descripcion2' => $producto->descripcion2,
+                        'formato' => $hu->formato,
                         'calidad' => $calidad,
-                        'modelo' => $producto->modelo,
-                        'cantidad_declarada' => (int) $linea['cantidad_declarada'],
-                        'tono' => $tono,
-                        'calibre' => $calibre,
-                        'lote' => $lote,
-                        'estado' => 'CORREGIDO',
-                    ]);
-
-                    $snapshot[] = [
-                        'detalle_id' => $detalle->id,
-                        'codigo' => $codigo,
-                        'calidad' => $calidad,
-                        'cantidad_declarada' => (int) $linea['cantidad_declarada'],
-                        'tono' => $tono,
-                        'calibre' => $calibre,
-                        'lote' => $lote,
+                        'cantidad' => (int) $linea['cantidad'],
                     ];
                 }
 
-                if (collect($snapshot)->sum('cantidad_declarada') <= 0) {
-                    throw new RuntimeException('La corrección no puede dejar la liberación sin cantidades.');
+                $cantidadTotal = collect($detallesCorregidos)->sum('cantidad');
+                if ($cantidadTotal <= 0) {
+                    throw new RuntimeException('La corrección debe dejar al menos una caja en el pallet.');
+                }
+                if ($cantidadTotal > (int) $hu->capacidad_estandar) {
+                    throw new RuntimeException('La cantidad corregida supera la capacidad configurada del pallet.');
                 }
 
-                $actual->update([
-                    'total_declarado' => collect($snapshot)->sum('cantidad_declarada'),
-                    'update_id' => auth()->id(),
-                ]);
+                $snapshotAnterior = $hu->detalles->map(fn ($d) => [
+                    'id' => $d->id, 'codigo' => $d->codigo, 'lote' => $d->lote,
+                    'calidad' => $d->calidad, 'cantidad' => (int) $d->cantidad,
+                ])->values()->all();
+                $snapshotNuevo = collect($detallesCorregidos)->map(fn ($d) => [
+                    'codigo' => $d['codigo'], 'lote' => $d['lote'],
+                    'calidad' => $d['calidad'], 'cantidad' => $d['cantidad'],
+                ])->values()->all();
 
-                $discrepanciasPendientes = WmsHuDiscrepancia::query()
-                    ->where('entrega_id', $actual->id)
-                    ->where('estado', 'PENDIENTE_CORRECCION')
-                    ->get();
-                $huIdsAfectados = $discrepanciasPendientes->pluck('hu_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
-                $verificacionesAnteriores = WmsHuVerificacion::query()
-                    ->whereIn('hu_id', $huIdsAfectados)
-                    ->get()
-                    ->keyBy('hu_id');
+                $huDestino = $hu;
+                if ($cambioComposicion) {
+                    // Cambiar producto/calidad/lote modifica la identidad física del HU:
+                    // se conserva el historial del código anterior y se emite un nuevo correlativo.
+                    $numero = app(\App\Services\PalletCorrelativoService::class)
+                        ->generarSiguientes($actual->almacen, 1)[0];
+                    $hu->update(['estado' => 'SUSTITUIDO', 'update_id' => auth()->id()]);
+                    $huDestino = \App\Models\WmsHu::create([
+                        'numero' => $numero,
+                        'entrega_id' => $actual->id,
+                        'almacen_id' => $actual->almacen_id,
+                        'ubicacion_id' => null,
+                        'formato' => $hu->formato,
+                        'capacidad_estandar' => $hu->capacidad_estandar,
+                        'cantidad_total' => $cantidadTotal,
+                        'tipo' => $cantidadTotal === (int) $hu->capacidad_estandar ? 'COMPLETO' : 'SALDO',
+                        'estado' => 'PALETIZADO',
+                        'created_id' => auth()->id(),
+                        'update_id' => auth()->id(),
+                    ]);
+                    foreach ($detallesCorregidos as $detalleNuevo) {
+                        \App\Models\WmsHuDetalle::create([
+                            'hu_id' => $huDestino->id,
+                            'entrega_detalle_id' => $detalleNuevo['entrega_detalle_id'],
+                            'codigo' => $detalleNuevo['codigo'],
+                            'lote' => $detalleNuevo['lote'],
+                            'descripcion' => $detalleNuevo['descripcion'],
+                            'descripcion2' => $detalleNuevo['descripcion2'],
+                            'formato' => $detalleNuevo['formato'],
+                            'calidad' => $detalleNuevo['calidad'],
+                            'cantidad' => $detalleNuevo['cantidad'],
+                        ]);
+                    }
+                } else {
+                    foreach ($detallesCorregidos as $detalleNuevo) {
+                        \App\Models\WmsHuDetalle::query()->whereKey($detalleNuevo['id'])->update([
+                            'cantidad' => $detalleNuevo['cantidad'],
+                        ]);
+                    }
+                    $hu->update([
+                        'cantidad_total' => $cantidadTotal,
+                        'tipo' => $cantidadTotal === (int) $hu->capacidad_estandar ? 'COMPLETO' : 'SALDO',
+                        'update_id' => auth()->id(),
+                    ]);
+                }
 
-                foreach ($discrepanciasPendientes as $incidencia) {
-                    $verificacionAnterior = $verificacionesAnteriores->get($incidencia->hu_id);
+                $verificacionAnterior = WmsHuVerificacion::query()->where('hu_id', $hu->id)->first();
+                foreach ($incidencias as $incidencia) {
                     $incidencia->update([
                         'estado' => 'CORREGIDA',
                         'corregido_id' => auth()->id(),
                         'corregido_at' => now(),
                         'valor_anterior' => json_encode($snapshotAnterior, JSON_UNESCAPED_UNICODE),
-                        'valor_corregido' => json_encode($snapshot, JSON_UNESCAPED_UNICODE),
+                        'valor_corregido' => json_encode([
+                            'observacion_correccion' => $data['observacion_correccion'],
+                            'pallet_anterior' => $hu->numero,
+                            'pallet_actual' => $huDestino->numero,
+                            'detalles' => $snapshotNuevo,
+                        ], JSON_UNESCAPED_UNICODE),
                         'verificacion_anterior' => $verificacionAnterior
-                            ? json_encode(array_intersect_key($verificacionAnterior->getAttributes(), array_flip(['cantidad_esperada', 'cantidad_verificada', 'diferencia', 'resultado', 'observacion', 'verificado_id', 'verificado_at'])), JSON_UNESCAPED_UNICODE)
+                            ? json_encode(array_intersect_key($verificacionAnterior->getAttributes(), array_flip([
+                                'cantidad_esperada', 'cantidad_verificada', 'diferencia', 'resultado',
+                                'observacion', 'verificado_id', 'verificado_at',
+                            ])), JSON_UNESCAPED_UNICODE)
                             : null,
+                        'observacion' => trim((string) $incidencia->observacion . ' | Corrección: ' . $data['observacion_correccion']),
                     ]);
                 }
 
-                return $this->paletizacion->reconstruirDespuesCorreccion($actual, (int) auth()->id(), $huIdsAfectados);
+                WmsHuVerificacion::query()->where('hu_id', $hu->id)->delete();
+                $pendientes = WmsHuDiscrepancia::query()
+                    ->where('entrega_id', $actual->id)
+                    ->where('estado', 'PENDIENTE_CORRECCION')
+                    ->exists();
+
+                $actual->update([
+                    'estado' => $pendientes ? 'OBSERVADA' : 'PENDIENTE_REVERIFICACION',
+                    'verificado_at' => null,
+                    'verificado_id' => null,
+                    'update_id' => auth()->id(),
+                ]);
+
+                return [
+                    'numero_anterior' => $hu->numero,
+                    'numero_actual' => $huDestino->numero,
+                    'sustituido' => $cambioComposicion,
+                    'cantidad' => $cantidadTotal,
+                    'pendientes' => $pendientes,
+                ];
             });
 
-            return redirect()->route('wms.produccion.liberacion.create')
-                ->with('success', 'Corrección guardada. Pallets conservados: ' . $resultado['conservados'] .
-                    '; sustituidos: ' . $resultado['sustituidos'] . '; nuevos: ' . $resultado['nuevos'] .
-                    '. Los pallets nuevos quedaron pendientes de reverificación.');
+            $mensaje = $resultado['sustituido']
+                ? 'Pallet corregido. El identificador anterior fue sustituido por ' . $resultado['numero_actual'] . '.'
+                : 'Pallet corregido: ' . $resultado['numero_actual'] . '.';
+            $mensaje .= $resultado['pendientes']
+                ? ' Quedan otras discrepancias pendientes en la liberación.'
+                : ' Ya puede iniciar la reverificación de los pallets corregidos.';
+
+            return redirect()->route('wms.produccion.liberacion.correccion.discrepancias', $entrega)
+                ->with('success', $mensaje);
         } catch (RuntimeException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         }
