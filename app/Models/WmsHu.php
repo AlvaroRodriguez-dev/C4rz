@@ -54,4 +54,9 @@ class WmsHu extends Model
     {
         return $this->hasOne(WmsHuVerificacion::class, 'hu_id');
     }
+
+    public function discrepancias(): HasMany
+    {
+        return $this->hasMany(WmsHuDiscrepancia::class, 'hu_id');
+    }
 }
