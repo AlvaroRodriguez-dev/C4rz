@@ -147,6 +147,198 @@ class WmsPaletizacionService
         });
     }
 
+
+    /**
+     * Reconstruye la composición de una liberación corregida antes del ingreso al ERP.
+     * Conserva el número de los HUs cuya composición física no cambió; los demás se
+     * marcan como sustituidos y reciben nuevos números correlativos.
+     */
+    public function reconstruirDespuesCorreccion(WmsEntregaProduccion $entrega, int $userId): array
+    {
+        return DB::transaction(function () use ($entrega, $userId) {
+            $entrega = WmsEntregaProduccion::query()->lockForUpdate()->findOrFail($entrega->id);
+
+            if (!in_array($entrega->estado, ['OBSERVADA', 'PENDIENTE_CORRECCION'], true)) {
+                throw new RuntimeException('La liberación no está en un estado que permita corregir pallets.');
+            }
+
+            if ($entrega->posteado_erp_at !== null) {
+                throw new RuntimeException('No se puede reconstruir una liberación ya ingresada al SAS-ERP.');
+            }
+
+            $activos = WmsHu::query()
+                ->where('entrega_id', $entrega->id)
+                ->where('estado', '!=', 'SUSTITUIDO')
+                ->with('detalles')
+                ->lockForUpdate()
+                ->get();
+
+            if ($activos->contains(fn (WmsHu $hu) => $hu->ubicacion_id !== null || !in_array($hu->estado, ['PALETIZADO', 'PENDIENTE_VERIFICACION'], true))) {
+                throw new RuntimeException('La liberación tiene pallets ubicados o con movimientos; no se puede reconstruir automáticamente.');
+            }
+
+            $detalles = WmsEntregaDetalle::query()
+                ->where('entrega_id', $entrega->id)
+                ->orderBy('orden')
+                ->lockForUpdate()
+                ->get();
+
+            $disponibles = [];
+            foreach ($detalles as $detalle) {
+                $cantidad = (int) $detalle->cantidad_declarada;
+                if ($cantidad <= 0) {
+                    continue;
+                }
+
+                $formato = $detalle->formato ?: strtoupper(substr($detalle->codigo, 5, 4));
+                $config = WmsConfigPallet::find($formato);
+                if (!$config || (int) $config->cajas_x_pallet <= 0) {
+                    throw new RuntimeException("El formato {$formato} no tiene capacidad de pallet configurada.");
+                }
+
+                $disponibles[] = [
+                    'id' => $detalle->id,
+                    'orden' => $detalle->orden,
+                    'codigo' => $detalle->codigo,
+                    'descripcion' => $detalle->descripcion,
+                    'descripcion2' => $detalle->descripcion2,
+                    'calidad' => $detalle->calidad,
+                    'formato' => $formato,
+                    'lote' => $detalle->lote,
+                    'cantidad_fisica' => (int) $detalle->cantidad_fisica,
+                    'cantidad_declarada' => $cantidad,
+                    'cantidad_paletizada' => 0,
+                    'cantidad_pendiente' => $cantidad,
+                    'tono' => $detalle->tono,
+                    'calibre' => $detalle->calibre,
+                    'capacidad' => (int) $config->cajas_x_pallet,
+                    'configurado' => true,
+                ];
+            }
+
+            if (empty($disponibles)) {
+                throw new RuntimeException('La corrección debe dejar al menos una línea con cantidad mayor que cero.');
+            }
+
+            $mapaDetalle = collect($disponibles)->keyBy('id');
+            $definiciones = $this->construirDefiniciones(collect($disponibles));
+            $claveDefinicion = function (array $definicion) use ($mapaDetalle): string {
+                $items = collect($definicion['items'])->map(function (array $item) use ($mapaDetalle) {
+                    $d = $mapaDetalle->get((int) $item['detalle_id']);
+                    return [
+                        'detalle_id' => (int) $item['detalle_id'],
+                        'codigo' => $d['codigo'],
+                        'lote' => $d['lote'],
+                        'calidad' => $d['calidad'],
+                        'formato' => $d['formato'],
+                        'cantidad' => (int) $item['cantidad'],
+                    ];
+                })->sortBy(fn ($item) => implode('|', $item))->values()->all();
+
+                return sha1(json_encode(['formato' => $definicion['formato'], 'items' => $items]));
+            };
+            $claveHu = function (WmsHu $hu): string {
+                $items = $hu->detalles->map(fn (WmsHuDetalle $d) => [
+                    'detalle_id' => (int) $d->entrega_detalle_id,
+                    'codigo' => $d->codigo,
+                    'lote' => $d->lote,
+                    'calidad' => $d->calidad,
+                    'formato' => $d->formato,
+                    'cantidad' => (int) $d->cantidad,
+                ])->sortBy(fn ($item) => implode('|', $item))->values()->all();
+
+                return sha1(json_encode(['formato' => $hu->formato, 'items' => $items]));
+            };
+
+            $huPorClave = [];
+            foreach ($activos as $hu) {
+                $huPorClave[$claveHu($hu)][] = $hu;
+            }
+
+            $conservarIds = [];
+            $nuevasDefiniciones = [];
+            foreach ($definiciones as $definicion) {
+                $clave = $claveDefinicion($definicion);
+                if (!empty($huPorClave[$clave])) {
+                    $existente = array_shift($huPorClave[$clave]);
+                    $conservarIds[] = $existente->id;
+                } else {
+                    $nuevasDefiniciones[] = $definicion;
+                }
+            }
+
+            $numeros = empty($nuevasDefiniciones)
+                ? []
+                : app(PalletCorrelativoService::class)->generarSiguientes($entrega->almacen, count($nuevasDefiniciones));
+
+            foreach ($activos as $hu) {
+                if (!in_array($hu->id, $conservarIds, true)) {
+                    $hu->update(['estado' => 'SUSTITUIDO', 'update_id' => $userId]);
+                }
+            }
+
+            foreach ($nuevasDefiniciones as $index => $definicion) {
+                $hu = WmsHu::create([
+                    'numero' => $numeros[$index],
+                    'entrega_id' => $entrega->id,
+                    'almacen_id' => $entrega->almacen_id,
+                    'ubicacion_id' => null,
+                    'formato' => $definicion['formato'],
+                    'capacidad_estandar' => $definicion['capacidad'],
+                    'cantidad_total' => $definicion['cantidad_total'],
+                    'tipo' => $definicion['cantidad_total'] === $definicion['capacidad'] ? 'COMPLETO' : 'SALDO',
+                    'estado' => 'PALETIZADO',
+                    'created_id' => $userId,
+                    'update_id' => $userId,
+                ]);
+
+                foreach ($definicion['items'] as $item) {
+                    $d = $mapaDetalle->get((int) $item['detalle_id']);
+                    WmsHuDetalle::create([
+                        'hu_id' => $hu->id,
+                        'entrega_detalle_id' => $d['id'],
+                        'codigo' => $d['codigo'],
+                        'lote' => $d['lote'],
+                        'descripcion' => $d['descripcion'],
+                        'descripcion2' => $d['descripcion2'],
+                        'formato' => $d['formato'],
+                        'calidad' => $d['calidad'],
+                        'cantidad' => (int) $item['cantidad'],
+                    ]);
+                }
+            }
+
+            $totales = WmsHuDetalle::query()
+                ->join('wms_hu', 'wms_hu.id', '=', 'wms_hu_detalle.hu_id')
+                ->where('wms_hu.entrega_id', $entrega->id)
+                ->where('wms_hu.estado', '!=', 'SUSTITUIDO')
+                ->whereNotNull('wms_hu_detalle.entrega_detalle_id')
+                ->select('wms_hu_detalle.entrega_detalle_id', DB::raw('SUM(wms_hu_detalle.cantidad) as total'))
+                ->groupBy('wms_hu_detalle.entrega_detalle_id')
+                ->pluck('total', 'entrega_detalle_id');
+
+            foreach ($detalles as $detalle) {
+                $detalle->update([
+                    'cantidad_paletizada' => (int) ($totales[$detalle->id] ?? 0),
+                ]);
+            }
+
+            $entrega->update([
+                'total_declarado' => $detalles->sum('cantidad_declarada'),
+                'estado' => 'PENDIENTE_REVERIFICACION',
+                'verificado_at' => null,
+                'verificado_id' => null,
+                'update_id' => $userId,
+            ]);
+
+            return [
+                'conservados' => count($conservarIds),
+                'sustituidos' => $activos->count() - count($conservarIds),
+                'nuevos' => count($nuevasDefiniciones),
+            ];
+        });
+    }
+
     /**
      * Divide las cantidades pendientes en pallets completos y saldos.
      * La agrupación se hace únicamente por formato, permitiendo mezclar
