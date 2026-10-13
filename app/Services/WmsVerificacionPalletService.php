@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\WmsEntregaProduccion;
 use App\Models\WmsHu;
 use App\Models\WmsHuVerificacion;
+use App\Models\WmsHuDiscrepancia;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -48,7 +49,7 @@ class WmsVerificacionPalletService
         }
 
         $hu = WmsHu::query()
-            ->with(['detalles', 'verificacion'])
+            ->with(['detalles.entregaDetalle', 'verificacion', 'discrepancias'])
             ->where('entrega_id', $entrega->id)
             ->where('numero', $numero)
             ->first();
@@ -64,13 +65,14 @@ class WmsVerificacionPalletService
         WmsEntregaProduccion $entrega,
         WmsHu $hu,
         int $cantidadVerificada,
-        ?string $observacion = null
+        ?string $observacion = null,
+        array $discrepancias = []
     ): WmsHuVerificacion {
         if ($cantidadVerificada < 0) {
             throw new RuntimeException('La cantidad verificada no puede ser negativa.');
         }
 
-        return DB::transaction(function () use ($entrega, $hu, $cantidadVerificada, $observacion) {
+        return DB::transaction(function () use ($entrega, $hu, $cantidadVerificada, $observacion, $discrepancias) {
             $entrega = WmsEntregaProduccion::query()->lockForUpdate()->findOrFail($entrega->id);
             $hu = WmsHu::query()->lockForUpdate()->findOrFail($hu->id);
 
@@ -92,6 +94,51 @@ class WmsVerificacionPalletService
 
             $usuarioId = auth()->id() ?: null;
 
+            if ($diferencia !== 0) {
+                WmsHuDiscrepancia::create([
+                    'hu_id' => $hu->id,
+                    'entrega_id' => $entrega->id,
+                    'hu_detalle_id' => null,
+                    'tipo' => 'CANTIDAD',
+                    'valor_esperado' => (string) $esperada,
+                    'valor_observado' => (string) $cantidadVerificada,
+                    'observacion' => $observacion,
+                    'estado' => 'PENDIENTE_CORRECCION',
+                    'reportado_id' => $usuarioId,
+                    'reportado_at' => now(),
+                ]);
+            }
+
+            foreach ($discrepancias as $incidencia) {
+                $detalle = $hu->detalles->firstWhere('id', (int) ($incidencia['hu_detalle_id'] ?? 0));
+                if (!$detalle) {
+                    throw new RuntimeException('El detalle seleccionado no pertenece al pallet verificado.');
+                }
+
+                $tipo = strtoupper((string) ($incidencia['tipo'] ?? ''));
+                $partesLote = explode('-', (string) $detalle->lote);
+                $sufijoLote = (string) end($partesLote);
+                $esperado = match ($tipo) {
+                    'TONO' => $detalle->entregaDetalle?->tono ?? (strlen($sufijoLote) >= 5 ? substr($sufijoLote, 0, 3) : ''),
+                    'CALIBRE' => $detalle->entregaDetalle?->calibre ?? (strlen($sufijoLote) >= 5 ? substr($sufijoLote, 3, 2) : ''),
+                    'CALIDAD_PRODUCTO' => trim((string) $detalle->codigo . ' / ' . (string) $detalle->calidad),
+                    default => throw new RuntimeException('El tipo de discrepancia no es válido.'),
+                };
+
+                WmsHuDiscrepancia::create([
+                    'hu_id' => $hu->id,
+                    'entrega_id' => $entrega->id,
+                    'hu_detalle_id' => $detalle->id,
+                    'tipo' => $tipo,
+                    'valor_esperado' => (string) $esperado,
+                    'valor_observado' => trim((string) ($incidencia['valor_observado'] ?? '')),
+                    'observacion' => $incidencia['observacion'] ?? null,
+                    'estado' => 'PENDIENTE_CORRECCION',
+                    'reportado_id' => $usuarioId,
+                    'reportado_at' => now(),
+                ]);
+            }
+
             $verificacion = WmsHuVerificacion::create([
                 'hu_id' => $hu->id,
                 'entrega_id' => $entrega->id,
@@ -112,10 +159,15 @@ class WmsVerificacionPalletService
                 ->count();
 
             if ($pendientes === 0) {
+                $hayDiscrepancias = WmsHuDiscrepancia::query()
+                    ->where('entrega_id', $entrega->id)
+                    ->where('estado', 'PENDIENTE_CORRECCION')
+                    ->exists();
+
                 $entrega->update([
-                    'estado' => 'VERIFICADA',
-                    'verificado_at' => now(),
-                    'verificado_id' => $usuarioId,
+                    'estado' => $hayDiscrepancias ? 'OBSERVADA' : 'VERIFICADA',
+                    'verificado_at' => $hayDiscrepancias ? null : now(),
+                    'verificado_id' => $hayDiscrepancias ? null : $usuarioId,
                     'update_id' => $usuarioId ?: $entrega->update_id,
                 ]);
             } else {
@@ -138,6 +190,7 @@ class WmsVerificacionPalletService
             'verificados' => $pallets->filter(fn (WmsHu $hu) => $hu->verificacion !== null)->count(),
             'pendientes' => $pallets->filter(fn (WmsHu $hu) => $hu->verificacion === null)->count(),
             'con_diferencia' => $pallets->filter(fn (WmsHu $hu) => $hu->verificacion?->resultado === 'CONFIRMADO_CON_DIFERENCIA')->count(),
+            'discrepancias_pendientes' => WmsHuDiscrepancia::query()->where('entrega_id', $entrega->id)->where('estado', 'PENDIENTE_CORRECCION')->count(),
         ];
     }
 }
