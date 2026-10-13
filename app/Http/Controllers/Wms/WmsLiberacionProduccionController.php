@@ -381,11 +381,11 @@ class WmsLiberacionProduccionController extends Controller
                         $cantidadExcedente = $cantidadOriginal - $cantidadEnOriginal;
 
                         if ($cantidadEnOriginal > 0) {
-                            \\App\\Models\\WmsHuDetalle::query()->whereKey($detalleNuevo['id'])->update([
+                            \App\Models\\WmsHuDetalle::query()->whereKey($detalleNuevo['id'])->update([
                                 'cantidad' => $cantidadEnOriginal,
                             ]);
                         } else {
-                            \\App\\Models\\WmsHuDetalle::query()->whereKey($detalleNuevo['id'])->delete();
+                            \App\Models\\WmsHuDetalle::query()->whereKey($detalleNuevo['id'])->delete();
                         }
 
                         if ($cantidadExcedente > 0) {
@@ -401,7 +401,7 @@ class WmsLiberacionProduccionController extends Controller
 
                     if (!empty($excedentes)) {
                         $cantidadPalletsSaldo = (int) ceil(collect($excedentes)->sum('cantidad') / $capacidad);
-                        $numerosSaldo = app(\\App\\Services\\PalletCorrelativoService::class)
+                        $numerosSaldo = app(\App\Services\\PalletCorrelativoService::class)
                             ->generarSiguientes($actual->almacen, $cantidadPalletsSaldo);
                         $indicePallet = 0;
                         $restantePallet = 0;
@@ -412,7 +412,7 @@ class WmsLiberacionProduccionController extends Controller
 
                             while ($cantidadPendiente > 0) {
                                 if ($huSaldo === null || $restantePallet === 0) {
-                                    $huSaldo = \\App\\Models\\WmsHu::create([
+                                    $huSaldo = \App\Models\\WmsHu::create([
                                         'numero' => $numerosSaldo[$indicePallet++],
                                         'entrega_id' => $actual->id,
                                         'almacen_id' => $actual->almacen_id,
@@ -429,7 +429,7 @@ class WmsLiberacionProduccionController extends Controller
                                 }
 
                                 $cantidadAsignada = min($cantidadPendiente, $restantePallet);
-                                \\App\\Models\\WmsHuDetalle::create([
+                                \App\Models\\WmsHuDetalle::create([
                                     'hu_id' => $huSaldo->id,
                                     'entrega_detalle_id' => $excedente['entrega_detalle_id'],
                                     'codigo' => $excedente['codigo'],
@@ -455,7 +455,7 @@ class WmsLiberacionProduccionController extends Controller
 
                 // Sincroniza la cantidad paletizada por línea con los HUs activos,
                 // incluidos los nuevos pallets SALDO creados por el excedente.
-                $totalesPaletizados = \\App\\Models\\WmsHuDetalle::query()
+                $totalesPaletizados = \App\Models\\WmsHuDetalle::query()
                     ->join('wms_hu', 'wms_hu.id', '=', 'wms_hu_detalle.hu_id')
                     ->where('wms_hu.entrega_id', $actual->id)
                     ->where('wms_hu.estado', '!=', 'SUSTITUIDO')
