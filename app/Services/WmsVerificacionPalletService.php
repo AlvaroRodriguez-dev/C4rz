@@ -74,7 +74,7 @@ class WmsVerificacionPalletService
 
         return DB::transaction(function () use ($entrega, $hu, $cantidadVerificada, $observacion, $discrepancias) {
             $entrega = WmsEntregaProduccion::query()->lockForUpdate()->findOrFail($entrega->id);
-            $hu = WmsHu::query()->lockForUpdate()->findOrFail($hu->id);
+            $hu = WmsHu::query()->with('detalles.entregaDetalle')->lockForUpdate()->findOrFail($hu->id);
 
             if ((int) $hu->entrega_id !== (int) $entrega->id) {
                 throw new RuntimeException('El pallet no pertenece a la liberación indicada.');
@@ -90,7 +90,7 @@ class WmsVerificacionPalletService
 
             $esperada = (int) $hu->cantidad_total;
             $diferencia = $cantidadVerificada - $esperada;
-            $resultado = $diferencia === 0 ? 'CONFIRMADO' : 'CONFIRMADO_CON_DIFERENCIA';
+            $resultado = ($diferencia === 0 && empty($discrepancias)) ? 'CONFIRMADO' : 'CONFIRMADO_CON_DIFERENCIA';
 
             $usuarioId = auth()->id() ?: null;
 
