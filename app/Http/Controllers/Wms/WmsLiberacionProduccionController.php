@@ -319,7 +319,7 @@ class WmsLiberacionProduccionController extends Controller
                         'valor_anterior' => json_encode($snapshotAnterior, JSON_UNESCAPED_UNICODE),
                         'valor_corregido' => json_encode($snapshot, JSON_UNESCAPED_UNICODE),
                         'verificacion_anterior' => $verificacionAnterior
-                            ? json_encode($verificacionAnterior->only(['cantidad_esperada', 'cantidad_verificada', 'diferencia', 'resultado', 'observacion', 'verificado_id', 'verificado_at']), JSON_UNESCAPED_UNICODE)
+                            ? json_encode(array_intersect_key($verificacionAnterior->getAttributes(), array_flip(['cantidad_esperada', 'cantidad_verificada', 'diferencia', 'resultado', 'observacion', 'verificado_id', 'verificado_at'])), JSON_UNESCAPED_UNICODE)
                             : null,
                     ]);
                 }
