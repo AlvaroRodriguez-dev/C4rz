@@ -60,6 +60,7 @@ class WmsLiberacionProduccionController extends Controller
         $almacen = $this->context->almacen();
         $search = trim((string) $request->get('q'));
         $estado = trim((string) $request->get('estado'));
+        $scope = trim((string) $request->get('scope'));
         $page = max(1, (int) $request->get('page', 1));
 
         $query = WmsEntregaProduccion::query()
@@ -74,6 +75,7 @@ class WmsLiberacionProduccionController extends Controller
                         });
                 });
             })
+            ->when($scope === 'verificacion', fn ($q) => $q->whereIn('estado', ['PENDIENTE_VERIFICACION', 'EN_VERIFICACION', 'PENDIENTE_REVERIFICACION', 'VERIFICADA']))
             ->when($estado !== '', fn ($q) => $q->where('estado', $estado))
             ->orderByDesc('id');
 
