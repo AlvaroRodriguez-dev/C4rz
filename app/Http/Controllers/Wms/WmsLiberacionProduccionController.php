@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\WmsConfigPallet;
 use App\Models\WmsEntregaDetalle;
 use App\Models\WmsHuDiscrepancia;
+use App\Models\WmsHuVerificacion;
 use App\Models\WmsEntregaProduccion;
 use App\Services\WmsContextService;
 use App\Services\WmsLiberacionProduccionService;
@@ -299,19 +300,31 @@ class WmsLiberacionProduccionController extends Controller
                     'update_id' => auth()->id(),
                 ]);
 
-                WmsHuDiscrepancia::query()
+                $discrepanciasPendientes = WmsHuDiscrepancia::query()
                     ->where('entrega_id', $actual->id)
                     ->where('estado', 'PENDIENTE_CORRECCION')
-                    ->update([
+                    ->get();
+                $huIdsAfectados = $discrepanciasPendientes->pluck('hu_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
+                $verificacionesAnteriores = WmsHuVerificacion::query()
+                    ->whereIn('hu_id', $huIdsAfectados)
+                    ->get()
+                    ->keyBy('hu_id');
+
+                foreach ($discrepanciasPendientes as $incidencia) {
+                    $verificacionAnterior = $verificacionesAnteriores->get($incidencia->hu_id);
+                    $incidencia->update([
                         'estado' => 'CORREGIDA',
                         'corregido_id' => auth()->id(),
                         'corregido_at' => now(),
                         'valor_anterior' => json_encode($snapshotAnterior, JSON_UNESCAPED_UNICODE),
                         'valor_corregido' => json_encode($snapshot, JSON_UNESCAPED_UNICODE),
-                        'updated_at' => now(),
+                        'verificacion_anterior' => $verificacionAnterior
+                            ? json_encode($verificacionAnterior->only(['cantidad_esperada', 'cantidad_verificada', 'diferencia', 'resultado', 'observacion', 'verificado_id', 'verificado_at']), JSON_UNESCAPED_UNICODE)
+                            : null,
                     ]);
+                }
 
-                return $this->paletizacion->reconstruirDespuesCorreccion($actual, (int) auth()->id());
+                return $this->paletizacion->reconstruirDespuesCorreccion($actual, (int) auth()->id(), $huIdsAfectados);
             });
 
             return redirect()->route('wms.produccion.liberacion.create')
