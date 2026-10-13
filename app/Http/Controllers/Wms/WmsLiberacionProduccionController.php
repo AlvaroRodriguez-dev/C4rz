@@ -324,9 +324,9 @@ class WmsLiberacionProduccionController extends Controller
                         'La suma de cantidades corregidas (' . $cantidadTotal . ') debe coincidir con la cantidad física observada (' . (int) $discrepanciaCantidad->valor_observado . ').'
                     );
                 }
-                if ($cantidadTotal > (int) $hu->capacidad_estandar) {
-                    throw new RuntimeException('La cantidad corregida supera la capacidad configurada del pallet.');
-                }
+                // La cantidad observada es el total físico del pallet y su excedente.
+                $capacidad = (int) $hu->capacidad_estandar;
+                $cantidadPalletOriginal = min($cantidadTotal, $capacidad);
 
                 $snapshotAnterior = $hu->detalles->map(fn ($d) => [
                     'id' => $d->id, 'codigo' => $d->codigo, 'lote' => $d->lote,
@@ -371,16 +371,86 @@ class WmsLiberacionProduccionController extends Controller
                         ]);
                     }
                 } else {
+                    $restanteCapacidad = $cantidadPalletOriginal;
+                    $excedentes = [];
+
                     foreach ($detallesCorregidos as $detalleNuevo) {
-                        \App\Models\WmsHuDetalle::query()->whereKey($detalleNuevo['id'])->update([
-                            'cantidad' => $detalleNuevo['cantidad'],
-                        ]);
+                        $cantidadOriginal = (int) $detalleNuevo['cantidad'];
+                        $cantidadEnOriginal = min($cantidadOriginal, $restanteCapacidad);
+                        $restanteCapacidad -= $cantidadEnOriginal;
+                        $cantidadExcedente = $cantidadOriginal - $cantidadEnOriginal;
+
+                        if ($cantidadEnOriginal > 0) {
+                            \\App\\Models\\WmsHuDetalle::query()->whereKey($detalleNuevo['id'])->update([
+                                'cantidad' => $cantidadEnOriginal,
+                            ]);
+                        } else {
+                            \\App\\Models\\WmsHuDetalle::query()->whereKey($detalleNuevo['id'])->delete();
+                        }
+
+                        if ($cantidadExcedente > 0) {
+                            $excedentes[] = array_merge($detalleNuevo, ['cantidad' => $cantidadExcedente]);
+                        }
                     }
+
                     $hu->update([
-                        'cantidad_total' => $cantidadTotal,
-                        'tipo' => $cantidadTotal === (int) $hu->capacidad_estandar ? 'COMPLETO' : 'SALDO',
+                        'cantidad_total' => $cantidadPalletOriginal,
+                        'tipo' => $cantidadPalletOriginal === $capacidad ? 'COMPLETO' : 'SALDO',
                         'update_id' => auth()->id(),
                     ]);
+
+                    if (!empty($excedentes)) {
+                        $cantidadPalletsSaldo = (int) ceil(collect($excedentes)->sum('cantidad') / $capacidad);
+                        $numerosSaldo = app(\\App\\Services\\PalletCorrelativoService::class)
+                            ->generarSiguientes($actual->almacen, $cantidadPalletsSaldo);
+                        $indicePallet = 0;
+                        $restantePallet = 0;
+                        $huSaldo = null;
+
+                        foreach ($excedentes as $excedente) {
+                            $cantidadPendiente = (int) $excedente['cantidad'];
+
+                            while ($cantidadPendiente > 0) {
+                                if ($huSaldo === null || $restantePallet === 0) {
+                                    $huSaldo = \\App\\Models\\WmsHu::create([
+                                        'numero' => $numerosSaldo[$indicePallet++],
+                                        'entrega_id' => $actual->id,
+                                        'almacen_id' => $actual->almacen_id,
+                                        'ubicacion_id' => null,
+                                        'formato' => $hu->formato,
+                                        'capacidad_estandar' => $capacidad,
+                                        'cantidad_total' => 0,
+                                        'tipo' => 'SALDO',
+                                        'estado' => 'PALETIZADO',
+                                        'created_id' => auth()->id(),
+                                        'update_id' => auth()->id(),
+                                    ]);
+                                    $restantePallet = $capacidad;
+                                }
+
+                                $cantidadAsignada = min($cantidadPendiente, $restantePallet);
+                                \\App\\Models\\WmsHuDetalle::create([
+                                    'hu_id' => $huSaldo->id,
+                                    'entrega_detalle_id' => $excedente['entrega_detalle_id'],
+                                    'codigo' => $excedente['codigo'],
+                                    'lote' => $excedente['lote'],
+                                    'descripcion' => $excedente['descripcion'],
+                                    'descripcion2' => $excedente['descripcion2'],
+                                    'formato' => $excedente['formato'],
+                                    'calidad' => $excedente['calidad'],
+                                    'cantidad' => $cantidadAsignada,
+                                ]);
+
+                                $huSaldo->increment('cantidad_total', $cantidadAsignada);
+                                $cantidadPendiente -= $cantidadAsignada;
+                                $restantePallet -= $cantidadAsignada;
+                                if ($restantePallet === 0) {
+                                    $huSaldo->update(['tipo' => 'COMPLETO', 'update_id' => auth()->id()]);
+                                    $huSaldo = null;
+                                }
+                            }
+                        }
+                    }
                 }
 
                 $verificacionAnterior = WmsHuVerificacion::query()->where('hu_id', $hu->id)->first();
@@ -394,6 +464,11 @@ class WmsLiberacionProduccionController extends Controller
                             'observacion_correccion' => $data['observacion_correccion'],
                             'pallet_anterior' => $hu->numero,
                             'pallet_actual' => $huDestino->numero,
+                            'cantidad_total_observada' => $cantidadTotal,
+                            'cantidad_pallet_original' => $cambioComposicion ? $cantidadTotal : $cantidadPalletOriginal,
+                            'pallets_saldo_generados' => !$cambioComposicion && $cantidadTotal > $capacidad
+                                ? (int) ceil(($cantidadTotal - $capacidad) / $capacidad)
+                                : 0,
                             'detalles' => $snapshotNuevo,
                         ], JSON_UNESCAPED_UNICODE),
                         'verificacion_anterior' => $verificacionAnterior
@@ -424,6 +499,10 @@ class WmsLiberacionProduccionController extends Controller
                     'numero_actual' => $huDestino->numero,
                     'sustituido' => $cambioComposicion,
                     'cantidad' => $cantidadTotal,
+                    'capacidad' => $capacidad,
+                    'pallets_saldo' => !$cambioComposicion && $cantidadTotal > $capacidad
+                        ? (int) ceil(($cantidadTotal - $capacidad) / $capacidad)
+                        : 0,
                     'pendientes' => $pendientes,
                 ];
             });
@@ -431,6 +510,9 @@ class WmsLiberacionProduccionController extends Controller
             $mensaje = $resultado['sustituido']
                 ? 'Pallet corregido. El identificador anterior fue sustituido por ' . $resultado['numero_actual'] . '.'
                 : 'Pallet corregido: ' . $resultado['numero_actual'] . '.';
+            if ($resultado['pallets_saldo'] > 0) {
+                $mensaje .= ' Se generó' . ($resultado['pallets_saldo'] === 1 ? ' 1 pallet SALDO' : ' ' . $resultado['pallets_saldo'] . ' pallets SALDO') . ' para las cajas excedentes.';
+            }
             $mensaje .= $resultado['pendientes']
                 ? ' Quedan otras discrepancias pendientes en la liberación.'
                 : ' Ya puede iniciar la reverificación de los pallets corregidos.';
