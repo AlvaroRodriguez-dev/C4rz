@@ -69,9 +69,16 @@ class WmsVerificacionPalletController extends Controller
                 ->limit(30)
                 ->get()
                 ->map(function (WmsHu $hu) {
-                    $estado = $hu->verificacion
-                        ? ($hu->verificacion->resultado === 'CONFIRMADO_CON_DIFERENCIA' ? 'CONFIRMADO CON DIFERENCIA' : 'CONFIRMADO')
-                        : 'PENDIENTE';
+                    $requiereReverificacion = $hu->verificacion && $hu->discrepancias()
+                        ->where('estado', 'CORREGIDA')
+                        ->where('corregido_at', '>', $hu->verificacion->verificado_at)
+                        ->exists();
+
+                    $estado = $requiereReverificacion
+                        ? 'REVERIFICACIÓN PENDIENTE'
+                        : ($hu->verificacion
+                            ? ($hu->verificacion->resultado === 'CONFIRMADO_CON_DIFERENCIA' ? 'CONFIRMADO CON DIFERENCIA' : 'CONFIRMADO')
+                            : 'PENDIENTE');
 
                     return [
                         'id' => $hu->numero,
@@ -143,6 +150,12 @@ class WmsVerificacionPalletController extends Controller
 
     private function palletResumen(WmsHu $hu): array
     {
+        $ultimaVerificacion = $hu->verificacion;
+        $requiereReverificacion = $ultimaVerificacion && $hu->discrepancias()
+            ->where('estado', 'CORREGIDA')
+            ->where('corregido_at', '>', $ultimaVerificacion->verificado_at)
+            ->exists();
+
         return [
             'id' => $hu->id,
             'numero' => $hu->numero,
@@ -150,14 +163,26 @@ class WmsVerificacionPalletController extends Controller
             'tipo' => $hu->tipo,
             'capacidad' => $hu->capacidad_estandar,
             'cantidad_esperada' => (int) $hu->cantidad_total,
-            'verificado' => $hu->verificacion !== null,
-            'resultado' => $hu->verificacion?->resultado,
-            'cantidad_verificada' => $hu->verificacion?->cantidad_verificada,
-            'diferencia' => $hu->verificacion?->diferencia,
-            'observacion' => $hu->verificacion?->observacion,
-            'discrepancias' => $hu->discrepancias->map(fn ($d) => [
+            'verificado' => $ultimaVerificacion !== null && !$requiereReverificacion,
+            'requiere_reverificacion' => (bool) $requiereReverificacion,
+            'resultado' => $ultimaVerificacion?->resultado,
+            'cantidad_verificada' => $requiereReverificacion ? null : $ultimaVerificacion?->cantidad_verificada,
+            'diferencia' => $requiereReverificacion ? null : $ultimaVerificacion?->diferencia,
+            'observacion' => $requiereReverificacion ? null : $ultimaVerificacion?->observacion,
+            'antecedentes' => $hu->discrepancias->where('estado', 'CORREGIDA')->map(fn ($d) => [
                 'id' => $d->id,
                 'tipo' => $d->tipo,
+                'valor_esperado' => $d->valor_esperado,
+                'valor_observado' => $d->valor_observado,
+                'observacion' => $d->observacion,
+                'estado' => $d->estado,
+                'corregido_at' => $d->corregido_at?->format('d/m/Y H:i'),
+                'valor_corregido' => $d->valor_corregido,
+            ])->values(),
+            'discrepancias' => $hu->discrepancias->where('estado', 'PENDIENTE_CORRECCION')->map(fn ($d) => [
+                'id' => $d->id,
+                'tipo' => $d->tipo,
+                'hu_detalle_id' => $d->hu_detalle_id,
                 'valor_esperado' => $d->valor_esperado,
                 'valor_observado' => $d->valor_observado,
                 'observacion' => $d->observacion,
