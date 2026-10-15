@@ -27,6 +27,7 @@ use App\Http\Controllers\Wms\WmsUsuarioAlmacenController;
 use App\Http\Controllers\Wms\WmsExcepcionDespachoController;
 use App\Http\Controllers\Wms\WmsIngresoAjusteController;
 use App\Http\Controllers\Wms\WmsIngresoController;
+use App\Http\Controllers\Wms\WmsIngresoPtLiberadoController;
 use App\Http\Controllers\Wms\WmsIngresoVerController;
 use App\Http\Controllers\Wms\WmsInventarioController;
 use App\Http\Controllers\Wms\WmsKardexController;
