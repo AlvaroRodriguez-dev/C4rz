@@ -334,7 +334,7 @@
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.message || 'No fue posible confirmar el pallet.');
                 mostrarAlerta(data.message, 'success');
-                palletActual.verificado = true; palletActual.resultado = data.resultado; palletActual.cantidad_verificada = cantidad; palletActual.diferencia = data.diferencia; palletActual.discrepancias = discrepancias;
+                palletActual.verificado = true; palletActual.requiere_reverificacion = false; palletActual.resultado = data.resultado; palletActual.cantidad_verificada = cantidad; palletActual.diferencia = data.diferencia; palletActual.discrepancias = []; palletActual.antecedentes = palletActual.antecedentes || [];
                 mostrarPallet(palletActual); actualizarResumen(data.resumen, data.estado_entrega); actualizarOpcionPallet(palletActual.numero, data.resultado);
             } catch (error) { mostrarAlerta(error.message, 'error'); }
         }
