@@ -43,6 +43,9 @@ class WmsIngresoPtLiberadoController extends Controller
                 'id' => $hu->id, 'numero' => $hu->numero, 'formato' => $hu->formato,
                 'cantidad' => (int) $hu->cantidad_total,
                 'ubicado' => $hu->ubicacion_id !== null || $hu->ubicado_at !== null,
+                'ubicacion_texto' => $hu->ubicacion
+                    ? trim(($hu->ubicacion->galpon?->codigo ?? '') . ' / ' . $hu->ubicacion->codigo, ' /')
+                    : null,
                 'detalles' => $hu->detalles->map(fn ($d) => [
                     'codigo' => $d->codigo, 'lote' => $d->lote, 'cantidad' => (int) $d->cantidad,
                 ])->values(),
@@ -105,6 +108,10 @@ class WmsIngresoPtLiberadoController extends Controller
 
                 $pallet = trim((string) $hu->numero);
                 $rdocum = 'PT-' . $liberacion->id;
+                $docOrigen = trim((string) ($liberacion->documento?->id_documento ?? ''));
+                if ($docOrigen === '') {
+                    throw new RuntimeException('La liberación no tiene un código de documento de origen. No se registró el ingreso.');
+                }
                 if (WmsIngreso::query()->where('rdocum', $rdocum)->where('pallet', $pallet)->exists()) {
                     throw new RuntimeException('Ya existe un ingreso físico para este pallet. No se duplicó el stock.');
                 }
@@ -112,10 +119,10 @@ class WmsIngresoPtLiberadoController extends Controller
                 $fecha = $liberacion->fecha_entrega ?? now()->toDateString();
                 foreach ($hu->detalles as $detalle) {
                     WmsIngreso::create([
-                        'rdocum' => $rdocum, 'rfecha' => $fecha, 'tipo_ingreso' => 'produccion',
+                        'rdocum' => $rdocum, 'doc_origen' => $docOrigen, 'rfecha' => $fecha, 'tipo_ingreso' => 'produccion',
                         'motivo' => 'Ingreso PT liberado - liberación WMS #' . $liberacion->id,
                         'pallet' => $pallet, 'codigo' => $detalle->codigo, 'clote' => $detalle->lote,
-                        'descrip' => $detalle->descripcion, 'descrip1' => $detalle->descripcion2,
+                        'descrip' => $detalle->descripcion, 'descrip1' => $detalle->calidad,
                         'cantidad' => (int) $detalle->cantidad, 'almacen' => $almacen->codigo,
                         'galpon' => $ubicacion->galpon->codigo, 'ubicacion' => $ubicacion->codigo,
                     ]);
