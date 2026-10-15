@@ -19,7 +19,7 @@
                 <div>
                     <a href="{{ route('wms.produccion.liberacion.verificacion.index') }}" class="text-sm text-gray-600">&larr; Volver a liberaciones</a>
                     <h1 class="text-2xl font-bold text-gray-900 mt-2">Verificación de pallets</h1>
-                    <p class="text-sm text-gray-500">Busque o escanee cada pallet, confirme la cantidad física y complete la verificación de toda la liberación.</p>
+                    <p class="text-sm text-gray-500">Busque o escanee cada pallet. Si fue corregido, confirme nuevamente su estado físico; los antecedentes se conservan para auditoría.</p>
                 </div>
                 <a href="{{ route('wms.produccion.liberacion.pallets', $entrega) }}" class="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold text-center">VER PALLETS</a>
             </div>
@@ -86,6 +86,7 @@
                         </div>
                     </div>
 
+                    <div id="antecedentesBox" class="hidden rounded-xl border border-blue-200 bg-blue-50 p-4 mb-5"></div>
                     <div id="contenidoBox" class="border-t pt-4 mb-5"></div>
 
                     <div class="border rounded-xl p-4 mb-5">
@@ -234,13 +235,34 @@
             dom('discrepanciasBox').innerHTML = '';
             (pallet.discrepancias || []).forEach(d => agregarDiscrepancia(d));
 
+            const antecedentes = pallet.antecedentes || [];
+            const antecedentesBox = dom('antecedentesBox');
+            if (antecedentes.length) {
+                antecedentesBox.classList.remove('hidden');
+                antecedentesBox.innerHTML = '<div class="font-semibold text-blue-900 mb-1">Antecedente de la corrección (solo consulta)</div>' +
+                    '<p class="text-sm text-blue-800 mb-3">Estas incidencias pertenecen a la revisión anterior. No debe eliminarlas ni volver a registrarlas. Verifique el pallet con su contenido actual.</p>' +
+                    antecedentes.map(d => '<div class="border-t border-blue-200 py-2 text-sm"><div class="font-semibold">' + esc(d.tipo.replaceAll('_', ' ')) + ' · ' + esc(d.valor_esperado || '—') + ' → ' + esc(d.valor_observado || '—') + '</div>' +
+                    '<div class="text-blue-800">Corrección: ' + esc(d.corregido_at || 'fecha no disponible') + '</div>' +
+                    (d.observacion ? '<div class="text-blue-800">Observación original: ' + esc(d.observacion) + '</div>' : '') +
+                    (d.valor_corregido ? '<details class="mt-1"><summary class="cursor-pointer font-medium">Ver detalle de la corrección</summary><pre class="text-xs whitespace-pre-wrap mt-2">' + esc(typeof d.valor_corregido === 'string' ? d.valor_corregido : JSON.stringify(d.valor_corregido, null, 2)) + '</pre></details>' : '') +
+                    '</div>').join('');
+            } else {
+                antecedentesBox.classList.add('hidden');
+                antecedentesBox.innerHTML = '';
+            }
+
             const resultado = dom('palletResultado');
-            if (pallet.verificado) {
+            if (pallet.requiere_reverificacion) {
+                resultado.textContent = 'REVERIFICACIÓN PENDIENTE';
+                resultado.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800';
+            } else if (pallet.verificado) {
                 resultado.textContent = pallet.resultado === 'CONFIRMADO_CON_DIFERENCIA' ? 'CONFIRMADO CON DIFERENCIA' : 'CONFIRMADO';
                 resultado.className = 'px-3 py-1 rounded-full text-xs font-semibold ' + (pallet.resultado === 'CONFIRMADO_CON_DIFERENCIA' ? 'bg-orange-100 text-orange-800' : 'bg-green-100 text-green-800');
             } else {
                 resultado.textContent = 'PENDIENTE'; resultado.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800';
             }
+            dom('btnConfirmar').textContent = pallet.requiere_reverificacion ? 'CONFIRMAR REVERIFICACIÓN' : 'CONFIRMAR';
+            dom('btnConfirmarDiferencia').textContent = pallet.requiere_reverificacion ? 'CONFIRMAR REVERIFICACIÓN CON DIFERENCIA' : 'CONFIRMAR CON DIFERENCIA';
 
             let html = '<div class="text-sm font-semibold text-gray-700 mb-2">Contenido del pallet</div>';
             if (!pallet.contenido.length) {
