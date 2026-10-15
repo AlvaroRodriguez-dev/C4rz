@@ -112,7 +112,7 @@ class WmsIngresoPtLiberadoController extends Controller
                 $fecha = $liberacion->fecha_entrega ?? now()->toDateString();
                 foreach ($hu->detalles as $detalle) {
                     WmsIngreso::create([
-                        'rdocum' => $rdocum, 'rfecha' => $fecha, 'tipo_ingreso' => 'nota',
+                        'rdocum' => $rdocum, 'rfecha' => $fecha, 'tipo_ingreso' => 'produccion',
                         'motivo' => 'Ingreso PT liberado - liberación WMS #' . $liberacion->id,
                         'pallet' => $pallet, 'codigo' => $detalle->codigo, 'clote' => $detalle->lote,
                         'descrip' => $detalle->descripcion, 'descrip1' => $detalle->descripcion2,
