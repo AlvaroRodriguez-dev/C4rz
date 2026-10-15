@@ -501,7 +501,7 @@ class WmsLiberacionProduccionController extends Controller
                     ]);
                 }
 
-                WmsHuVerificacion::query()->where('hu_id', $hu->id)->delete();
+                // La verificación anterior se conserva como historial; la siguiente será una nueva reverificación.
                 $pendientes = WmsHuDiscrepancia::query()
                     ->where('entrega_id', $actual->id)
                     ->where('estado', 'PENDIENTE_CORRECCION')
