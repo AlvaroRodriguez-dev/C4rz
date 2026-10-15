@@ -85,8 +85,20 @@ class WmsVerificacionPalletService
                 throw new RuntimeException('La liberación ya no está en proceso de verificación de pallets.');
             }
 
-            if ($hu->verificacion()->exists()) {
-                throw new RuntimeException("El pallet {$hu->numero} ya fue verificado.");
+            $verificacionAnterior = WmsHuVerificacion::query()
+                ->where('hu_id', $hu->id)
+                ->orderByDesc('id')
+                ->first();
+
+            $requiereReverificacion = $verificacionAnterior
+                && WmsHuDiscrepancia::query()
+                    ->where('hu_id', $hu->id)
+                    ->where('estado', 'CORREGIDA')
+                    ->where('corregido_at', '>', $verificacionAnterior->verificado_at)
+                    ->exists();
+
+            if ($verificacionAnterior && !$requiereReverificacion) {
+                throw new RuntimeException("El pallet {$hu->numero} ya fue verificado y no tiene una corrección pendiente de reverificación.");
             }
 
             $esperada = (int) $hu->cantidad_total;
@@ -154,11 +166,24 @@ class WmsVerificacionPalletService
                 'update_id' => $usuarioId,
             ]);
 
-            $pendientes = WmsHu::query()
+            $palletsActivos = WmsHu::query()
                 ->where('entrega_id', $entrega->id)
                 ->where('estado', '!=', 'SUSTITUIDO')
-                ->whereDoesntHave('verificacion')
-                ->count();
+                ->with(['verificacion', 'discrepancias'])
+                ->get();
+
+            $pendientes = $palletsActivos->filter(function (WmsHu $pallet) {
+                $ultima = $pallet->verificacion;
+                if (!$ultima) {
+                    return true;
+                }
+
+                return $pallet->discrepancias->contains(fn (WmsHuDiscrepancia $d) =>
+                    $d->estado === 'CORREGIDA'
+                    && $d->corregido_at
+                    && $d->corregido_at->gt($ultima->verificado_at)
+                );
+            })->count();
 
             if ($pendientes === 0) {
                 $hayDiscrepancias = WmsHuDiscrepancia::query()
@@ -185,13 +210,19 @@ class WmsVerificacionPalletService
 
     public function resumen(WmsEntregaProduccion $entrega): array
     {
-        $pallets = $entrega->hu()->where('estado', '!=', 'SUSTITUIDO')->with('verificacion')->get();
+        $pallets = $entrega->hu()->where('estado', '!=', 'SUSTITUIDO')->with(['verificacion', 'discrepancias'])->get();
+        $requiereReverificacion = fn (WmsHu $hu) => $hu->verificacion
+            && $hu->discrepancias->contains(fn (WmsHuDiscrepancia $d) =>
+                $d->estado === 'CORREGIDA'
+                && $d->corregido_at
+                && $d->corregido_at->gt($hu->verificacion->verificado_at)
+            );
 
         return [
             'total' => $pallets->count(),
-            'verificados' => $pallets->filter(fn (WmsHu $hu) => $hu->verificacion !== null)->count(),
-            'pendientes' => $pallets->filter(fn (WmsHu $hu) => $hu->verificacion === null)->count(),
-            'con_diferencia' => $pallets->filter(fn (WmsHu $hu) => $hu->verificacion?->resultado === 'CONFIRMADO_CON_DIFERENCIA')->count(),
+            'verificados' => $pallets->filter(fn (WmsHu $hu) => $hu->verificacion !== null && !$requiereReverificacion($hu))->count(),
+            'pendientes' => $pallets->filter(fn (WmsHu $hu) => $hu->verificacion === null || $requiereReverificacion($hu))->count(),
+            'con_diferencia' => $pallets->filter(fn (WmsHu $hu) => $hu->verificacion?->resultado === 'CONFIRMADO_CON_DIFERENCIA' && !$requiereReverificacion($hu))->count(),
             'discrepancias_pendientes' => WmsHuDiscrepancia::query()->where('entrega_id', $entrega->id)->where('estado', 'PENDIENTE_CORRECCION')->count(),
         ];
     }
