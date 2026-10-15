@@ -180,6 +180,13 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
         Route::patch('/detalle/{detalle}/cantidad', [WmsProduccionVerificacionController::class, 'cantidad'])->name('detalle.cantidad');
     });
 
+    Route::middleware(['permission:wms.ingresos.create'])->prefix('ingreso-pt-liberado')->name('ingreso-pt-liberado.')->group(function () {
+        Route::get('/', [WmsIngresoPtLiberadoController::class, 'index'])->name('index');
+        Route::get('/ubicaciones', [WmsIngresoPtLiberadoController::class, 'ubicaciones'])->name('ubicaciones');
+        Route::get('/{entrega}/pallets', [WmsIngresoPtLiberadoController::class, 'pallets'])->name('pallets');
+        Route::post('/{entrega}/confirmar', [WmsIngresoPtLiberadoController::class, 'confirmar'])->name('confirmar');
+    });
+
     Route::middleware(['permission:wms.ingresos.create'])->prefix('ingresos')->name('ingresos.')->group(function () {
         Route::get('/crear', [WmsIngresoController::class, 'create'])->name('create');
         Route::get('/notas/buscar', [WmsIngresoController::class, 'buscarNotas'])->name('notas.buscar');
