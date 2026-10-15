@@ -14,6 +14,7 @@ class WmsIngreso extends Model
 
     protected $fillable = [
         'rdocum',
+        'doc_origen',
         'rfecha',
         'tipo_ingreso',
         'motivo',
