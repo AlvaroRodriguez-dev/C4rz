@@ -52,7 +52,7 @@ class WmsHu extends Model
 
     public function verificacion(): HasOne
     {
-        return $this->hasOne(WmsHuVerificacion::class, 'hu_id');
+        return $this->hasOne(WmsHuVerificacion::class, 'hu_id')->latestOfMany();
     }
 
     public function discrepancias(): HasMany
