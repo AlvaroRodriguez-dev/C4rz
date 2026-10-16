@@ -1,0 +1,3 @@
+Prueba de conectividad y permisos de escritura realizada el 2026-10-16.
+
+Esta rama se creó desde WMS únicamente para verificar el acceso de escritura. No modificar main ni WMS.
