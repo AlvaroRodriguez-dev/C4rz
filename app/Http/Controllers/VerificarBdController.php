@@ -35,7 +35,7 @@ class VerificarBdController extends Controller
         Config::set('database.connections.simec_dinamica.database', '');
 
         // Forzar reconexión (limpiar conexión cacheada)
-        DB::purge('inventario_dinamica');
+        DB::purge('simec_dinamica');
 
         try {
             // El patrón se pasa como parámetro para evitar interpolar la entrada del usuario.
