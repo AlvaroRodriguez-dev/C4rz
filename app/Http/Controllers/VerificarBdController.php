@@ -22,13 +22,13 @@ class VerificarBdController extends Controller
      */
     public function listar(Request $request)
     {
-        $request->validate([
-            'servidor_ip' => 'required|string',
-            'filtro'      => 'required|string',
+        $validated = $request->validate([
+            'servidor_ip' => ['required', 'ip'],
+            'filtro'      => ['required', 'string', 'max:100'],
         ]);
 
-        $ip     = $request->input('servidor_ip');
-        $filtro = $request->input('filtro');
+        $ip     = $validated['servidor_ip'];
+        $filtro = $validated['filtro'];
 
         // Configurar conexión dinámica al servidor indicado
         Config::set('database.connections.simec_dinamica.host', $ip);
@@ -38,8 +38,9 @@ class VerificarBdController extends Controller
         DB::purge('inventario_dinamica');
 
         try {
+            // El patrón se pasa como parámetro para evitar interpolar la entrada del usuario.
             $resultados = DB::connection('simec_dinamica')
-                ->select("SHOW DATABASES LIKE '%" . $filtro . "%'");
+                ->select('SHOW DATABASES LIKE ?', ['%' . addcslashes($filtro, '\\\\%_') . '%']);
         } catch (\Exception $e) {
             return back()
                 ->withInput()
