@@ -88,6 +88,34 @@ class SaldoService
     }
 
     /**
+     * Valida el saldo disponible descontando las cantidades reservadas en OTs pendientes.
+     *
+     * El llamador debe invocar este método dentro de la transacción y después de bloquear
+     * el pallet para que la validación y el movimiento formen una única operación atómica.
+     *
+     * @throws \\App\\Exceptions\\Wms\\SaldoInsuficienteException
+     */
+    public function validarDisponible(
+        string $codigo,
+        ?string $clote,
+        string $pallet,
+        string $almacen,
+        string $galpon,
+        string $ubicacion,
+        int $cantidadSolicitada
+    ): int {
+        $saldoReal = $this->saldoDeGrupo($codigo, $clote, $pallet, $almacen, $galpon, $ubicacion);
+        $reservado = $this->reservadoEnOtsPendientes($codigo, $clote, $pallet, $almacen, $galpon, $ubicacion);
+        $disponible = max(0, $saldoReal - $reservado);
+
+        if ($cantidadSolicitada < 1 || $cantidadSolicitada > $disponible) {
+            throw new \\App\\Exceptions\\Wms\\SaldoInsuficienteException($disponible);
+        }
+
+        return $disponible;
+    }
+
+    /**
      * Ubicación actual de un pallet (asume que un pallet físico está en un solo lugar).
      * Retorna null si el pallet no tiene saldo registrado (no existe o está vacío).
      */
