@@ -22,24 +22,25 @@ class VerificarBdController extends Controller
      */
     public function listar(Request $request)
     {
-        $request->validate([
-            'servidor_ip' => 'required|string',
-            'filtro'      => 'required|string',
+        $validated = $request->validate([
+            'servidor_ip' => ['required', 'ip'],
+            'filtro'      => ['required', 'string', 'max:100'],
         ]);
 
-        $ip     = $request->input('servidor_ip');
-        $filtro = $request->input('filtro');
+        $ip     = $validated['servidor_ip'];
+        $filtro = $validated['filtro'];
 
         // Configurar conexión dinámica al servidor indicado
         Config::set('database.connections.simec_dinamica.host', $ip);
         Config::set('database.connections.simec_dinamica.database', '');
 
         // Forzar reconexión (limpiar conexión cacheada)
-        DB::purge('inventario_dinamica');
+        DB::purge('simec_dinamica');
 
         try {
+            // El patrón se pasa como parámetro para evitar interpolar la entrada del usuario.
             $resultados = DB::connection('simec_dinamica')
-                ->select("SHOW DATABASES LIKE '%" . $filtro . "%'");
+                ->select('SHOW DATABASES LIKE ?', ['%' . addcslashes($filtro, '\\\\%_') . '%']);
         } catch (\Exception $e) {
             return back()
                 ->withInput()
@@ -68,8 +69,8 @@ class VerificarBdController extends Controller
     public function verificarGlosa(Request $request)
     {
         $request->validate([
-            'servidor_ip' => 'required|string',
-            'base'        => 'required|string',
+            'servidor_ip' => 'required|ip',
+            'base'        => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9_$-]+$/'],
         ]);
 
         $ip   = $request->input('servidor_ip');
@@ -145,9 +146,10 @@ class VerificarBdController extends Controller
             //---------
 
         } catch (\Exception $e) {
+            report($e);
             return response()->json([
                 'ok'      => false,
-                'mensaje' => 'Error: ' . $e->getMessage(),
+                'mensaje' => 'Ocurrió un error al consultar la base de datos.',
             ], 500);
         }
     }
@@ -158,8 +160,8 @@ class VerificarBdController extends Controller
     public function verificarIngresos(Request $request)
     {
         $request->validate([
-            'servidor_ip' => 'required|string',
-            'base'        => 'required|string',
+            'servidor_ip' => 'required|ip',
+            'base'        => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9_$-]+$/'],
         ]);
 
         $ip   = $request->input('servidor_ip');
@@ -225,9 +227,10 @@ class VerificarBdController extends Controller
                 'mensaje' => implode(', ', $pendientes),
             ]);
         } catch (\Exception $e) {
+            report($e);
             return response()->json([
                 'ok'      => false,
-                'mensaje' => 'Error: ' . $e->getMessage(),
+                'mensaje' => 'Ocurrió un error al consultar la base de datos.',
             ], 500);
         }
     }
@@ -239,11 +242,11 @@ class VerificarBdController extends Controller
     public function verificarMovimiento(Request $request)
     {
         $request->validate([
-            'servidor_ip' => 'required|string',
-            'base'        => 'required|string',
+            'servidor_ip' => 'required|ip',
+            'base'        => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9_$-]+$/'],
             'tabla'       => 'required|string|in:recep,entregas,trasp,ventas,cobranza',
-            'campo_fecha' => 'required|string',
-            'campo_anulada' => 'required|string',
+            'campo_fecha' => 'required|string|in:FECHA,RFECHA,EFECHA,TFECHA,VFECHA',
+            'campo_anulada' => 'required|string|in:MAYORIZADO,RANULADA,EANULADA,TANULADA,VANULADA,ANULADA',
         ]);
 
         $ip            = $request->input('servidor_ip');
@@ -319,9 +322,10 @@ class VerificarBdController extends Controller
             ]);
             //---------------------------------
         } catch (\Exception $e) {
+            report($e);
             return response()->json([
                 'ok'      => false,
-                'mensaje' => 'Error: ' . $e->getMessage(),
+                'mensaje' => 'Ocurrió un error al consultar la base de datos.',
             ], 500);
         }
     }
@@ -332,8 +336,8 @@ class VerificarBdController extends Controller
     public function detalle(Request $request)
     {
         $request->validate([
-            'servidor_ip' => 'required|string',
-            'base'        => 'required|string',
+            'servidor_ip' => 'required|ip',
+            'base'        => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9_$-]+$/'],
             'tipo'        => 'required|string|in:glosa,recep,entregas,trasp,ventas,cobranza',
             'anio'        => 'required|integer',
             'mes'         => 'required|integer|min:1|max:12',
@@ -476,8 +480,8 @@ class VerificarBdController extends Controller
     public function actualizarRegistro(Request $request)
     {
         $request->validate([
-            'servidor_ip'   => 'required|string',
-            'base'          => 'required|string',
+            'servidor_ip'   => 'required|ip',
+            'base'          => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9_$-]+$/'],
             'tipo'          => 'required|string|in:glosa,recep,entregas,trasp,ventas,cobranza',
             'campo_id'      => 'required|string',
             'valor_id'      => 'required',
@@ -522,8 +526,9 @@ class VerificarBdController extends Controller
                 'mes'         => $mes,
             ])->with('success', 'Registro actualizado correctamente.');
         } catch (\Exception $e) {
+            report($e);
             return redirect()->back()
-                ->with('error', 'Error al actualizar: ' . $e->getMessage());
+                ->with('error', 'No fue posible actualizar el registro. Revise los datos e intente nuevamente.');
         }
     }
 
@@ -533,8 +538,8 @@ class VerificarBdController extends Controller
     public function actualizarTodos(Request $request)
     {
         $request->validate([
-            'servidor_ip' => 'required|string',
-            'base'        => 'required|string',
+            'servidor_ip' => 'required|ip',
+            'base'        => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9_$-]+$/'],
             'tipo'        => 'required|string|in:glosa,recep,entregas,trasp,ventas,cobranza',
             'anio'        => 'required|integer',
             'mes'         => 'required|integer',
@@ -592,8 +597,9 @@ class VerificarBdController extends Controller
                 'mes'         => $mes,
             ])->with('success', "Se actualizaron {$total} registros correctamente.");
         } catch (\Exception $e) {
+            report($e);
             return redirect()->back()
-                ->with('error', 'Error al actualizar: ' . $e->getMessage());
+                ->with('error', 'No fue posible actualizar el registro. Revise los datos e intente nuevamente.');
         }
     }
 

@@ -8,6 +8,7 @@ use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
@@ -57,7 +58,7 @@ class RegisteredUserController extends Controller
             'license' => 'nullable|string|max:50',
         ]);
 
-        $schema   = env('PG_RRHH_SCHEMA', '2026');
+        $schema   = config('database.connections.pgsql_rrhh.search_path', '2026');
 
         // Verificar que el LICENSE existe en PostgreSQL
         if ($request->license) {
