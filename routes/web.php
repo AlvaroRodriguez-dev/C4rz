@@ -286,7 +286,7 @@ Route::prefix('asistencia')->name('asistencia.')->middleware('auth')->group(func
     Route::match(['get', 'post'], '/reporte', [AsistenciaReporteController::class, 'index'])->name('reporte');
 });
 
-Route::prefix('rrhh/agencias')->name('rrhh.agencias.')->middleware('auth')->group(function () {
+Route::prefix('rrhh/agencias')->name('rrhh.agencias.')->middleware(['auth', 'role:RRHH-ADMIN|SIS-ADMIN'])->group(function () {
     Route::get('/', [RrhhAgenciasController::class, 'index'])->name('index');
     Route::get('/crear', [RrhhAgenciasController::class, 'create'])->name('create');
     Route::post('/', [RrhhAgenciasController::class, 'store'])->name('store');
@@ -297,9 +297,10 @@ Route::prefix('rrhh/agencias')->name('rrhh.agencias.')->middleware('auth')->grou
     Route::post('/asignaciones', [RrhhAgenciasController::class, 'guardarAsignacion'])->name('asignaciones.guardar');
 });
 
-Route::post('/usuarios/{user}/license', [RegisteredUserController::class, 'asignarLicense'])->name('usuarios.license')->middleware('auth');
+Route::post('/usuarios/{user}/license', [RegisteredUserController::class, 'asignarLicense'])->name('usuarios.license')->middleware(['auth', 'role:SIS-ADMIN']);
 
-Route::middleware(['auth', 'role:SIS-ADMIN'])->group(function () {
+if (config('app.debug')) {
+    Route::middleware(['auth', 'role:SIS-ADMIN'])->group(function () {
     Route::get('/debug-u560/{id}', function ($id) {
         $bio = \App\Models\Biometrico::findOrFail($id);
         try {
@@ -348,7 +349,8 @@ Route::middleware(['auth', 'role:SIS-ADMIN'])->group(function () {
         }
         return response()->json(['fecha' => now()->format('d/m/Y H:i:s'), 'biometricos' => $resultados]);
     });
-});
+    });
+}
 
 Route::get('/tarjeta/{uuid}', [TarjetaPublicaController::class, 'show'])->name('tarjeta.show');
 Route::get('/tarjeta/{uuid}/vcard', [TarjetaPublicaController::class, 'vcard'])->name('tarjeta.vcard');
