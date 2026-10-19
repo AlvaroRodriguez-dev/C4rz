@@ -249,11 +249,6 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
         Route::get('/producto/{codigo}/limite', [WmsIngresoAjusteController::class, 'obtenerLimite'])->name('producto.limite');
         Route::post('/', [WmsIngresoAjusteController::class, 'store'])->name('store');
     });
-    Route::middleware(['permission:wms.ordenes.trabajo'])->prefix('ordenes-trabajo')->name('ordenes.trabajo.')->group(function () {
-        Route::get('/', [WmsOrdenTrabajoController::class, 'index'])->name('index');
-        Route::get('/pendientes', [WmsOrdenTrabajoController::class, 'pendientes'])->name('pendientes');
-        Route::post('/{ordenTrabajo}/pallet/{pallet}/chequear', [WmsOrdenTrabajoController::class, 'marcarPallet'])->name('marcar-pallet');
-    });
     Route::middleware(['permission:wms.excepciones.despacho'])->prefix('excepciones-despacho')->name('excepciones.despacho.')->group(function () {
         Route::get('/', [WmsExcepcionDespachoController::class, 'index'])->name('index');
         Route::get('/buscar', [WmsExcepcionDespachoController::class, 'buscar'])->name('buscar');
