@@ -32,6 +32,20 @@ class WmsRouteSecurityTest extends TestCase
         $this->assertRouteHasMiddleware('wms.configurar.index', 'permission:wms.configurar');
     }
 
+    public function test_rrhh_agency_routes_require_an_authorized_role(): void
+    {
+        $this->assertRouteHasMiddleware('rrhh.agencias.index', 'auth');
+        $this->assertRouteHasMiddleware('rrhh.agencias.index', 'role:RRHH-ADMIN|SIS-ADMIN');
+        $this->assertRouteHasMiddleware('rrhh.agencias.asignaciones.guardar', 'auth');
+        $this->assertRouteHasMiddleware('rrhh.agencias.asignaciones.guardar', 'role:RRHH-ADMIN|SIS-ADMIN');
+    }
+
+    public function test_license_assignment_requires_system_administrator_role(): void
+    {
+        $this->assertRouteHasMiddleware('usuarios.license', 'auth');
+        $this->assertRouteHasMiddleware('usuarios.license', 'role:SIS-ADMIN');
+    }
+
     private function assertRouteHasMiddleware(string $routeName, string $expectedMiddleware): void
     {
         $route = Route::getRoutes()->getByName($routeName);
