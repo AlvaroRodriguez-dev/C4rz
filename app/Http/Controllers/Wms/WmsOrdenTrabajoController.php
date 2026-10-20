@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\WmsOrdenTrabajo;
 use App\Models\WmsSalida;
 use App\Services\ReubicacionService;
+use App\Services\WmsStockLockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,10 @@ class WmsOrdenTrabajoController extends Controller
     private const GALPON_PLAYA = 'PLAYA';
     private const UBICACION_PLAYA = '1';
 
-    public function __construct(private ReubicacionService $reubicacionService) {}
+    public function __construct(
+        private ReubicacionService $reubicacionService,
+        private WmsStockLockService $stockLockService
+    ) {}
 
     public function index()
     {
@@ -115,7 +119,10 @@ class WmsOrdenTrabajoController extends Controller
             $tReubicacion = now();
             $tSalida = $tReubicacion->copy()->addSecond();
 
-            $pallets = $ordenTrabajo->detalles->pluck('pallet')->unique();
+            $pallets = $ordenTrabajo->detalles->pluck('pallet')->unique()->values();
+
+            // Usa el mismo bloqueo que la creación de OTs y la reubicación manual.
+            $this->stockLockService->bloquearPallets($pallets->all());
 
             foreach ($pallets as $pallet) {
                 $this->reubicacionService->trasladarPalletCompleto(
