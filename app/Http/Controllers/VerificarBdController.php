@@ -41,10 +41,11 @@ class VerificarBdController extends Controller
             // El patrón se pasa como parámetro para evitar interpolar la entrada del usuario.
             $resultados = DB::connection('simec_dinamica')
                 ->select('SHOW DATABASES LIKE ?', ['%' . addcslashes($filtro, '\\\\%_') . '%']);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            report($e);
             return back()
                 ->withInput()
-                ->withErrors(['conexion' => 'No se pudo conectar al servidor: ' . $e->getMessage()]);
+                ->withErrors(['conexion' => 'No se pudo consultar el servidor indicado.']);
         }
 
         // Extraer nombres de bases (la key varía según versión, usamos array_values)
@@ -429,9 +430,10 @@ class VerificarBdController extends Controller
             }
 
             $registros = $query->orderBy($cfg['campo_fecha'])->get();
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            report($e);
             $registros = collect();
-            $error = $e->getMessage();
+            $error = 'No fue posible consultar los registros. Intente nuevamente.';
         }
 
         $meses = [
@@ -479,56 +481,57 @@ class VerificarBdController extends Controller
      */
     public function actualizarRegistro(Request $request)
     {
-        $request->validate([
-            'servidor_ip'   => 'required|ip',
-            'base'          => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9_$-]+$/'],
-            'tipo'          => 'required|string|in:glosa,recep,entregas,trasp,ventas,cobranza',
-            'campo_id'      => 'required|string',
-            'valor_id'      => 'required',
-            'anio'          => 'required|integer',
-            'mes'           => 'required|integer',
+        $validated = $request->validate([
+            'servidor_ip' => ['required', 'ip'],
+            'base'        => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9_$-]+$/'],
+            'tipo'        => ['required', 'string', 'in:glosa,recep,entregas,trasp,ventas,cobranza'],
+            'valor_id'    => ['required', 'string', 'max:100'],
+            'anio'        => ['required', 'integer', 'min:1900', 'max:2200'],
+            'mes'         => ['required', 'integer', 'min:1', 'max:12'],
         ]);
 
-        $ip       = $request->input('servidor_ip');
-        $base     = $request->input('base');
-        $tipo     = $request->input('tipo');
-        $campoId  = $request->input('campo_id');
-        $valorId  = $request->input('valor_id');
-        $anio     = $request->input('anio');
-        $mes      = $request->input('mes');
-
         $config = [
-            'glosa'    => ['tabla' => 'glosa',    'campo_estado' => 'MAYORIZADO', 'valor_ok' => 'M'],
-            'recep'    => ['tabla' => 'recep',    'campo_estado' => 'RANULADA',   'valor_ok' => '*'],
-            'entregas' => ['tabla' => 'entregas', 'campo_estado' => 'EANULADA',   'valor_ok' => '*'],
-            'trasp'    => ['tabla' => 'trasp',    'campo_estado' => 'TANULADA',   'valor_ok' => '*'],
-            'ventas'   => ['tabla' => 'ventas',   'campo_estado' => 'VANULADA',   'valor_ok' => '*'],
-            'cobranza' => ['tabla' => 'cobranza', 'campo_estado' => 'ANULADA',    'valor_ok' => '*'],
+            'glosa'    => ['tabla' => 'glosa',    'campo_id' => 'NUMERO',  'campo_fecha' => 'FECHA',  'campo_estado' => 'MAYORIZADO', 'valor_ok' => 'M', 'valores_ok' => ['M']],
+            'recep'    => ['tabla' => 'recep',    'campo_id' => 'RDOCUM',  'campo_fecha' => 'RFECHA', 'campo_estado' => 'RANULADA',   'valor_ok' => '*', 'valores_ok' => ['*', 'A']],
+            'entregas' => ['tabla' => 'entregas', 'campo_id' => 'EDOCUM',  'campo_fecha' => 'EFECHA', 'campo_estado' => 'EANULADA',   'valor_ok' => '*', 'valores_ok' => ['*', 'A']],
+            'trasp'    => ['tabla' => 'trasp',    'campo_id' => 'TDOCUM',  'campo_fecha' => 'TFECHA', 'campo_estado' => 'TANULADA',   'valor_ok' => '*', 'valores_ok' => ['*', 'A']],
+            'ventas'   => ['tabla' => 'ventas',   'campo_id' => 'VDOCUM',  'campo_fecha' => 'VFECHA', 'campo_estado' => 'VANULADA',   'valor_ok' => '*', 'valores_ok' => ['*', 'A']],
+            'cobranza' => ['tabla' => 'cobranza', 'campo_id' => 'DOCUM',   'campo_fecha' => 'FECHA',  'campo_estado' => 'ANULADA',    'valor_ok' => '*', 'valores_ok' => ['*', 'A']],
         ];
 
-        $cfg = $config[$tipo];
+        $cfg = $config[$validated['tipo']];
 
-        Config::set('database.connections.simec_dinamica.host', $ip);
-        Config::set('database.connections.simec_dinamica.database', $base);
-        DB::purge('inventario_dinamica');
+        Config::set('database.connections.simec_dinamica.host', $validated['servidor_ip']);
+        Config::set('database.connections.simec_dinamica.database', $validated['base']);
+        DB::purge('simec_dinamica');
 
         try {
-            DB::connection('simec_dinamica')
+            $query = DB::connection('simec_dinamica')
                 ->table($cfg['tabla'])
-                ->where($campoId, $valorId)
-                ->update([$cfg['campo_estado'] => $cfg['valor_ok']]);
+                ->where($cfg['campo_id'], $validated['valor_id'])
+                ->whereYear($cfg['campo_fecha'], $validated['anio'])
+                ->whereMonth($cfg['campo_fecha'], $validated['mes'])
+                ->where(function ($q) use ($cfg) {
+                    $q->whereNotIn($cfg['campo_estado'], $cfg['valores_ok'])
+                        ->orWhereNull($cfg['campo_estado']);
+                });
+
+            $actualizados = $query->update([$cfg['campo_estado'] => $cfg['valor_ok']]);
+
+            if ($actualizados === 0) {
+                return back()->with('error', 'El registro no existe en el periodo indicado o ya fue procesado.');
+            }
 
             return redirect()->route('verificar-bd.detalle', [
-                'servidor_ip' => $ip,
-                'base'        => $base,
-                'tipo'        => $tipo,
-                'anio'        => $anio,
-                'mes'         => $mes,
+                'servidor_ip' => $validated['servidor_ip'],
+                'base'        => $validated['base'],
+                'tipo'        => $validated['tipo'],
+                'anio'        => $validated['anio'],
+                'mes'         => $validated['mes'],
             ])->with('success', 'Registro actualizado correctamente.');
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             report($e);
-            return redirect()->back()
-                ->with('error', 'No fue posible actualizar el registro. Revise los datos e intente nuevamente.');
+            return back()->with('error', 'No fue posible actualizar el registro. Revise los datos e intente nuevamente.');
         }
     }
 
