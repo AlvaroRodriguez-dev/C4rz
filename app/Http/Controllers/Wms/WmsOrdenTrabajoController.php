@@ -99,7 +99,15 @@ class WmsOrdenTrabajoController extends Controller
         $todosChequeados = $ordenTrabajo->fresh('detalles')->detalles->every(fn($l) => $l->chequeado);
 
         if ($todosChequeados) {
-            $this->finalizarOrdenTrabajo($ordenTrabajo);
+            $finalizada = $this->finalizarOrdenTrabajo($ordenTrabajo);
+
+            if (!$finalizada) {
+                return response()->json([
+                    'message' => 'La Orden de Trabajo ya fue finalizada por otra solicitud.',
+                    'completada' => true,
+                ]);
+            }
+
             return response()->json(['message' => 'Pallet verificado. Todos los pallets fueron chequeados: la salida quedó registrada.', 'completada' => true]);
         }
 
@@ -111,15 +119,28 @@ class WmsOrdenTrabajoController extends Controller
      * traslada TODO su contenido físico a PLAYA/1, y luego registra
      * la salida real (descuento de saldo) desde esa nueva ubicación.
      */
-    private function finalizarOrdenTrabajo(WmsOrdenTrabajo $ordenTrabajo): void
+    private function finalizarOrdenTrabajo(WmsOrdenTrabajo $ordenTrabajo): bool
     {
-        DB::transaction(function () use ($ordenTrabajo) {
+        return DB::transaction(function () use ($ordenTrabajo) {
+            // Bloquea la cabecera para que dos solicitudes concurrentes no
+            // registren dos veces las salidas de la misma OT.
+            $ot = WmsOrdenTrabajo::query()
+                ->whereKey($ordenTrabajo->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($ot->estado !== 'pendiente') {
+                return false;
+            }
+
+            $ot->load('detalles');
+
             // Momento base para la reubicación a Playa, y la Salida 1 segundo después,
-            // para que el Kardex ordene siempre: INGRESO -> REUBICACIÓN A PLAYA -> SALIDA
+            // para que el Kardex ordene siempre: INGRESO -> REUBICACIÓN A PLAYA -> SALIDA.
             $tReubicacion = now();
             $tSalida = $tReubicacion->copy()->addSecond();
 
-            $pallets = $ordenTrabajo->detalles->pluck('pallet')->unique()->values();
+            $pallets = $ot->detalles->pluck('pallet')->unique()->values();
 
             // Usa el mismo bloqueo que la creación de OTs y la reubicación manual.
             $this->stockLockService->bloquearPallets($pallets->all());
@@ -130,17 +151,17 @@ class WmsOrdenTrabajoController extends Controller
                     self::GALPON_PLAYA,
                     self::UBICACION_PLAYA,
                     null,
-                    "Traslado a zona de despacho - OT #{$ordenTrabajo->id}",
-                    $ordenTrabajo->id,   // <-- restablecido: marca la reubicación como automática de esta OT
-                    $tReubicacion        // <-- restablecido: timestamp explícito para el orden del Kardex
+                    "Traslado a zona de despacho - OT #{$ot->id}",
+                    $ot->id,
+                    $tReubicacion
                 );
             }
 
-            foreach ($ordenTrabajo->detalles as $linea) {
+            foreach ($ot->detalles as $linea) {
                 $salida = new WmsSalida([
-                    'tipo_registro' => $ordenTrabajo->tipo_registro,
-                    'id_registro' => $ordenTrabajo->id_registro,
-                    'glosa' => $ordenTrabajo->glosa,
+                    'tipo_registro' => $ot->tipo_registro,
+                    'id_registro' => $ot->id_registro,
+                    'glosa' => $ot->glosa,
                     'pallet' => $linea->pallet,
                     'codigo' => $linea->codigo,
                     'clote' => $linea->clote,
@@ -159,7 +180,9 @@ class WmsOrdenTrabajoController extends Controller
                 $salida->save();
             }
 
-            $ordenTrabajo->update(['estado' => 'completada', 'completada_at' => now()]);
+            $ot->update(['estado' => 'completada', 'completada_at' => now()]);
+
+            return true;
         });
     }
 
