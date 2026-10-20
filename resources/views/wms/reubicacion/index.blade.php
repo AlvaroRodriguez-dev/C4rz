@@ -250,7 +250,6 @@
                     mostrarAlerta(resData.message, 'success');
                     setTimeout(() => window.location.href = "{{ route('wms.index') }}", 1200);
                 });
-                });
             });
         });
 
