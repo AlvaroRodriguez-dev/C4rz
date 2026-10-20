@@ -209,6 +209,7 @@ class WmsReubicacionController extends Controller
         if (!$supervisor || !$confirmado) {
             return response()->json([
                 'requires_supervisor_confirmation' => true,
+                'supervisor_can_confirm' => $supervisor,
                 'pallets_reservados' => $reservados,
                 'errors' => [
                     'general' => [
