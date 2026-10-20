@@ -8,6 +8,7 @@ use App\Models\WmsOrdenTrabajo;
 use App\Models\WmsSalida;
 use App\Services\LoteExcepcionService;
 use App\Services\SaldoService;
+use App\Services\WmsStockLockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -15,7 +16,11 @@ use Illuminate\Support\Facades\Validator;
 class WmsSalidaController extends Controller
 {
 
-    public function __construct(private SaldoService $saldoService, private LoteExcepcionService $loteExcepcionService) {}
+    public function __construct(
+        private SaldoService $saldoService,
+        private LoteExcepcionService $loteExcepcionService,
+        private WmsStockLockService $stockLockService
+    ) {}
     private function getSaldosPorPallet(string $codigo, ?string $clote): array
     {
         return $this->saldoService->calcular(['codigo' => $codigo])
@@ -242,6 +247,14 @@ class WmsSalidaController extends Controller
      */
     public function store(Request $request)
     {
+        // La validación de saldo y la creación de la reserva deben compartir
+        // una transacción: de lo contrario, dos solicitudes podrían reservar
+        // simultáneamente las mismas cajas.
+        return DB::transaction(fn () => $this->storeWithinTransaction($request));
+    }
+
+    private function storeWithinTransaction(Request $request)
+    {
         $validator = Validator::make($request->all(), [
             'tipo_registro' => ['required'],
             'id_registro' => ['required'],
@@ -276,6 +289,22 @@ class WmsSalidaController extends Controller
         }
 
         $data = $validator->validated();
+
+        $palletsAReservar = collect($data['lines'])
+            ->flatMap(function ($line) {
+                if (!empty($line['lotes_aplicados'])) {
+                    return collect($line['lotes_aplicados'])
+                        ->flatMap(fn ($lote) => collect($lote['salidas'] ?? [])->pluck('pallet'));
+                }
+
+                return collect($line['salidas'] ?? [])->pluck('pallet');
+            })
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $this->stockLockService->bloquearPallets($palletsAReservar);
 
         // --- NUEVO: si la nota exige despacho completo, validar que TODO quede cubierto ---
         $nota = DB::connection('faboce2026')
