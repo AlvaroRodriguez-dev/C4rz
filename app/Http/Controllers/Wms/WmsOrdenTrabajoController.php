@@ -76,17 +76,24 @@ class WmsOrdenTrabajoController extends Controller
      */
     public function marcarPallet(Request $request, WmsOrdenTrabajo $ordenTrabajo, string $pallet)
     {
-        if ($ordenTrabajo->estado !== 'pendiente') {
-            return response()->json(['errors' => ['general' => ['Esta Orden de Trabajo ya fue completada.']]], 422);
-        }
+        $resultado = DB::transaction(function () use ($ordenTrabajo, $pallet) {
+            // Serializa las verificaciones sobre una misma OT y evita marcar
+            // detalles después de que otra solicitud ya la haya completado.
+            $ot = WmsOrdenTrabajo::query()
+                ->whereKey($ordenTrabajo->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $lineas = $ordenTrabajo->detalles()->where('pallet', $pallet)->get();
+            if ($ot->estado !== 'pendiente') {
+                return response()->json(['errors' => ['general' => ['Esta Orden de Trabajo ya fue completada.']]], 422);
+            }
 
-        if ($lineas->isEmpty()) {
-            return response()->json(['errors' => ['general' => ['El pallet no pertenece a esta Orden de Trabajo.']]], 422);
-        }
+            $lineas = $ot->detalles()->where('pallet', $pallet)->get();
 
-        DB::transaction(function () use ($lineas) {
+            if ($lineas->isEmpty()) {
+                return response()->json(['errors' => ['general' => ['El pallet no pertenece a esta Orden de Trabajo.']]], 422);
+            }
+
             foreach ($lineas as $linea) {
                 $linea->update([
                     'chequeado' => true,
@@ -94,7 +101,13 @@ class WmsOrdenTrabajoController extends Controller
                     'chequeado_at' => now(),
                 ]);
             }
+
+            return null;
         });
+
+        if ($resultado) {
+            return $resultado;
+        }
 
         $todosChequeados = $ordenTrabajo->fresh('detalles')->detalles->every(fn($l) => $l->chequeado);
 
