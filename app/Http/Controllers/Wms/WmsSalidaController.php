@@ -306,6 +306,72 @@ class WmsSalidaController extends Controller
 
         $this->stockLockService->bloquearPallets($palletsAReservar);
 
+        // Revalidar el stock disponible real por combinación física. Esto impide
+        // que una solicitud manipulada reserve cajas ya comprometidas en otra OT
+        // o repita el mismo pallet en varias líneas para superar su saldo.
+        $asignacionesFisicas = collect($data['lines'])->flatMap(function ($line) {
+            if (!empty($line['lotes_aplicados'])) {
+                return collect($line['lotes_aplicados'])->flatMap(function ($lote) use ($line) {
+                    return collect($lote['salidas'] ?? [])->map(fn ($salida) => [
+                        'codigo' => $line['codigo'],
+                        'clote' => $lote['clote'],
+                        'pallet' => $salida['pallet'],
+                        'almacen' => $salida['almacen'] ?? '110',
+                        'galpon' => $salida['galpon'],
+                        'ubicacion' => $salida['ubicacion'],
+                        'cantidad' => (int) $salida['cantidad'],
+                    ]);
+                });
+            }
+
+            return collect($line['salidas'] ?? [])->map(fn ($salida) => [
+                'codigo' => $line['codigo'],
+                'clote' => $line['clote'] ?? null,
+                'pallet' => $salida['pallet'],
+                'almacen' => $salida['almacen'] ?? '110',
+                'galpon' => $salida['galpon'],
+                'ubicacion' => $salida['ubicacion'],
+                'cantidad' => (int) $salida['cantidad'],
+            ]);
+        });
+
+        $asignacionesFisicas->groupBy(fn ($item) => implode('|', [
+            $item['codigo'],
+            $item['clote'] ?? '',
+            $item['pallet'],
+            $item['almacen'],
+            strtoupper(trim($item['galpon'])),
+            strtoupper(trim($item['ubicacion'])),
+        ]))->each(function ($grupo) {
+            $item = $grupo->first();
+            $saldoFisico = $this->saldoService->saldoDeGrupo(
+                $item['codigo'],
+                $item['clote'],
+                $item['pallet'],
+                $item['almacen'],
+                $item['galpon'],
+                $item['ubicacion']
+            );
+            $reservado = $this->saldoService->reservadoEnOtsPendientes(
+                $item['codigo'],
+                $item['clote'],
+                $item['pallet'],
+                $item['almacen'],
+                $item['galpon'],
+                $item['ubicacion']
+            );
+            $disponible = max(0, $saldoFisico - $reservado);
+            $solicitado = (int) $grupo->sum('cantidad');
+
+            if ($solicitado > $disponible) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'lines' => [
+                        "El pallet {$item['pallet']} solo tiene {$disponible} cajas disponibles después de descontar las reservas existentes; se solicitaron {$solicitado}.",
+                    ],
+                ]);
+            }
+        });
+
         // --- NUEVO: si la nota exige despacho completo, validar que TODO quede cubierto ---
         $nota = DB::connection('faboce2026')
             ->table('log_registro')
