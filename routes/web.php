@@ -249,11 +249,6 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
         Route::get('/producto/{codigo}/limite', [WmsIngresoAjusteController::class, 'obtenerLimite'])->name('producto.limite');
         Route::post('/', [WmsIngresoAjusteController::class, 'store'])->name('store');
     });
-    Route::middleware(['permission:wms.ordenes.trabajo'])->prefix('ordenes-trabajo')->name('ordenes.trabajo.')->group(function () {
-        Route::get('/', [WmsOrdenTrabajoController::class, 'index'])->name('index');
-        Route::get('/pendientes', [WmsOrdenTrabajoController::class, 'pendientes'])->name('pendientes');
-        Route::post('/{ordenTrabajo}/pallet/{pallet}/chequear', [WmsOrdenTrabajoController::class, 'marcarPallet'])->name('marcar-pallet');
-    });
     Route::middleware(['permission:wms.excepciones.despacho'])->prefix('excepciones-despacho')->name('excepciones.despacho.')->group(function () {
         Route::get('/', [WmsExcepcionDespachoController::class, 'index'])->name('index');
         Route::get('/buscar', [WmsExcepcionDespachoController::class, 'buscar'])->name('buscar');
@@ -291,7 +286,7 @@ Route::prefix('asistencia')->name('asistencia.')->middleware('auth')->group(func
     Route::match(['get', 'post'], '/reporte', [AsistenciaReporteController::class, 'index'])->name('reporte');
 });
 
-Route::prefix('rrhh/agencias')->name('rrhh.agencias.')->middleware('auth')->group(function () {
+Route::prefix('rrhh/agencias')->name('rrhh.agencias.')->middleware(['auth', 'role:RRHH-ADMIN|SIS-ADMIN'])->group(function () {
     Route::get('/', [RrhhAgenciasController::class, 'index'])->name('index');
     Route::get('/crear', [RrhhAgenciasController::class, 'create'])->name('create');
     Route::post('/', [RrhhAgenciasController::class, 'store'])->name('store');
@@ -326,7 +321,8 @@ if (config('app.debug')) {
             foreach ($muestra as $key => $registro) foreach ($registro as $campo => $valor) $muestraLimpia[$key][$campo] = $limpiar($valor);
             return response()->json(['total' => count($registros), 'muestra' => $muestraLimpia, 'keys_primer_registro' => !empty($registros) ? array_keys(reset($registros)) : []]);
         } catch (\Throwable $e) {
-            return response()->json(['error' => $e->getMessage(), 'clase' => get_class($e), 'linea' => $e->getLine()]);
+            report($e);
+            return response()->json(['error' => 'Error interno al consultar el dispositivo.'], 500);
         }
     });
     Route::get('/debug-bio-conteo', function () {
@@ -350,7 +346,8 @@ if (config('app.debug')) {
             } catch (\Throwable $e) {
                 try { $zk->enableDevice(); } catch (\Throwable) {}
                 try { $zk->disconnect(); } catch (\Throwable) {}
-                $resultado['error'] = $e->getMessage();
+                report($e);
+                $resultado['error'] = 'Error interno al consultar el dispositivo.';
             }
             $resultados[] = $resultado;
         }
