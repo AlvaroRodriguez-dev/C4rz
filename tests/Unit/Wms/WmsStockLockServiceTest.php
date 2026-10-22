@@ -31,7 +31,7 @@ class WmsStockLockServiceTest extends TestCase
         DB::purge('pt1_test');
         DB::setDefaultConnection('pt1_test');
 
-        Schema::create('wms_ingresos', function (Blueprint $table): void {
+        Schema::create('wms_stock_locks', function (Blueprint $table): void {\n            $table->id();\n            $table->string('pallet', 30)->unique();\n            $table->timestamps();\n        });\n\n        Schema::create('wms_ingresos', function (Blueprint $table): void {
             $table->id();
             $table->string('pallet');
             $table->timestamp('deleted_at')->nullable();
@@ -107,7 +107,7 @@ class WmsStockLockServiceTest extends TestCase
         $service->bloquearPallets(['PALLET-01']);
     }
 
-    public function test_it_can_lock_existing_pallet_rows_and_ignore_empty_or_unknown_pallets(): void
+    public function test_it_creates_a_lock_anchor_for_a_pallet_without_ingress_rows(): void\n    {\n        $service = app(WmsStockLockService::class);\n\n        DB::transaction(function () use ($service): void {\n            $service->bloquearPallets(['PALLET-DESTINO-NUEVO']);\n        });\n\n        $this->assertDatabaseHas('wms_stock_locks', ['pallet' => 'PALLET-DESTINO-NUEVO']);\n        $this->assertDatabaseMissing('wms_ingresos', ['pallet' => 'PALLET-DESTINO-NUEVO']);\n    }\n\n    public function test_it_can_lock_existing_pallet_rows_and_ignore_empty_or_unknown_pallets(): void
     {
         DB::table('wms_ingresos')->insert([
             ['id' => 1, 'pallet' => 'PALLET-02', 'deleted_at' => null],
