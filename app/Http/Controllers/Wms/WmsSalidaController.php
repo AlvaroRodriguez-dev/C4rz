@@ -304,6 +304,14 @@ class WmsSalidaController extends Controller
             ->values()
             ->all();
 
+        // Primero serializamos todas las reservas de esta nota. Así, dos solicitudes
+        // con pallets distintos no pueden validar simultáneamente el mismo cupo pendiente.
+        $this->stockLockService->bloquearNota(
+            (string) $data['tipo_registro'],
+            (string) $data['id_registro']
+        );
+
+        // Después bloqueamos los pallets en orden estable para proteger el stock físico.
         $this->stockLockService->bloquearPallets($palletsAReservar);
 
         // Revalidar el stock disponible real por combinación física. Esto impide
