@@ -37,6 +37,14 @@ class WmsStockLockServiceTest extends TestCase
             $table->timestamps();
         });
 
+        Schema::create('wms_reservation_locks', function (Blueprint $table): void {
+            $table->id();
+            $table->string('tipo_registro', 20);
+            $table->string('id_registro', 50);
+            $table->timestamps();
+            $table->unique(['tipo_registro', 'id_registro']);
+        });
+
         Schema::create('wms_ingresos', function (Blueprint $table): void {
             $table->id();
             $table->string('pallet');
@@ -111,6 +119,48 @@ class WmsStockLockServiceTest extends TestCase
         $this->expectExceptionMessage('debe ejecutarse dentro de una transacción');
 
         $service->bloquearPallets(['PALLET-01']);
+    }
+
+    public function test_it_rejects_locking_a_dispatch_note_outside_a_transaction(): void
+    {
+        $service = app(WmsStockLockService::class);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('debe ejecutarse dentro de una transacción');
+
+        $service->bloquearNota('1', '12345');
+    }
+
+    public function test_it_creates_a_lock_anchor_for_a_dispatch_note(): void
+    {
+        $service = app(WmsStockLockService::class);
+
+        DB::transaction(function () use ($service): void {
+            $service->bloquearNota('1', '12345');
+        });
+
+        $this->assertDatabaseHas('wms_reservation_locks', [
+            'tipo_registro' => '1',
+            'id_registro' => '12345',
+        ]);
+    }
+
+    public function test_it_reuses_the_same_dispatch_note_lock_anchor(): void
+    {
+        $service = app(WmsStockLockService::class);
+
+        DB::transaction(function () use ($service): void {
+            $service->bloquearNota('1', '12345');
+            $service->bloquearNota('1', '12345');
+        });
+
+        $this->assertSame(
+            1,
+            DB::table('wms_reservation_locks')
+                ->where('tipo_registro', '1')
+                ->where('id_registro', '12345')
+                ->count()
+        );
     }
 
     public function test_it_creates_a_lock_anchor_for_a_pallet_without_ingress_rows(): void
