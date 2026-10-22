@@ -1,13 +1,51 @@
 <?php
 
-namespace App\Services;
+namespace App\\Services;
 
-use App\Models\WmsIngreso;
-use Illuminate\Support\Facades\DB;
+use App\\Models\\WmsIngreso;
+use Illuminate\\Support\\Facades\\DB;
 use LogicException;
 
 class WmsStockLockService
 {
+    /**
+     * Serializa las reservas de una misma nota de despacho, incluso cuando
+     * todavía no existe ninguna orden de trabajo para esa nota.
+     *
+     * Debe invocarse dentro de la transacción que valida y crea la reserva,
+     * antes de consultar cantidades ya despachadas o reservadas.
+     */
+    public function bloquearNota(string $tipoRegistro, string $idRegistro): void
+    {
+        if (DB::transactionLevel() < 1) {
+            throw new LogicException(
+                'WmsStockLockService::bloquearNota debe ejecutarse dentro de una transacción.'
+            );
+        }
+
+        $tipoRegistro = trim($tipoRegistro);
+        $idRegistro = trim($idRegistro);
+
+        if ($tipoRegistro === '' || $idRegistro === '') {
+            throw new LogicException(
+                'WmsStockLockService::bloquearNota requiere tipo e identificador de nota.'
+            );
+        }
+
+        DB::table('wms_reservation_locks')->insertOrIgnore([
+            'tipo_registro' => $tipoRegistro,
+            'id_registro' => $idRegistro,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('wms_reservation_locks')
+            ->where('tipo_registro', $tipoRegistro)
+            ->where('id_registro', $idRegistro)
+            ->lockForUpdate()
+            ->first(['id']);
+    }
+
     /**
      * Serializa las operaciones por identificador de pallet, incluso cuando
      * todavía no existe ninguna fila de ingreso para ese pallet.
@@ -37,9 +75,6 @@ class WmsStockLockService
             );
         }
 
-        // La fila de wms_stock_locks existe aunque el pallet aún no tenga
-        // ingresos. La clave única permite que dos transacciones concurrentes
-        // compitan por la misma fila de anclaje sin depender de stock existente.
         foreach ($pallets as $pallet) {
             DB::table('wms_stock_locks')->insertOrIgnore([
                 'pallet' => $pallet,
@@ -54,8 +89,6 @@ class WmsStockLockService
             ->lockForUpdate()
             ->get(['pallet']);
 
-        // También bloquea las filas físicas existentes del pallet. Mantener
-        // este bloqueo ayuda a proteger los flujos que ya dependen de ingresos.
         WmsIngreso::query()
             ->whereIn('pallet', $pallets)
             ->orderBy('id')
