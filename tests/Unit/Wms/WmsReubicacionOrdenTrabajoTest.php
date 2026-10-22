@@ -1,13 +1,13 @@
 <?php
 
-namespace Tests\\Unit\\Wms;
+namespace Tests\Unit\Wms;
 
-use App\\Models\\WmsOrdenTrabajo;
-use App\\Models\\WmsReubicacion;
-use Illuminate\\Database\\Schema\\Blueprint;
-use Illuminate\\Support\\Facades\\DB;
-use Illuminate\\Support\\Facades\\Schema;
-use Tests\\TestCase;
+use App\Models\WmsOrdenTrabajo;
+use App\Models\WmsReubicacion;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Tests\TestCase;
 
 class WmsReubicacionOrdenTrabajoTest extends TestCase
 {
