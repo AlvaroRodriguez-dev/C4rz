@@ -165,10 +165,10 @@ class WmsOrdenTrabajoAtomicidadTest extends TestCase
             'chequeado' => false,
         ]);
 
-        $locks = \\Mockery::mock(WmsStockLockService::class);
+        $locks = \Mockery::mock(WmsStockLockService::class);
         $locks->shouldReceive('bloquearPallets')->once()->with(['PALLET-02']);
 
-        $relocations = \\Mockery::mock(ReubicacionService::class);
+        $relocations = \Mockery::mock(ReubicacionService::class);
         $relocations->shouldReceive('trasladarPalletCompleto')
             ->once()
             ->with(
@@ -178,7 +178,7 @@ class WmsOrdenTrabajoAtomicidadTest extends TestCase
                 null,
                 "Traslado a zona de despacho - OT #{$orden->id}",
                 $orden->id,
-                \\Mockery::type(\\Carbon\\Carbon::class)
+                \Mockery::type(\Carbon\Carbon::class)
             )
             ->andReturn(1);
 
