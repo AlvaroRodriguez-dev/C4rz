@@ -76,22 +76,27 @@ class WmsOrdenTrabajoController extends Controller
      */
     public function marcarPallet(Request $request, WmsOrdenTrabajo $ordenTrabajo, string $pallet)
     {
-        $resultado = DB::transaction(function () use ($ordenTrabajo, $pallet) {
-            // Serializa las verificaciones sobre una misma OT y evita marcar
-            // detalles después de que otra solicitud ya la haya completado.
+        // La verificación y, cuando corresponde, la finalización forman una sola
+        // unidad atómica: si falla una reubicación o una salida, también se revierten
+        // los flags chequeado/chequeado_por/chequeado_at que dispararon la finalización.
+        return DB::transaction(function () use ($ordenTrabajo, $pallet) {
             $ot = WmsOrdenTrabajo::query()
                 ->whereKey($ordenTrabajo->id)
                 ->lockForUpdate()
                 ->firstOrFail();
 
             if ($ot->estado !== 'pendiente') {
-                return response()->json(['errors' => ['general' => ['Esta Orden de Trabajo ya fue completada.']]], 422);
+                return response()->json([
+                    'errors' => ['general' => ['Esta Orden de Trabajo ya fue completada.']],
+                ], 422);
             }
 
             $lineas = $ot->detalles()->where('pallet', $pallet)->get();
 
             if ($lineas->isEmpty()) {
-                return response()->json(['errors' => ['general' => ['El pallet no pertenece a esta Orden de Trabajo.']]], 422);
+                return response()->json([
+                    'errors' => ['general' => ['El pallet no pertenece a esta Orden de Trabajo.']],
+                ], 422);
             }
 
             foreach ($lineas as $linea) {
@@ -102,17 +107,24 @@ class WmsOrdenTrabajoController extends Controller
                 ]);
             }
 
-            return null;
-        });
+            // Consultar la BD, no una colección potencialmente obsoleta.
+            $quedanLineasSinChequear = $ot->detalles()
+                ->where(function ($query) {
+                    $query->where('chequeado', false)->orWhereNull('chequeado');
+                })
+                ->exists();
 
-        if ($resultado) {
-            return $resultado;
-        }
+            if ($quedanLineasSinChequear) {
+                return response()->json([
+                    'message' => 'Pallet verificado.',
+                    'completada' => false,
+                ]);
+            }
 
-        $todosChequeados = $ordenTrabajo->fresh('detalles')->detalles->every(fn($l) => $l->chequeado);
-
-        if ($todosChequeados) {
-            $finalizada = $this->finalizarOrdenTrabajo($ordenTrabajo);
+            // finalizarOrdenTrabajo abre una transacción anidada en la misma conexión.
+            // Si lanza una excepción, esta transacción exterior también hace rollback,
+            // incluyendo las marcas de verificación recién guardadas.
+            $finalizada = $this->finalizarOrdenTrabajo($ot);
 
             if (!$finalizada) {
                 return response()->json([
@@ -121,10 +133,11 @@ class WmsOrdenTrabajoController extends Controller
                 ]);
             }
 
-            return response()->json(['message' => 'Pallet verificado. Todos los pallets fueron chequeados: la salida quedó registrada.', 'completada' => true]);
-        }
-
-        return response()->json(['message' => 'Pallet verificado.', 'completada' => false]);
+            return response()->json([
+                'message' => 'Pallet verificado. Todos los pallets fueron chequeados: la salida quedó registrada.',
+                'completada' => true,
+            ]);
+        });
     }
 
     /**
