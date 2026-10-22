@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\WmsIngreso;
 use Illuminate\Support\Facades\DB;
+use LogicException;
 
 /**
  * Serializa operaciones de stock sobre un pallet usando sus filas de ingreso
@@ -29,6 +30,14 @@ class WmsStockLockService
 
         if ($pallets === []) {
             return;
+        }
+
+        // lockForUpdate fuera de una transacción no protege la validación posterior.
+        // Fallar explícitamente evita que una futura ruta use el servicio de forma insegura.
+        if (DB::transactionLevel() < 1) {
+            throw new LogicException(
+                'WmsStockLockService::bloquearPallets debe ejecutarse dentro de una transacción.'
+            );
         }
 
         // Los pallets con saldo necesariamente tienen al menos un ingreso.
