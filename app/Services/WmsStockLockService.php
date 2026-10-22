@@ -1,20 +1,19 @@
 <?php
 
-namespace App\Services;
+namespace App\\Services;
 
-use App\Models\WmsIngreso;
-use Illuminate\Support\Facades\DB;
+use App\\Models\\WmsIngreso;
+use Illuminate\\Support\\Facades\\DB;
 use LogicException;
 
-/**
- * Serializa operaciones de stock sobre un pallet usando sus filas de ingreso
- * como ancla de bloqueo. Todo flujo que modifique el saldo de un pallet debe
- * adquirir estos bloqueos dentro de la misma transacción antes de recalcularlo.
- */
 class WmsStockLockService
 {
     /**
-     * Bloquea los pallets en orden determinista para reducir el riesgo de deadlocks.
+     * Serializa las operaciones por identificador de pallet, incluso cuando
+     * todavía no existe ninguna fila de ingreso para ese pallet.
+     *
+     * Todos los flujos que modifiquen stock deben invocar este método dentro
+     * de la misma transacción antes de leer el saldo y escribir movimientos.
      *
      * @param array<int, string> $pallets
      */
@@ -32,17 +31,31 @@ class WmsStockLockService
             return;
         }
 
-        // lockForUpdate fuera de una transacción no protege la validación posterior.
-        // Fallar explícitamente evita que una futura ruta use el servicio de forma insegura.
         if (DB::transactionLevel() < 1) {
             throw new LogicException(
                 'WmsStockLockService::bloquearPallets debe ejecutarse dentro de una transacción.'
             );
         }
 
-        // Los pallets con saldo necesariamente tienen al menos un ingreso.
-        // Bloquear todas sus filas evita que dos operaciones WMS cooperantes
-        // validen y muevan simultáneamente el mismo pallet.
+        // La fila de wms_stock_locks existe aunque el pallet aún no tenga
+        // ingresos. La clave única permite que dos transacciones concurrentes
+        // compitan por la misma fila de anclaje sin depender de stock existente.
+        foreach ($pallets as $pallet) {
+            DB::table('wms_stock_locks')->insertOrIgnore([
+                'pallet' => $pallet,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        DB::table('wms_stock_locks')
+            ->whereIn('pallet', $pallets)
+            ->orderBy('pallet')
+            ->lockForUpdate()
+            ->get(['pallet']);
+
+        // También bloquea las filas físicas existentes del pallet. Mantener
+        // este bloqueo ayuda a proteger los flujos que ya dependen de ingresos.
         WmsIngreso::query()
             ->whereIn('pallet', $pallets)
             ->orderBy('id')
@@ -50,9 +63,7 @@ class WmsStockLockService
             ->get(['id']);
     }
 
-    /**
-     * Cantidad reservada en órdenes de trabajo que aún están pendientes.
-     */
+    /** Cantidad reservada en órdenes de trabajo que aún están pendientes. */
     public function cantidadReservada(string $pallet): int
     {
         return (int) DB::table('wms_orden_trabajo_detalle as detalle')
