@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\WmsOrdenTrabajo;
 use App\Models\WmsSalida;
 use App\Services\ReubicacionService;
+use App\Services\WmsStockLockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,10 @@ class WmsOrdenTrabajoController extends Controller
     private const GALPON_PLAYA = 'PLAYA';
     private const UBICACION_PLAYA = '1';
 
-    public function __construct(private ReubicacionService $reubicacionService) {}
+    public function __construct(
+        private ReubicacionService $reubicacionService,
+        private WmsStockLockService $stockLockService
+    ) {}
 
     public function index()
     {
@@ -72,17 +76,29 @@ class WmsOrdenTrabajoController extends Controller
      */
     public function marcarPallet(Request $request, WmsOrdenTrabajo $ordenTrabajo, string $pallet)
     {
-        if ($ordenTrabajo->estado !== 'pendiente') {
-            return response()->json(['errors' => ['general' => ['Esta Orden de Trabajo ya fue completada.']]], 422);
-        }
+        // La verificación y, cuando corresponde, la finalización forman una sola
+        // unidad atómica: si falla una reubicación o una salida, también se revierten
+        // los flags chequeado/chequeado_por/chequeado_at que dispararon la finalización.
+        return DB::transaction(function () use ($ordenTrabajo, $pallet) {
+            $ot = WmsOrdenTrabajo::query()
+                ->whereKey($ordenTrabajo->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $lineas = $ordenTrabajo->detalles()->where('pallet', $pallet)->get();
+            if ($ot->estado !== 'pendiente') {
+                return response()->json([
+                    'errors' => ['general' => ['Esta Orden de Trabajo ya fue completada.']],
+                ], 422);
+            }
 
-        if ($lineas->isEmpty()) {
-            return response()->json(['errors' => ['general' => ['El pallet no pertenece a esta Orden de Trabajo.']]], 422);
-        }
+            $lineas = $ot->detalles()->where('pallet', $pallet)->get();
 
-        DB::transaction(function () use ($lineas) {
+            if ($lineas->isEmpty()) {
+                return response()->json([
+                    'errors' => ['general' => ['El pallet no pertenece a esta Orden de Trabajo.']],
+                ], 422);
+            }
+
             foreach ($lineas as $linea) {
                 $linea->update([
                     'chequeado' => true,
@@ -90,16 +106,38 @@ class WmsOrdenTrabajoController extends Controller
                     'chequeado_at' => now(),
                 ]);
             }
+
+            // Consultar la BD, no una colección potencialmente obsoleta.
+            $quedanLineasSinChequear = $ot->detalles()
+                ->where(function ($query) {
+                    $query->where('chequeado', false)->orWhereNull('chequeado');
+                })
+                ->exists();
+
+            if ($quedanLineasSinChequear) {
+                return response()->json([
+                    'message' => 'Pallet verificado.',
+                    'completada' => false,
+                ]);
+            }
+
+            // finalizarOrdenTrabajo abre una transacción anidada en la misma conexión.
+            // Si lanza una excepción, esta transacción exterior también hace rollback,
+            // incluyendo las marcas de verificación recién guardadas.
+            $finalizada = $this->finalizarOrdenTrabajo($ot);
+
+            if (!$finalizada) {
+                return response()->json([
+                    'message' => 'La Orden de Trabajo ya fue finalizada por otra solicitud.',
+                    'completada' => true,
+                ]);
+            }
+
+            return response()->json([
+                'message' => 'Pallet verificado. Todos los pallets fueron chequeados: la salida quedó registrada.',
+                'completada' => true,
+            ]);
         });
-
-        $todosChequeados = $ordenTrabajo->fresh('detalles')->detalles->every(fn($l) => $l->chequeado);
-
-        if ($todosChequeados) {
-            $this->finalizarOrdenTrabajo($ordenTrabajo);
-            return response()->json(['message' => 'Pallet verificado. Todos los pallets fueron chequeados: la salida quedó registrada.', 'completada' => true]);
-        }
-
-        return response()->json(['message' => 'Pallet verificado.', 'completada' => false]);
     }
 
     /**
@@ -107,15 +145,31 @@ class WmsOrdenTrabajoController extends Controller
      * traslada TODO su contenido físico a PLAYA/1, y luego registra
      * la salida real (descuento de saldo) desde esa nueva ubicación.
      */
-    private function finalizarOrdenTrabajo(WmsOrdenTrabajo $ordenTrabajo): void
+    private function finalizarOrdenTrabajo(WmsOrdenTrabajo $ordenTrabajo): bool
     {
-        DB::transaction(function () use ($ordenTrabajo) {
+        return DB::transaction(function () use ($ordenTrabajo) {
+            // Bloquea la cabecera para que dos solicitudes concurrentes no
+            // registren dos veces las salidas de la misma OT.
+            $ot = WmsOrdenTrabajo::query()
+                ->whereKey($ordenTrabajo->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($ot->estado !== 'pendiente') {
+                return false;
+            }
+
+            $ot->load('detalles');
+
             // Momento base para la reubicación a Playa, y la Salida 1 segundo después,
-            // para que el Kardex ordene siempre: INGRESO -> REUBICACIÓN A PLAYA -> SALIDA
+            // para que el Kardex ordene siempre: INGRESO -> REUBICACIÓN A PLAYA -> SALIDA.
             $tReubicacion = now();
             $tSalida = $tReubicacion->copy()->addSecond();
 
-            $pallets = $ordenTrabajo->detalles->pluck('pallet')->unique();
+            $pallets = $ot->detalles->pluck('pallet')->unique()->values();
+
+            // Usa el mismo bloqueo que la creación de OTs y la reubicación manual.
+            $this->stockLockService->bloquearPallets($pallets->all());
 
             foreach ($pallets as $pallet) {
                 $this->reubicacionService->trasladarPalletCompleto(
@@ -123,17 +177,17 @@ class WmsOrdenTrabajoController extends Controller
                     self::GALPON_PLAYA,
                     self::UBICACION_PLAYA,
                     null,
-                    "Traslado a zona de despacho - OT #{$ordenTrabajo->id}",
-                    $ordenTrabajo->id,   // <-- restablecido: marca la reubicación como automática de esta OT
-                    $tReubicacion        // <-- restablecido: timestamp explícito para el orden del Kardex
+                    "Traslado a zona de despacho - OT #{$ot->id}",
+                    $ot->id,
+                    $tReubicacion
                 );
             }
 
-            foreach ($ordenTrabajo->detalles as $linea) {
+            foreach ($ot->detalles as $linea) {
                 $salida = new WmsSalida([
-                    'tipo_registro' => $ordenTrabajo->tipo_registro,
-                    'id_registro' => $ordenTrabajo->id_registro,
-                    'glosa' => $ordenTrabajo->glosa,
+                    'tipo_registro' => $ot->tipo_registro,
+                    'id_registro' => $ot->id_registro,
+                    'glosa' => $ot->glosa,
                     'pallet' => $linea->pallet,
                     'codigo' => $linea->codigo,
                     'clote' => $linea->clote,
@@ -152,7 +206,9 @@ class WmsOrdenTrabajoController extends Controller
                 $salida->save();
             }
 
-            $ordenTrabajo->update(['estado' => 'completada', 'completada_at' => now()]);
+            $ot->update(['estado' => 'completada', 'completada_at' => now()]);
+
+            return true;
         });
     }
 

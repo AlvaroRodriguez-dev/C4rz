@@ -13,7 +13,7 @@ class WmsReubicacion extends Model
     protected $table = 'wms_reubicaciones';
 
     protected $fillable = [
-        'tipo', 'codigo', 'clote', 'descrip', 'descrip1', 'cantidad',
+        'tipo', 'orden_trabajo_id', 'codigo', 'clote', 'descrip', 'descrip1', 'cantidad',
         'pallet_origen', 'almacen_origen', 'galpon_origen', 'ubicacion_origen',
         'pallet_destino', 'almacen_destino', 'galpon_destino', 'ubicacion_destino',
         'observacion',
@@ -51,5 +51,10 @@ class WmsReubicacion extends Model
     public function creador()
     {
         return $this->belongsTo(User::class, 'created_id');
+    }
+
+    public function ordenTrabajo()
+    {
+        return $this->belongsTo(WmsOrdenTrabajo::class, 'orden_trabajo_id');
     }
 }

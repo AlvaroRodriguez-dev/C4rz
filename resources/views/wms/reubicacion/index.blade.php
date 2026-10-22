@@ -190,9 +190,7 @@
 
         document.getElementById('btnGuardarCompleto').addEventListener('click', () => {
             const body = { pallet_origen: document.getElementById('palletOrigenCompleto').value.trim(), galpon_destino: document.getElementById('galponDestinoCompleto').value.trim(), ubicacion_destino: document.getElementById('ubicacionDestinoCompleto').value.trim() };
-            fetch(routeGuardarCompleto, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken }, body: JSON.stringify(body) }).then(async res => {
-                const data = await res.json();
-                if (!res.ok) { mostrarAlerta(Object.values(data.errors ?? {}).flat().join(' '), 'error'); return; }
+            enviarReubicacion(routeGuardarCompleto, body, data => {
                 mostrarAlerta(data.message, 'success');
                 setTimeout(() => window.location.href = "{{ route('wms.index') }}", 1200);
             });
@@ -248,14 +246,55 @@
             fetch(routeUbicacionPallet(palletDestino)).then(res => res.json()).then(data => {
                 const destinoUbicacion = data.ubicacion ?? { almacen: itemSeleccionado.almacen, galpon: galponManual, ubicacion: ubicacionManual };
                 const body = { codigo: itemSeleccionado.codigo, clote: itemSeleccionado.clote, descrip: itemSeleccionado.descrip, descrip1: itemSeleccionado.descrip1, cantidad, pallet_origen: itemSeleccionado.pallet, almacen_origen: itemSeleccionado.almacen, galpon_origen: itemSeleccionado.galpon, ubicacion_origen: itemSeleccionado.ubicacion, pallet_destino: palletDestino, almacen_destino: destinoUbicacion.almacen, galpon_destino: destinoUbicacion.galpon, ubicacion_destino: destinoUbicacion.ubicacion };
-                fetch(routeGuardarParcial, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken }, body: JSON.stringify(body) }).then(async res => {
-                    const resData = await res.json();
-                    if (!res.ok) { mostrarAlerta(Object.values(resData.errors ?? {}).flat().join(' '), 'error'); return; }
+                enviarReubicacion(routeGuardarParcial, body, resData => {
                     mostrarAlerta(resData.message, 'success');
                     setTimeout(() => window.location.href = "{{ route('wms.index') }}", 1200);
                 });
             });
         });
+
+        async function enviarReubicacion(url, body, onSuccess) {
+            const payload = { ...body };
+
+            for (let intento = 0; intento < 2; intento++) {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                if (res.status === 409 && data.requires_supervisor_confirmation) {
+                    if (!data.supervisor_can_confirm) {
+                        mostrarAlerta(Object.values(data.errors ?? {}).flat().join(' '), 'error');
+                        return;
+                    }
+
+                    const pallets = (data.pallets_reservados ?? []).join(', ');
+                    const confirmado = window.confirm(
+                        'ATENCIÓN: el/los pallet(s) ' + pallets +
+                        ' tienen cajas reservadas en una Orden de Trabajo pendiente. ' +
+                        '¿Confirma como supervisor la reubicación? Esta acción puede afectar una operación en curso.'
+                    );
+
+                    if (!confirmado) return;
+
+                    payload.confirmar_reubicacion_reservada = true;
+                    continue;
+                }
+
+                if (!res.ok) {
+                    mostrarAlerta(Object.values(data.errors ?? {}).flat().join(' ') || 'No fue posible guardar la reubicación.', 'error');
+                    return;
+                }
+
+                onSuccess(data);
+                return;
+            }
+        }
 
         function mostrarAlerta(msg, tipo) {
             const box = document.getElementById('alertBox');

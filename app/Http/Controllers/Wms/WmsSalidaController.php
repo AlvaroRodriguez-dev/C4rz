@@ -8,6 +8,7 @@ use App\Models\WmsOrdenTrabajo;
 use App\Models\WmsSalida;
 use App\Services\LoteExcepcionService;
 use App\Services\SaldoService;
+use App\Services\WmsStockLockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -15,7 +16,11 @@ use Illuminate\Support\Facades\Validator;
 class WmsSalidaController extends Controller
 {
 
-    public function __construct(private SaldoService $saldoService, private LoteExcepcionService $loteExcepcionService) {}
+    public function __construct(
+        private SaldoService $saldoService,
+        private LoteExcepcionService $loteExcepcionService,
+        private WmsStockLockService $stockLockService
+    ) {}
     private function getSaldosPorPallet(string $codigo, ?string $clote): array
     {
         return $this->saldoService->calcular(['codigo' => $codigo])
@@ -242,6 +247,14 @@ class WmsSalidaController extends Controller
      */
     public function store(Request $request)
     {
+        // La validación de saldo y la creación de la reserva deben compartir
+        // una transacción: de lo contrario, dos solicitudes podrían reservar
+        // simultáneamente las mismas cajas.
+        return DB::transaction(fn () => $this->storeWithinTransaction($request));
+    }
+
+    private function storeWithinTransaction(Request $request)
+    {
         $validator = Validator::make($request->all(), [
             'tipo_registro' => ['required'],
             'id_registro' => ['required'],
@@ -276,6 +289,88 @@ class WmsSalidaController extends Controller
         }
 
         $data = $validator->validated();
+
+        $palletsAReservar = collect($data['lines'])
+            ->flatMap(function ($line) {
+                if (!empty($line['lotes_aplicados'])) {
+                    return collect($line['lotes_aplicados'])
+                        ->flatMap(fn ($lote) => collect($lote['salidas'] ?? [])->pluck('pallet'));
+                }
+
+                return collect($line['salidas'] ?? [])->pluck('pallet');
+            })
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $this->stockLockService->bloquearPallets($palletsAReservar);
+
+        // Revalidar el stock disponible real por combinación física. Esto impide
+        // que una solicitud manipulada reserve cajas ya comprometidas en otra OT
+        // o repita el mismo pallet en varias líneas para superar su saldo.
+        $asignacionesFisicas = collect($data['lines'])->flatMap(function ($line) {
+            if (!empty($line['lotes_aplicados'])) {
+                return collect($line['lotes_aplicados'])->flatMap(function ($lote) use ($line) {
+                    return collect($lote['salidas'] ?? [])->map(fn ($salida) => [
+                        'codigo' => $line['codigo'],
+                        'clote' => $lote['clote'],
+                        'pallet' => $salida['pallet'],
+                        'almacen' => $salida['almacen'] ?? '110',
+                        'galpon' => $salida['galpon'],
+                        'ubicacion' => $salida['ubicacion'],
+                        'cantidad' => (int) $salida['cantidad'],
+                    ]);
+                });
+            }
+
+            return collect($line['salidas'] ?? [])->map(fn ($salida) => [
+                'codigo' => $line['codigo'],
+                'clote' => $line['clote'] ?? null,
+                'pallet' => $salida['pallet'],
+                'almacen' => $salida['almacen'] ?? '110',
+                'galpon' => $salida['galpon'],
+                'ubicacion' => $salida['ubicacion'],
+                'cantidad' => (int) $salida['cantidad'],
+            ]);
+        });
+
+        $asignacionesFisicas->groupBy(fn ($item) => implode('|', [
+            $item['codigo'],
+            $item['clote'] ?? '',
+            $item['pallet'],
+            $item['almacen'],
+            strtoupper(trim($item['galpon'])),
+            strtoupper(trim($item['ubicacion'])),
+        ]))->each(function ($grupo) {
+            $item = $grupo->first();
+            $saldoFisico = $this->saldoService->saldoDeGrupo(
+                $item['codigo'],
+                $item['clote'],
+                $item['pallet'],
+                $item['almacen'],
+                $item['galpon'],
+                $item['ubicacion']
+            );
+            $reservado = $this->saldoService->reservadoEnOtsPendientes(
+                $item['codigo'],
+                $item['clote'],
+                $item['pallet'],
+                $item['almacen'],
+                $item['galpon'],
+                $item['ubicacion']
+            );
+            $disponible = max(0, $saldoFisico - $reservado);
+            $solicitado = (int) $grupo->sum('cantidad');
+
+            if ($solicitado > $disponible) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'lines' => [
+                        "El pallet {$item['pallet']} solo tiene {$disponible} cajas disponibles después de descontar las reservas existentes; se solicitaron {$solicitado}.",
+                    ],
+                ]);
+            }
+        });
 
         // --- NUEVO: si la nota exige despacho completo, validar que TODO quede cubierto ---
         $nota = DB::connection('faboce2026')
