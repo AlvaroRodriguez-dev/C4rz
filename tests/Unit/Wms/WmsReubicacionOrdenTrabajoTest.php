@@ -1,13 +1,13 @@
 <?php
 
-namespace Tests\Unit\Wms;
+namespace Tests\\Unit\\Wms;
 
-use App\Models\WmsOrdenTrabajo;
-use App\Models\WmsReubicacion;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
-use Tests\TestCase;
+use App\\Models\\WmsOrdenTrabajo;
+use App\\Models\\WmsReubicacion;
+use Illuminate\\Database\\Schema\\Blueprint;
+use Illuminate\\Support\\Facades\\DB;
+use Illuminate\\Support\\Facades\\Schema;
+use Tests\\TestCase;
 
 class WmsReubicacionOrdenTrabajoTest extends TestCase
 {
@@ -33,6 +33,9 @@ class WmsReubicacionOrdenTrabajoTest extends TestCase
 
         Schema::create('wms_ordenes_trabajo', function (Blueprint $table): void {
             $table->id();
+            $table->unsignedBigInteger('created_id')->nullable();
+            $table->unsignedBigInteger('update_id')->nullable();
+            $table->unsignedBigInteger('delete_id')->nullable();
             $table->string('tipo_registro')->nullable();
             $table->string('id_registro')->nullable();
             $table->string('glosa')->nullable();
