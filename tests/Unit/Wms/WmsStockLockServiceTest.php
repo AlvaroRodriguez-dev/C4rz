@@ -96,6 +96,16 @@ class WmsStockLockServiceTest extends TestCase
         $this->assertSame(0, $service->cantidadReservada('PALLET-INEXISTENTE'));
     }
 
+    public function test_it_rejects_locking_stock_outside_a_transaction(): void
+    {
+        $service = app(WmsStockLockService::class);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('debe ejecutarse dentro de una transacción');
+
+        $service->bloquearPallets(['PALLET-01']);
+    }
+
     public function test_it_can_lock_existing_pallet_rows_and_ignore_empty_or_unknown_pallets(): void
     {
         DB::table('wms_ingresos')->insert([
