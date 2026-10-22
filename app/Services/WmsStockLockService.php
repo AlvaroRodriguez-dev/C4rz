@@ -1,9 +1,9 @@
 <?php
 
-namespace App\\Services;
+namespace App\Services;
 
-use App\\Models\\WmsIngreso;
-use Illuminate\\Support\\Facades\\DB;
+use App\Models\WmsIngreso;
+use Illuminate\Support\Facades\DB;
 use LogicException;
 
 class WmsStockLockService
