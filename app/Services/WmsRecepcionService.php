@@ -204,12 +204,28 @@ class WmsRecepcionService
         $almacen = $this->context->almacen();
         $codigoAlmacen = (string) $almacen->codigo;
 
+        // Recuperar las descripciones desde el mismo catálogo utilizado por INGRESO CON NOTA.
+        $codigos = collect($grupos)
+            ->flatMap(fn ($grupo) => collect($grupo['items'] ?? [])->pluck('codigo'))
+            ->map(fn ($codigo) => trim((string) $codigo))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $stock = DB::connection('sisinvconsolidado2026')
+            ->table('stock')
+            ->whereIn('CODIGO', $codigos)
+            ->select('CODIGO', 'DESCRIP', 'DESCRIP1')
+            ->get()
+            ->keyBy('CODIGO');
+
         return DB::transaction(function () use (
             $idRecepcion,
             $grupos,
             $usuario,
             $almacen,
-            $codigoAlmacen
+            $codigoAlmacen,
+            $stock
         ) {
             /*
          * 1. Crear o recuperar el bloqueo de la recepción.
@@ -480,6 +496,8 @@ class WmsRecepcionService
                             "La suma de asignaciones del producto {$codigo} no coincide con su cantidad física.",
                         ]);
                     }
+
+                    $stockInfo = $stock->get($codigo);
 
                     $itemsValidados[] = [
                         'codigo' => $codigo,
