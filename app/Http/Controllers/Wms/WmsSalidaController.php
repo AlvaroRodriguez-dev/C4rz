@@ -435,13 +435,13 @@ class WmsSalidaController extends Controller
                 $asignadoAhora = $asignadoPorGrupo[$clave] ?? 0;
 
                 if ($pendienteAntes > 0 && $asignadoAhora < $pendienteAntes) {
-                    return response()->json([
-                        'errors' => ['general' => [
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'general' => [
                             "Esta nota tiene fecha " . \Illuminate\Support\Carbon::parse($nota->fecha)->format('d/m/Y') .
                                 " y requiere despacho completo en una sola operación. El producto {$codigoGrupo} (lote {$loteGrupo}) " .
                                 "quedaría con " . ($pendienteAntes - $asignadoAhora) . " cajas sin asignar."
-                        ]],
-                    ], 422);
+                        ],
+                    ]);
                 }
             }
         }
@@ -466,18 +466,18 @@ class WmsSalidaController extends Controller
             // --- CAMINO: Cambio de Lote MÚLTIPLE ---
             if (!empty($line['lotes_aplicados'])) {
                 if (!$this->loteExcepcionService->esElegibleParaCambioLote($loteDeclarado)) {
-                    return response()->json([
-                        'errors' => ['general' => ["El lote {$loteDeclarado} no admite cambio de lote (producción posterior a la fecha límite permitida)."]],
-                    ], 422);
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'general' => ["El lote {$loteDeclarado} no admite cambio de lote (producción posterior a la fecha límite permitida)."],
+                    ]);
                 }
 
                 $totalAsignado = collect($line['lotes_aplicados'])
                     ->sum(fn($l) => collect($l['salidas'])->sum('cantidad'));
 
                 if ($totalAsignado != $pendienteReal) {
-                    return response()->json([
-                        'errors' => ['general' => ["El código {$line['codigo']}: el cambio de lote debe cubrir exactamente el 100% del pedido pendiente ({$pendienteReal} cajas). Asignado: {$totalAsignado}."]],
-                    ], 422);
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'general' => ["El código {$line['codigo']}: el cambio de lote debe cubrir exactamente el 100% del pedido pendiente ({$pendienteReal} cajas). Asignado: {$totalAsignado}."],
+                    ]);
                 }
 
                 foreach ($line['lotes_aplicados'] as $asignacion) {
@@ -485,7 +485,8 @@ class WmsSalidaController extends Controller
                     $validacion = $this->loteExcepcionService->validar($line['codigo'], $asignacion['clote'], $subtotal);
 
                     if (!$validacion['valido']) {
-                        return response()->json(['errors' => ['general' => [$validacion['mensaje']]]], 422);
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'general' => [$validacion['mensaje']]]);
                     }
 
                     foreach ($asignacion['salidas'] as $salida) {
@@ -499,9 +500,9 @@ class WmsSalidaController extends Controller
                         );
 
                         if ($salida['cantidad'] > $saldoReal) {
-                            return response()->json([
-                                'errors' => ['general' => ["El pallet {$salida['pallet']} ({$line['codigo']}, lote {$asignacion['clote']}) no tiene saldo suficiente. Disponible: {$saldoReal}."]],
-                            ], 422);
+                            throw \Illuminate\Validation\ValidationException::withMessages([
+                                'general' => ["El pallet {$salida['pallet']} ({$line['codigo']}, lote {$asignacion['clote']}) no tiene saldo suficiente. Disponible: {$saldoReal}."],
+                            ]);
                         }
                     }
                 }
@@ -514,21 +515,22 @@ class WmsSalidaController extends Controller
             $totalPedido = collect($line['salidas'])->sum('cantidad');
 
             if ($totalPedido > $pendienteReal) {
-                return response()->json([
-                    'errors' => ['general' => ["El código {$line['codigo']} (lote {$loteDeclarado}) ya no tiene cupo pendiente en esta nota. Pendiente real: {$pendienteReal}."]],
-                ], 422);
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'general' => ["El código {$line['codigo']} (lote {$loteDeclarado}) ya no tiene cupo pendiente en esta nota. Pendiente real: {$pendienteReal}."],
+                ]);
             }
 
             if ($loteFisico !== $loteDeclarado) {
                 if (!$this->loteExcepcionService->esElegibleParaCambioLote($loteDeclarado)) {
-                    return response()->json([
-                        'errors' => ['general' => ["El lote {$loteDeclarado} no admite cambio de lote (producción posterior a la fecha límite permitida)."]],
-                    ], 422);
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'general' => ["El lote {$loteDeclarado} no admite cambio de lote (producción posterior a la fecha límite permitida)."],
+                    ]);
                 }
 
                 $validacion = $this->loteExcepcionService->validar($line['codigo'], $loteFisico, $totalPedido);
                 if (!$validacion['valido']) {
-                    return response()->json(['errors' => ['general' => [$validacion['mensaje']]]], 422);
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'general' => [$validacion['mensaje']]]);
                 }
             }
 
@@ -543,9 +545,9 @@ class WmsSalidaController extends Controller
                 );
 
                 if ($salida['cantidad'] > $saldoReal) {
-                    return response()->json([
-                        'errors' => ['general' => ["El pallet {$salida['pallet']} ({$line['codigo']}) no tiene saldo suficiente. Disponible: {$saldoReal}."]],
-                    ], 422);
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'general' => ["El pallet {$salida['pallet']} ({$line['codigo']}) no tiene saldo suficiente. Disponible: {$saldoReal}."],
+                    ]);
                 }
             }
         }

@@ -7,7 +7,7 @@
                     WMS FABOCE
                 </h2>
                 <p class="text-sm text-gray-500">
-                    Modelo funcional
+                    Modelo funcional v2
                 </p>
             </div>
         </div>
@@ -26,13 +26,13 @@
             <!-- OPERACIONES -->
 
             <h3 class="font-bold text-gray-700 mb-3 uppercase tracking-wide">
-                Registros
+                Registro(s)
             </h3>
 
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
 
                 <!-- Liberación RG-CB-36 Producción -->
-                @can('wms.produccion.verificar')
+                @can('wms.produccion.liberar')
                     <a href="{{ route('wms.produccion.liberacion.create') }}"
                         class="bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
                         <div class="flex justify-center">
@@ -65,8 +65,13 @@
 
                 <!-- Verificación física de pallets: acceso independiente para Almacén -->
                 @can('wms.produccion.verificar.ejecutar')
-                    <a href="{{ route('wms.produccion.liberacion.verificacion.index') }}" class="bg-violet-600 hover:bg-violet-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A9 9 0 1112 3a9 9 0 014.618 13.984z" /></svg>
+                    <a href="{{ route('wms.produccion.liberacion.verificacion.index') }}"
+                        class="bg-violet-600 hover:bg-violet-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M9 12l2 2 4-4m5.618-4.016A9 9 0 1112 3a9 9 0 014.618 13.984z" />
+                        </svg>
                         <div class="mt-3 font-bold text-base leading-tight">Verificar pallets</div>
                         <div class="text-xs opacity-90">Almacén de Producto Terminado</div>
                     </a>
@@ -77,7 +82,8 @@
                     <a href="{{ route('wms.paletizacion.index') }}"
                         class="bg-blue-600 hover:bg-blue-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
                         <div class="flex justify-center">
-                            <svg class="w-9 h-9" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <svg class="w-9 h-9" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M3 7h18M5 7v10h14V7M8 11h8M8 15h8" />
                             </svg>
@@ -91,8 +97,10 @@
                 @can('wms.ingresos.create')
                     <a href="{{ route('wms.ingreso-pt-liberado.index') }}"
                         class="bg-teal-600 hover:bg-teal-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5 12 3l9 4.5M3 7.5V17l9 4 9-4V7.5M12 12l9-4.5M12 12 3 7.5m9 4.5V21" />
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M3 7.5 12 3l9 4.5M3 7.5V17l9 4 9-4V7.5M12 12l9-4.5M12 12 3 7.5m9 4.5V21" />
                             <path stroke-linecap="round" stroke-linejoin="round" d="m9 15 2 2 4-4" />
                         </svg>
                         <div class="mt-3 font-bold text-base leading-tight">INGRESO PT LIBERADO</div>
@@ -116,6 +124,26 @@
                         <div class="text-xs opacity-90">Ingreso</div>
                     </a>
                 @endcan
+
+                <!-- Registrar Ingreso x recepcion -->
+                
+                @can('wms.ingresos.create')
+                    <a href="{{ route('wms.recepciones.create') }}"
+                        class="bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 7h18M5 7v10h14V7M8 11h8M8 15h8M9 3h6" />
+                        </svg>
+
+                        <div class="mt-3 font-bold text-base leading-tight">
+                            INGRESO x RECEPCIÓN
+                        </div>
+                        <div class="text-xs opacity-90">
+                            Recepciones pendientes de SAS-ERP
+                        </div>
+                    </a>
+                @endcan
+
 
                 <!-- Ver Ingresos -->
                 @can('wms.ingresos.ver')
@@ -251,7 +279,7 @@
                         <div class="text-xs opacity-90 uppercase">Ordenes de Trabajo</div>
                     </a>
                 @endcan
-                
+
             </div>
 
             <!-- CONSULTAS -->

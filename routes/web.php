@@ -41,6 +41,7 @@ use App\Http\Controllers\Wms\WmsTicketLoteController;
 use App\Http\Controllers\Wms\WmsProduccionVerificacionController;
 use App\Http\Controllers\Wms\WmsLiberacionProduccionController;
 use App\Http\Controllers\Wms\WmsPaletizacionController;
+use App\Http\Controllers\Wms\WmsRecepcionController;
 use App\Http\Controllers\Wms\WmsVerificacionPalletController;
 
 Route::get('/', [WelcomeController::class, 'index'])->name('welcome');
@@ -102,7 +103,7 @@ Route::middleware(['auth'])->prefix('biometricos')->name('biometricos.')->group(
 
 Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
     Route::middleware(['role_or_permission:WMS-ADMIN|WMS-ALMACEN|WMS-MONTACARGA|SIS-ADMIN'])->group(function () {
-        Route::get('/', fn () => view('wms.index'))->name('index');
+        Route::get('/', fn() => view('wms.index'))->name('index');
     });
 
     Route::middleware(['permission:wms.configurar'])->prefix('almacenes')->name('almacenes.')->group(function () {
@@ -186,6 +187,13 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
         Route::get('/ubicaciones', [WmsIngresoPtLiberadoController::class, 'ubicaciones'])->name('ubicaciones');
         Route::get('/{entrega}/pallets', [WmsIngresoPtLiberadoController::class, 'pallets'])->name('pallets');
         Route::post('/{entrega}/confirmar', [WmsIngresoPtLiberadoController::class, 'confirmar'])->name('confirmar');
+    });
+
+    Route::middleware(['permission:wms.ingresos.create'])->prefix('recepciones')->name('recepciones.')->group(function () {
+        Route::get('/crear', [WmsRecepcionController::class, 'create'])->name('create');
+        Route::get('/buscar', [WmsRecepcionController::class, 'buscar'])->name('buscar');
+        Route::get('/{id}/detalle', [WmsRecepcionController::class, 'detalle'])->where('id', '[A-Za-z0-9_-]+')->name('detalle');
+        Route::post('/registrar', [WmsRecepcionController::class,'store'])->name('store');
     });
 
     Route::middleware(['permission:wms.ingresos.create'])->prefix('ingresos')->name('ingresos.')->group(function () {
@@ -303,56 +311,62 @@ Route::post('/usuarios/{user}/license', [RegisteredUserController::class, 'asign
 
 if (config('app.debug')) {
     Route::middleware(['auth', 'role:SIS-ADMIN'])->group(function () {
-    Route::get('/debug-u560/{id}', function ($id) {
-        $bio = \App\Models\Biometrico::findOrFail($id);
-        try {
-            $zk = new \App\Lib\ZKTecoClient($bio->ip, $bio->puerto ?? 4370, $bio->timeout ?? 10);
-            if (!$zk->connect()) return response()->json(['error' => 'No se pudo conectar']);
-            $zk->disableDevice();
-            $registros = $zk->getAttendance();
-            $zk->enableDevice();
-            $zk->disconnect();
-            $limpiar = function ($valor) {
-                if (is_string($valor)) return mb_convert_encoding($valor, 'UTF-8', 'UTF-8,ISO-8859-1,CP1252');
-                return $valor;
-            };
-            $muestra = array_slice($registros, 0, 5, true);
-            $muestraLimpia = [];
-            foreach ($muestra as $key => $registro) foreach ($registro as $campo => $valor) $muestraLimpia[$key][$campo] = $limpiar($valor);
-            return response()->json(['total' => count($registros), 'muestra' => $muestraLimpia, 'keys_primer_registro' => !empty($registros) ? array_keys(reset($registros)) : []]);
-        } catch (\Throwable $e) {
-            report($e);
-            return response()->json(['error' => 'Error interno al consultar el dispositivo.'], 500);
-        }
-    });
-    Route::get('/debug-bio-conteo', function () {
-        $biometricos = \App\Models\Biometrico::orderBy('agencia')->get();
-        $resultados = [];
-        foreach ($biometricos as $bio) {
-            $resultado = ['id' => $bio->id, 'agencia' => $bio->agencia, 'descripcion' => $bio->descripcion, 'ip' => $bio->ip, 'timeout' => $bio->timeout ?? 10, 'conexion' => false, 'registros_dispositivo' => null, 'registros_bd' => null, 'error' => null];
-            $resultado['registros_bd'] = \App\Models\BioAsistencia::where('biometrico_id', $bio->id)->count();
+        Route::get('/debug-u560/{id}', function ($id) {
+            $bio = \App\Models\Biometrico::findOrFail($id);
             try {
                 $zk = new \App\Lib\ZKTecoClient($bio->ip, $bio->puerto ?? 4370, $bio->timeout ?? 10);
-                if (!$zk->connect()) {
-                    $resultado['error'] = 'No se pudo conectar';
-                } else {
-                    $resultado['conexion'] = true;
-                    $zk->disableDevice();
-                    $registros = $zk->getAttendance();
-                    $zk->enableDevice();
-                    $zk->disconnect();
-                    $resultado['registros_dispositivo'] = count($registros);
-                }
+                if (!$zk->connect()) return response()->json(['error' => 'No se pudo conectar']);
+                $zk->disableDevice();
+                $registros = $zk->getAttendance();
+                $zk->enableDevice();
+                $zk->disconnect();
+                $limpiar = function ($valor) {
+                    if (is_string($valor)) return mb_convert_encoding($valor, 'UTF-8', 'UTF-8,ISO-8859-1,CP1252');
+                    return $valor;
+                };
+                $muestra = array_slice($registros, 0, 5, true);
+                $muestraLimpia = [];
+                foreach ($muestra as $key => $registro) foreach ($registro as $campo => $valor) $muestraLimpia[$key][$campo] = $limpiar($valor);
+                return response()->json(['total' => count($registros), 'muestra' => $muestraLimpia, 'keys_primer_registro' => !empty($registros) ? array_keys(reset($registros)) : []]);
             } catch (\Throwable $e) {
-                try { $zk->enableDevice(); } catch (\Throwable) {}
-                try { $zk->disconnect(); } catch (\Throwable) {}
                 report($e);
-                $resultado['error'] = 'Error interno al consultar el dispositivo.';
+                return response()->json(['error' => 'Error interno al consultar el dispositivo.'], 500);
             }
-            $resultados[] = $resultado;
-        }
-        return response()->json(['fecha' => now()->format('d/m/Y H:i:s'), 'biometricos' => $resultados]);
-    });
+        });
+        Route::get('/debug-bio-conteo', function () {
+            $biometricos = \App\Models\Biometrico::orderBy('agencia')->get();
+            $resultados = [];
+            foreach ($biometricos as $bio) {
+                $resultado = ['id' => $bio->id, 'agencia' => $bio->agencia, 'descripcion' => $bio->descripcion, 'ip' => $bio->ip, 'timeout' => $bio->timeout ?? 10, 'conexion' => false, 'registros_dispositivo' => null, 'registros_bd' => null, 'error' => null];
+                $resultado['registros_bd'] = \App\Models\BioAsistencia::where('biometrico_id', $bio->id)->count();
+                try {
+                    $zk = new \App\Lib\ZKTecoClient($bio->ip, $bio->puerto ?? 4370, $bio->timeout ?? 10);
+                    if (!$zk->connect()) {
+                        $resultado['error'] = 'No se pudo conectar';
+                    } else {
+                        $resultado['conexion'] = true;
+                        $zk->disableDevice();
+                        $registros = $zk->getAttendance();
+                        $zk->enableDevice();
+                        $zk->disconnect();
+                        $resultado['registros_dispositivo'] = count($registros);
+                    }
+                } catch (\Throwable $e) {
+                    try {
+                        $zk->enableDevice();
+                    } catch (\Throwable) {
+                    }
+                    try {
+                        $zk->disconnect();
+                    } catch (\Throwable) {
+                    }
+                    report($e);
+                    $resultado['error'] = 'Error interno al consultar el dispositivo.';
+                }
+                $resultados[] = $resultado;
+            }
+            return response()->json(['fecha' => now()->format('d/m/Y H:i:s'), 'biometricos' => $resultados]);
+        });
     });
 }
 
