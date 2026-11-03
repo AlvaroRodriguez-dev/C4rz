@@ -537,13 +537,22 @@ class WmsRecepcionService
                     ]);
                 }
 
-                $formato = reset($formatosUnicos);
-                $limite = $capacidades[$formato] ?? null;
+                $formato = strtoupper((string) reset($formatosUnicos));
+                $limite = $capacidades->get($formato);
 
-                if ($limite !== null && $totalPallet > (int) $limite) {
+                // No permitir pallets sin una capacidad configurada: antes, el
+                // valor null omitía la validación y dejaba pasar cantidades libres.
+                if ($limite === null || (int) $limite <= 0) {
                     throw ValidationException::withMessages([
                         'pallet' =>
-                        "El pallet del formato {$formato} supera su capacidad de {$limite} cajas.",
+                        "El formato {$formato} no tiene una capacidad válida configurada en WMS. Configura sus cajas por pallet antes de registrar el ingreso.",
+                    ]);
+                }
+
+                if ($totalPallet > (int) $limite) {
+                    throw ValidationException::withMessages([
+                        'pallet' =>
+                        "El pallet del formato {$formato} contiene {$totalPallet} cajas y supera su capacidad máxima de {$limite} cajas.",
                     ]);
                 }
 
