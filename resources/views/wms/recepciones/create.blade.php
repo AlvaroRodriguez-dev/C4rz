@@ -230,6 +230,25 @@
             return elemento('td', String(valor ?? ''), 'p-2 border-b');
         }
 
+        function crearCeldaProducto(item) {
+            const celda = elemento('td', '', 'p-2 border-b');
+            celda.appendChild(elemento('div', item.codigo || '', 'font-medium'));
+
+            if (item.descrip) {
+                celda.appendChild(
+                    elemento('div', item.descrip, 'text-xs text-gray-600')
+                );
+            }
+
+            if (item.descrip1) {
+                celda.appendChild(
+                    elemento('div', item.descrip1, 'text-xs text-gray-500')
+                );
+            }
+
+            return celda;
+        }
+
         function limpiarEstado() {
             estado.recepcion = null;
             estado.items = [];
@@ -333,7 +352,7 @@
                     const tr = document.createElement('tr');
 
                     tr.append(
-                        crearCelda(item.codigo),
+                        crearCeldaProducto(item),
                         crearCelda(item.lote_origen || 'Sin lote'),
                         crearCelda(item.cantidad_despacho),
                         crearCelda(item.cantidad_asignada),
@@ -417,7 +436,7 @@
                 (data.ubicaciones || []).forEach(ubicacion => {
                     selectUbicacion.appendChild(
                         new Option(
-                            `${ubicacion.codigo} · ${ubicacion.numero}`,
+                            ubicacion.codigo,
                             ubicacion.codigo
                         )
                     );
@@ -596,6 +615,8 @@
             pallet.items.push({
                 clave,
                 codigo,
+                descrip: origen.descrip || '',
+                descrip1: origen.descrip1 || '',
                 clote: loteFisico.trim(),
                 cantidad: cantidadIngresada,
                 observacion_exceso: obsExceso.trim(),
@@ -667,11 +688,19 @@
                     const clave = claveItem(item);
                     const disponible = restante(item);
 
+                    const descripciones = [item.descrip, item.descrip1]
+                        .filter(Boolean)
+                        .join(' · ');
+
+                    const textoProducto = [
+                        item.codigo,
+                        descripciones,
+                        `Lote ${item.lote_origen || 'Sin lote'}`,
+                        `Pendiente ${disponible}`
+                    ].filter(Boolean).join(' · ');
+
                     selectProducto.appendChild(
-                        new Option(
-                            `${item.codigo} · Lote ${item.lote_origen || 'Sin lote'} · Pendiente ${disponible}`,
-                            clave
-                        )
+                        new Option(textoProducto, clave)
                     );
                 });
 
@@ -739,7 +768,7 @@
                 const thead = elemento('thead');
                 const trHead = elemento('tr', '', 'border-b text-left');
 
-                ['Código', 'Lote físico', 'Cantidad', 'Formato', 'Acción'].forEach(t => {
+                ['Producto', 'Lote físico', 'Cantidad', 'Formato', 'Acción'].forEach(t => {
                     trHead.appendChild(elemento('th', t, 'p-2'));
                 });
 
@@ -753,7 +782,7 @@
                     const formato = String(item.codigo).substring(5, 9).toUpperCase();
 
                     tr.append(
-                        crearCelda(item.codigo),
+                        crearCeldaProducto(item),
                         crearCelda(item.clote),
                         crearCelda(item.cantidad),
                         crearCelda(formato)
