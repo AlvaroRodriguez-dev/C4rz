@@ -1,13 +1,13 @@
 <?php
 
-namespace App\\Http\\Controllers\\Wms;
+namespace App\Http\Controllers\Wms;
 
-use App\\Http\\Controllers\\Controller;
-use App\\Models\\WmsIngreso;
-use App\\Services\\WmsContextService;
-use Illuminate\\Http\\Request;
-use Illuminate\\Support\\Facades\\DB;
-use Illuminate\\Validation\\Rule;
+use App\Http\Controllers\Controller;
+use App\Models\WmsIngreso;
+use App\Services\WmsContextService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class WmsIngresoVerController extends Controller
 {
@@ -124,7 +124,7 @@ class WmsIngresoVerController extends Controller
         abort_if($ingresos->isEmpty(), 404, 'No existen ingresos para el documento solicitado.');
 
         $datos = [
-            'almacen' => $almacenes = $this->context->almacenes()
+            'almacen' => $this->context->almacenes()
                 ->firstWhere('codigo', $almacen),
             'docOrigen' => $docOrigen,
             'tipoIngreso' => $ingresos->first()->tipo_ingreso,
@@ -133,7 +133,7 @@ class WmsIngresoVerController extends Controller
             'generado' => now()->format('d/m/Y H:i'),
         ];
 
-        $pdf = \\Barryvdh\\DomPDF\\Facade\\Pdf::loadView('wms.ingresos.pdf', $datos)
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('wms.ingresos.pdf', $datos)
             ->setPaper('letter', 'landscape');
 
         return $pdf->stream("nota-ingreso-{$docOrigen}-{$almacen}.pdf");
