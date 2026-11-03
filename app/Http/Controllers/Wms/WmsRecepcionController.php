@@ -6,6 +6,7 @@ use Illuminate\Validation\ValidationException;
 use App\Http\Controllers\Controller;
 use App\Services\WmsContextService;
 use App\Services\WmsRecepcionService;
+use App\Models\WmsRecepcionExcepcion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -24,6 +25,34 @@ class WmsRecepcionController extends Controller
     {
         // La vista es independiente del ingreso con nota.
         return view('wms.recepciones.create');
+    }
+
+    public function discrepancias(): View
+    {
+        $codigoAlmacen = $this->context->codigo();
+
+        $discrepancias = WmsRecepcionExcepcion::query()
+            ->with(['ingreso', 'revisor'])
+            ->whereHas('ingreso', function ($query) use ($codigoAlmacen) {
+                $query->where('almacen', $codigoAlmacen)
+                    ->where('tipo_ingreso', 'recepcion');
+            })
+            ->latest('id')
+            ->paginate(30);
+
+        $pendientes = WmsRecepcionExcepcion::query()
+            ->where('estado_revision', 'pendiente')
+            ->whereHas('ingreso', function ($query) use ($codigoAlmacen) {
+                $query->where('almacen', $codigoAlmacen)
+                    ->where('tipo_ingreso', 'recepcion');
+            })
+            ->count();
+
+        return view('wms.recepciones.discrepancias', compact(
+            'discrepancias',
+            'pendientes',
+            'codigoAlmacen'
+        ));
     }
 
     public function buscar(Request $request): JsonResponse
