@@ -97,7 +97,7 @@
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="border-b text-left bg-gray-50">
-                                <th class="p-2">Código</th>
+                                <th class="p-2">Producto</th>
                                 <th class="p-2">Lote origen</th>
                                 <th class="p-2">Despachado</th>
                                 <th class="p-2">Asignado</th>
