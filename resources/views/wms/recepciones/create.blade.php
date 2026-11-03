@@ -54,10 +54,16 @@
     <div class="py-6 px-4">
         <div class="max-w-6xl mx-auto">
 
-            <a href="{{ route('wms.index') }}"
-               class="text-sm text-gray-600 hover:text-blue-600">
-                &larr; Volver al menú WMS
-            </a>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <a href="{{ route('wms.index') }}"
+                   class="text-sm text-gray-600 hover:text-blue-600">
+                    &larr; Volver al menú WMS
+                </a>
+                <a href="{{ route('wms.recepciones.discrepancias') }}"
+                   class="text-sm font-semibold text-indigo-700 hover:text-indigo-900">
+                    Consultar discrepancias de recepción
+                </a>
+            </div>
 
             {{-- Búsqueda --}}
             <div class="bg-white rounded-xl shadow p-5 mt-4">
@@ -991,6 +997,23 @@
                     });
 
                     $('detalleResultado').appendChild(lista);
+                }
+
+                if (Number(data.total_discrepancias || 0) > 0) {
+                    const aviso = elemento(
+                        'div',
+                        `Se registraron ${data.total_discrepancias} discrepancia(s). Todas quedaron pendientes de revisión posterior.`,
+                        'mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900'
+                    );
+                    $('detalleResultado').appendChild(aviso);
+
+                    const enlace = elemento('a', 'Ver registro de discrepancias', 'inline-block mt-2 font-semibold text-indigo-700 underline');
+                    enlace.href = @json(route('wms.recepciones.discrepancias'));
+                    $('detalleResultado').appendChild(enlace);
+                } else {
+                    $('detalleResultado').appendChild(
+                        elemento('p', 'El ingreso no generó discrepancias.', 'mt-3 text-sm text-green-700')
+                    );
                 }
 
                 $('panelPreparacion').classList.add('hidden');
