@@ -453,13 +453,6 @@ class WmsRecepcionService
                         if ($esExceso) {
                             $requiereExceso = true;
 
-                            if (!$usuario->can('wms.recepciones.autorizar_excesos')) {
-                                throw ValidationException::withMessages([
-                                    'exceso' =>
-                                    "El detalle {$idDetalle} supera el saldo disponible. No tienes permiso para autorizar el exceso.",
-                                ]);
-                            }
-
                             if (trim((string) ($item['observacion_exceso'] ?? '')) === '') {
                                 throw ValidationException::withMessages([
                                     'observacion_exceso' =>
@@ -478,13 +471,6 @@ class WmsRecepcionService
 
                         if ($esDiscrepancia) {
                             $requiereDiscrepancia = true;
-
-                            if (!$usuario->can('wms.recepciones.autorizar_discrepancia_lote')) {
-                                throw ValidationException::withMessages([
-                                    'discrepancia_lote' =>
-                                    "El lote físico no coincide con el lote de origen del detalle {$idDetalle}. No tienes permiso para autorizar la discrepancia.",
-                                ]);
-                            }
 
                             if (trim((string) ($item['observacion_lote'] ?? '')) === '') {
                                 throw ValidationException::withMessages([
@@ -564,22 +550,9 @@ class WmsRecepcionService
             }
 
             /*
-         * 7. Verificación final de permisos.
+         * 7. Las discrepancias se documentan y quedan pendientes de revisión.
+         * No requieren autorización previa en esta etapa.
          */
-            if ($requiereExceso && !$usuario->can('wms.recepciones.autorizar_excesos')) {
-                throw ValidationException::withMessages([
-                    'exceso' => 'No tienes autorización para registrar excesos.',
-                ]);
-            }
-
-            if (
-                $requiereDiscrepancia &&
-                !$usuario->can('wms.recepciones.autorizar_discrepancia_lote')
-            ) {
-                throw ValidationException::withMessages([
-                    'discrepancia_lote' => 'No tienes autorización para registrar discrepancias de lote.',
-                ]);
-            }
 
             /*
          * 8. Generar correlativos después de validar todo.
@@ -593,6 +566,7 @@ class WmsRecepcionService
          * 9. Persistir ingresos y trazabilidad.
          */
             $resumen = [];
+            $discrepanciasRegistradas = [];
 
             foreach ($gruposValidados as $indiceGrupo => $grupo) {
                 $codigoPallet = $pallets[$indiceGrupo];
@@ -637,9 +611,20 @@ class WmsRecepcionService
                                 'cantidad_fisica' => $asignacion['cantidad'],
 
                                 'observacion' => $item['observacion_exceso'],
-                                'autorizado_por' => $usuario->id,
-                                'autorizado_at' => now(),
+                                'autorizado_por' => null,
+                                'autorizado_at' => null,
+                                'estado_revision' => 'pendiente',
                             ]);
+                            $discrepanciasRegistradas[] = [
+                                'tipo' => 'exceso_cantidad',
+                                'codigo' => $item['codigo'],
+                                'lote_origen' => $asignacion['lote_origen'],
+                                'lote_fisico' => $item['clote'],
+                                'cantidad_origen' => $asignacion['saldo_disponible_antes'],
+                                'cantidad_fisica' => $asignacion['cantidad'],
+                                'estado_revision' => 'pendiente',
+                                'wms_ingreso_id' => $ingreso->id,
+                            ];
                         }
 
                         if ($asignacion['es_discrepancia']) {
@@ -652,9 +637,20 @@ class WmsRecepcionService
                                 'cantidad_origen' => $asignacion['cantidad'],
                                 'cantidad_fisica' => $asignacion['cantidad'],
                                 'observacion' => $item['observacion_lote'],
-                                'autorizado_por' => $usuario->id,
-                                'autorizado_at' => now(),
+                                'autorizado_por' => null,
+                                'autorizado_at' => null,
+                                'estado_revision' => 'pendiente',
                             ]);
+                            $discrepanciasRegistradas[] = [
+                                'tipo' => 'discrepancia_lote',
+                                'codigo' => $item['codigo'],
+                                'lote_origen' => $asignacion['lote_origen'],
+                                'lote_fisico' => $item['clote'],
+                                'cantidad_origen' => $asignacion['cantidad'],
+                                'cantidad_fisica' => $asignacion['cantidad'],
+                                'estado_revision' => 'pendiente',
+                                'wms_ingreso_id' => $ingreso->id,
+                            ];
                         }
                     }
                 }
@@ -675,6 +671,8 @@ class WmsRecepcionService
                     fn($grupo) => array_sum(array_column($grupo['items'], 'cantidad')),
                     $gruposValidados
                 )),
+                'total_discrepancias' => count($discrepanciasRegistradas),
+                'discrepancias' => $discrepanciasRegistradas,
             ];
         });
     }
