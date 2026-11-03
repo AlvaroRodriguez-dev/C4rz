@@ -9,10 +9,10 @@ class LoteExcepcionService
 {
     public function __construct(private SaldoService $saldoService) {}
 
-    public function stockTotal(string $codigo, ?string $clote): int
+    public function stockTotal(string $codigo, ?string $clote, ?string $almacen = null): int
     {
         return (int) $this->saldoService->calcular(['codigo' => $codigo])
-            ->filter(fn($s) => $s['clote'] == $clote)
+            ->filter(fn($s) => $s['clote'] == $clote && ($almacen === null || (string) $s['almacen'] === $almacen))
             ->sum('saldo');
     }
 
@@ -60,9 +60,10 @@ class LoteExcepcionService
      * el usuario pueda combinarlo con otros lotes hasta completar el 100%).
      * Ordenados por fecha de producción ascendente (más antiguo primero).
      */
-    public function lotesAlternativos(string $codigo, ?string $loteOriginal): array
+    public function lotesAlternativos(string $codigo, ?string $loteOriginal, ?string $almacen = null): array
     {
         return $this->saldoService->calcular(['codigo' => $codigo])
+            ->filter(fn($s) => $almacen === null || (string) $s['almacen'] === $almacen)
             ->groupBy('clote')
             ->map(function ($items, $clote) use ($loteOriginal) {
                 $fecha = $this->fechaProduccion($clote);
@@ -91,11 +92,11 @@ class LoteExcepcionService
      * Distribución automática FIFO: reparte la cantidad necesaria entre los
      * lotes alternativos disponibles, empezando por el de producción más antigua.
      */
-    public function distribuirAutomatico(string $codigo, ?string $loteExcluir, int $cantidadNecesaria): array
+    public function distribuirAutomatico(string $codigo, ?string $loteExcluir, int $cantidadNecesaria, ?string $almacen = null): array
     {
         // ANTES: ->filter(fn ($s) => $s['clote'] != $loteExcluir && $s['saldo'] > 0)
         $porLote = $this->saldoService->calcular(['codigo' => $codigo])
-            ->filter(fn($s) => $s['saldo'] > 0)   // <-- ya no excluye el lote original
+            ->filter(fn($s) => $s['saldo'] > 0 && ($almacen === null || (string) $s['almacen'] === $almacen))   // <-- ya no excluye el lote original
             ->groupBy('clote');
 
         $lotesOrdenados = $porLote->keys()
