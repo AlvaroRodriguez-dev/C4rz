@@ -113,6 +113,21 @@ class WmsRecepcionService
             return collect();
         }
 
+        // Obtener las descripciones desde el catálogo consolidado.
+        $codigos = $detallesOrigen
+            ->pluck('codigo')
+            ->map(fn ($codigo) => trim((string) $codigo))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $stock = DB::connection('sisinvconsolidado2026')
+            ->table('stock')
+            ->whereIn('CODIGO', $codigos)
+            ->select('CODIGO', 'DESCRIP', 'DESCRIP1')
+            ->get()
+            ->keyBy('CODIGO');
+
         $idsDetalle = $detallesOrigen
             ->pluck('id')
             ->unique()
@@ -169,11 +184,14 @@ class WmsRecepcionService
                 fn(array $item) =>
                 $item['codigo'] . '|' . $item['lote_origen']
             )
-            ->map(function (Collection $grupo) {
+            ->map(function (Collection $grupo) use ($stock) {
                 $primero = $grupo->first();
+                $stockInfo = $stock->get($primero['codigo']);
 
                 return [
                     'codigo' => $primero['codigo'],
+                    'descrip' => $stockInfo->DESCRIP ?? null,
+                    'descrip1' => $stockInfo->DESCRIP1 ?? null,
                     'lote_origen' => $primero['lote_origen'],
                     'cantidad_despacho' => $grupo->sum('cantidad_despacho'),
                     'cantidad_asignada' => $grupo->sum('cantidad_asignada'),
