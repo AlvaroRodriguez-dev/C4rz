@@ -218,7 +218,6 @@ class WmsRecepcionService
             ]);
         }
 
-        $usuario = $this->context->usuario();
         $almacen = $this->context->almacen();
         $codigoAlmacen = (string) $almacen->codigo;
 
@@ -240,7 +239,6 @@ class WmsRecepcionService
         return DB::transaction(function () use (
             $idRecepcion,
             $grupos,
-            $usuario,
             $almacen,
             $codigoAlmacen,
             $stock
@@ -350,9 +348,6 @@ class WmsRecepcionService
 
             $acumuladoSolicitud = [];
             $gruposValidados = [];
-            $requiereExceso = false;
-            $requiereDiscrepancia = false;
-
             /*
          * 6. Validar cada pallet.
          */
@@ -451,8 +446,6 @@ class WmsRecepcionService
                         $esExceso = $cantidadExcedente > 0;
 
                         if ($esExceso) {
-                            $requiereExceso = true;
-
                             if (trim((string) ($item['observacion_exceso'] ?? '')) === '') {
                                 throw ValidationException::withMessages([
                                     'observacion_exceso' =>
@@ -470,8 +463,6 @@ class WmsRecepcionService
                         $esDiscrepancia = $loteFisicoNormalizado !== $loteOrigenNormalizado;
 
                         if ($esDiscrepancia) {
-                            $requiereDiscrepancia = true;
-
                             if (trim((string) ($item['observacion_lote'] ?? '')) === '') {
                                 throw ValidationException::withMessages([
                                     'observacion_lote' =>
