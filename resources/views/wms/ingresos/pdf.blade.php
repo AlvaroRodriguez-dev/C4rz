@@ -76,6 +76,6 @@
     <table class="footer">
         <tr><td><div class="line">Responsable de almacén</div></td><td><div class="line">Conformidad / recepción</div></td></tr>
     </table>
-    <p class="generated">Documento generado por WMS · {{ $generado }}</p>
+    <p class="generated">Documento generado por WMS</p>
 </body>
 </html>
