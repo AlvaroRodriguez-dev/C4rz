@@ -50,13 +50,14 @@
     <table class="detail">
         <thead>
             <tr>
-                <th>Código</th><th>Descripción</th><th>Descripción adicional</th>
+                <th>Nro. de pallet</th><th>Código</th><th>Descripción</th><th>Descripción adicional</th>
                 <th>Lote</th><th>Galpón</th><th>Ubicación</th><th>Fecha / hora de registro</th><th>Registrado por</th><th>Cantidad</th>
             </tr>
         </thead>
         <tbody>
             @foreach ($ingresos as $ingreso)
                 <tr>
+                    <td>{{ $ingreso->pallet ?: '—' }}</td>
                     <td>{{ $ingreso->codigo }}</td>
                     <td>{{ $ingreso->descrip }}</td>
                     <td>{{ $ingreso->descrip1 }}</td>
