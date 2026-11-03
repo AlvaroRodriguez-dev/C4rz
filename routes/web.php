@@ -191,6 +191,7 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
 
     Route::middleware(['permission:wms.ingresos.create'])->prefix('recepciones')->name('recepciones.')->group(function () {
         Route::get('/crear', [WmsRecepcionController::class, 'create'])->name('create');
+        Route::get('/discrepancias', [WmsRecepcionController::class, 'discrepancias'])->name('discrepancias');
         Route::get('/buscar', [WmsRecepcionController::class, 'buscar'])->name('buscar');
         Route::get('/{id}/detalle', [WmsRecepcionController::class, 'detalle'])->where('id', '[A-Za-z0-9_-]+')->name('detalle');
         Route::post('/registrar', [WmsRecepcionController::class,'store'])->name('store');
