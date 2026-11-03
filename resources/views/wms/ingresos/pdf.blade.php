@@ -39,7 +39,7 @@
 
     <table class="meta">
         <tr>
-            <td><div class="label">Documento de origen</div><strong>{{ $docOrigen }}</strong></td>
+            <td><div class="label">Documento de referencia</div><strong>{{ $docOrigen }}</strong></td>
             <td><div class="label">Tipo de ingreso</div><strong>{{ strtoupper($tipoIngreso ?? '—') }}</strong></td>
             <td><div class="label">Almacén</div><strong>{{ $almacen?->codigo ?? '—' }} · {{ $almacen?->nombre ?? '—' }}</strong></td>
             <td><div class="label">Fecha de emisión</div><strong>{{ $generado }}</strong></td>
