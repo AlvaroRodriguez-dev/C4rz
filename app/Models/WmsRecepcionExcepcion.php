@@ -20,6 +20,10 @@ class WmsRecepcionExcepcion extends Model
         'observacion',
         'autorizado_por',
         'autorizado_at',
+        'estado_revision',
+        'revisado_por',
+        'revisado_at',
+        'comentario_revision',
     ];
 
     protected $casts = [
@@ -29,6 +33,8 @@ class WmsRecepcionExcepcion extends Model
         'cantidad_fisica' => 'integer',
         'autorizado_por' => 'integer',
         'autorizado_at' => 'datetime',
+        'revisado_por' => 'integer',
+        'revisado_at' => 'datetime',
     ];
 
     public function ingreso(): BelongsTo
@@ -39,5 +45,10 @@ class WmsRecepcionExcepcion extends Model
     public function autorizador(): BelongsTo
     {
         return $this->belongsTo(User::class, 'autorizado_por');
+    }
+
+    public function revisor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'revisado_por');
     }
 }
