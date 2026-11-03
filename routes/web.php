@@ -221,6 +221,7 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
     Route::middleware(['permission:wms.ingresos.ver'])->prefix('ingresos-ver')->name('ingresos.ver.')->group(function () {
         Route::get('/', [WmsIngresoVerController::class, 'index'])->name('index');
         Route::get('/buscar', [WmsIngresoVerController::class, 'buscar'])->name('buscar');
+        Route::get('/{almacen}/{docOrigen}/pdf', [WmsIngresoVerController::class, 'pdf'])->name('pdf');
     });
     Route::middleware(['permission:wms.salidas.ver'])->prefix('salidas-ver')->name('salidas.ver.')->group(function () {
         Route::get('/', [WmsSalidaVerController::class, 'index'])->name('index');
