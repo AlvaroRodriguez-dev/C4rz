@@ -82,12 +82,19 @@ class WmsIngresoVerController extends Controller
                 'ubicacion' => $ingreso->ubicacion,
                 'usuario' => $ingreso->creador->name ?? 'N/D',
                 'creado' => optional($ingreso->created_at)->format('d/m/Y H:i'),
-                'pdf_url' => $ingreso->doc_origen !== null && $ingreso->doc_origen !== ''
+                'pdf_url' => filled($ingreso->doc_origen)
                     ? route('wms.ingresos.ver.pdf', [
                         'almacen' => $ingreso->almacen,
-                        'docOrigen' => $ingreso->doc_origen,
+                        'tipoDocumento' => 'origen',
+                        'documento' => $ingreso->doc_origen,
                     ])
-                    : null,
+                    : (filled($ingreso->rdocum)
+                        ? route('wms.ingresos.ver.pdf', [
+                            'almacen' => $ingreso->almacen,
+                            'tipoDocumento' => 'rdocum',
+                            'documento' => $ingreso->rdocum,
+                        ])
+                        : null),
             ];
         });
 
@@ -103,7 +110,7 @@ class WmsIngresoVerController extends Controller
      * Genera una nota PDF consolidada por documento de origen y almacén.
      * La pertenencia del usuario al almacén se vuelve a comprobar aquí.
      */
-    public function pdf(string $almacen, string $docOrigen)
+    public function pdf(string $almacen, string $tipoDocumento, string $documento)
     {
         $codigosPermitidos = $this->context->almacenes()
             ->pluck('codigo')
@@ -111,10 +118,21 @@ class WmsIngresoVerController extends Controller
 
         abort_unless($codigosPermitidos->contains((string) $almacen), 403);
 
+        abort_unless(in_array($tipoDocumento, ['origen', 'rdocum'], true), 404);
+
         $ingresos = WmsIngreso::query()
             ->with('creador:id,name')
             ->where('almacen', $almacen)
-            ->where('doc_origen', $docOrigen)
+            ->when($tipoDocumento === 'origen', function ($query) use ($documento) {
+                $query->whereNotNull('doc_origen')
+                    ->where('doc_origen', '<>', '')
+                    ->where('doc_origen', $documento);
+            }, function ($query) use ($documento) {
+                // Históricos: solo agrupar por rdocum cuando doc_origen no está informado.
+                $query->where(function ($missing) {
+                    $missing->whereNull('doc_origen')->orWhere('doc_origen', '');
+                })->where('rdocum', $documento);
+            })
             ->orderBy('codigo')
             ->orderBy('clote')
             ->orderBy('created_at')
@@ -125,7 +143,7 @@ class WmsIngresoVerController extends Controller
         $datos = [
             'almacen' => $this->context->almacenes()
                 ->firstWhere('codigo', $almacen),
-            'docOrigen' => $docOrigen,
+            'docOrigen' => $documento,
             'tipoIngreso' => $ingresos->first()->tipo_ingreso,
             'ingresos' => $ingresos,
             'totalCantidad' => $ingresos->sum('cantidad'),
@@ -135,6 +153,6 @@ class WmsIngresoVerController extends Controller
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('wms.ingresos.pdf', $datos)
             ->setPaper('letter', 'landscape');
 
-        return $pdf->stream("nota-ingreso-{$docOrigen}-{$almacen}.pdf");
+        return $pdf->stream("nota-ingreso-{$documento}-{$almacen}.pdf");
     }
 }
