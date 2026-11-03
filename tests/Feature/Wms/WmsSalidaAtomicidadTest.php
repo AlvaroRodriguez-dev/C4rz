@@ -8,6 +8,7 @@ use App\Models\WmsOrdenTrabajo;
 use App\Services\LoteExcepcionService;
 use App\Services\SaldoService;
 use App\Services\WmsStockLockService;
+use App\Services\WmsContextService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -181,7 +182,12 @@ class WmsSalidaAtomicidadTest extends TestCase
             ->once()
             ->andThrow(new RuntimeException('Fallo simulado al registrar excepción'));
 
-        $controller = new WmsSalidaController($saldo, $lotes, $locks);
+        $context = \Mockery::mock(WmsContextService::class);
+        $context->shouldReceive('almacen')
+            ->once()
+            ->andReturn((object) ['codigo' => '110']);
+
+        $controller = new WmsSalidaController($saldo, $lotes, $locks, $context);
 
         $request = Request::create('/wms/salidas', 'POST', [
             'tipo_registro' => '1',
