@@ -148,10 +148,16 @@ class WmsIngresoVerController extends Controller
             'ingresos' => $ingresos,
             'totalCantidad' => $ingresos->sum('cantidad'),
             'generado' => now()->format('d/m/Y H:i'),
+            'usuarioGenerador' => auth()->user()?->name ?? 'Usuario no identificado',
         ];
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('wms.ingresos.pdf', $datos)
             ->setPaper('letter', 'landscape');
+
+        $pdf->render();
+        $canvas = $pdf->getDomPDF()->getCanvas();
+        $canvas->page_text(30, 590, "Generado por: {$datos['usuarioGenerador']} · {$datos['generado']}", null, 8, [0.45, 0.45, 0.45]);
+        $canvas->page_text(700, 590, 'Página {PAGE_NUM} de {PAGE_COUNT}', null, 8, [0.45, 0.45, 0.45]);
 
         return $pdf->stream("nota-ingreso-{$documento}-{$almacen}.pdf");
     }
