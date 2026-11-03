@@ -110,7 +110,7 @@
         function renderTarjeta(item) {
             const pdfAction = item.pdf_url
                 ? `<a href="${item.pdf_url}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-sm font-medium text-red-700 hover:text-red-900 mt-3">📄 Generar nota PDF</a>`
-                : `<span class="inline-block text-xs text-gray-400 mt-3">PDF no disponible: documento sin origen asociado</span>`;
+                : `<span class="inline-block text-xs text-gray-400 mt-3">PDF no disponible: registro sin documento asociado</span>`;
 
             return `
                 <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
