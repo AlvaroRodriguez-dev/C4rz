@@ -197,6 +197,22 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
         Route::post('/registrar', [WmsRecepcionController::class,'store'])->name('store');
     });
 
+    Route::middleware(['permission:wms.ingresos.create'])->prefix('recepcion-agencias')->name('recepcion-agencias.')->group(function () {
+        Route::get('/', [WmsRecepcionAgenciaController::class, 'index'])->name('index');
+        Route::get('/documentos/buscar', [WmsRecepcionAgenciaController::class, 'buscarDocumentos'])->name('documentos.buscar');
+        Route::get('/ubicaciones-temporales', [WmsRecepcionAgenciaController::class, 'ubicacionesTemporales'])->name('ubicaciones-temporales');
+        Route::get('/ubicaciones-normales', [WmsRecepcionAgenciaController::class, 'ubicacionesNormales'])->name('ubicaciones-normales');
+        Route::post('/', [WmsRecepcionAgenciaController::class, 'store'])->name('store');
+        Route::get('/{recepcion}', [WmsRecepcionAgenciaController::class, 'show'])->whereNumber('recepcion')->name('show');
+        Route::get('/{recepcion}/pallets/buscar', [WmsRecepcionAgenciaController::class, 'buscarPallets'])->whereNumber('recepcion')->name('pallets.buscar');
+        Route::get('/{recepcion}/pallets/{pallet}/detalle', [WmsRecepcionAgenciaController::class, 'detallePallet'])->whereNumber('recepcion')->whereNumber('pallet')->name('pallets.detalle');
+        Route::post('/{recepcion}/pallets/{pallet}/descargar', [WmsRecepcionAgenciaController::class, 'descargar'])->whereNumber('recepcion')->whereNumber('pallet')->name('pallets.descargar');
+        Route::post('/{recepcion}/pallets/{pallet}/verificar', [WmsRecepcionAgenciaController::class, 'verificar'])->whereNumber('recepcion')->whereNumber('pallet')->name('pallets.verificar');
+        Route::post('/{recepcion}/pallets/{pallet}/autorizar', [WmsRecepcionAgenciaController::class, 'autorizar'])->whereNumber('recepcion')->whereNumber('pallet')->name('pallets.autorizar');
+        Route::post('/{recepcion}/pallets/{pallet}/ingresar', [WmsRecepcionAgenciaController::class, 'ingresar'])->whereNumber('recepcion')->whereNumber('pallet')->name('pallets.ingresar');
+        Route::post('/{recepcion}/cerrar', [WmsRecepcionAgenciaController::class, 'cerrar'])->whereNumber('recepcion')->name('cerrar');
+    });
+
     Route::middleware(['permission:wms.ingresos.create'])->prefix('ingresos')->name('ingresos.')->group(function () {
         Route::get('/crear', [WmsIngresoController::class, 'create'])->name('create');
         Route::get('/notas/buscar', [WmsIngresoController::class, 'buscarNotas'])->name('notas.buscar');
