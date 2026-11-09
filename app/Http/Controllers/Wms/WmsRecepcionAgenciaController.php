@@ -70,17 +70,18 @@ class WmsRecepcionAgenciaController extends Controller
         $results = $notas->map(function ($nota) {
             $tipo = (string) $nota->tipo_registro;
             $id = (string) $nota->id;
-            $pallets = WmsSalida::query()->where('tipo_registro', $tipo)
-                ->where('id_registro', $id)->distinct()->count('pallet');
-            $yaAsociado = DB::table('wms_recepcion_agencia_documentos')
-                ->where('tipo_registro', $tipo)->where('id_registro', $id)->exists();
+            $despachados = WmsSalida::query()->where('tipo_registro', $tipo)
+                ->where('id_registro', $id)->distinct()->pluck('pallet');
+            $yaRecibidos = DB::table('wms_recepcion_agencia_pallets')
+                ->where('tipo_registro', $tipo)->where('id_registro', $id)->pluck('pallet');
+            $pallets = $despachados->diff($yaRecibidos)->count();
 
             return [
                 'id' => $id,
                 'tipo_registro' => $tipo,
-                'text' => "Tipo {$tipo} · #{$id} · " . ($nota->fecha ? date('d/m/Y', strtotime($nota->fecha)) : 'S/F') . " · {$nota->glosa} · {$pallets} pallets",
+                'text' => "Tipo {$tipo} · #{$id} · " . ($nota->fecha ? date('d/m/Y', strtotime($nota->fecha)) : 'S/F') . " · {$nota->glosa} · {$pallets} pallets pendientes",
                 'pallets' => $pallets,
-                'disabled' => $yaAsociado || $pallets === 0,
+                'disabled' => $pallets === 0,
             ];
         })->filter(fn ($item) => $item['pallets'] > 0)->values();
 
@@ -110,17 +111,18 @@ class WmsRecepcionAgenciaController extends Controller
             }
 
             foreach ($notas as $nota) {
-                if (DB::table('wms_recepcion_agencia_documentos')
-                    ->where('tipo_registro', (string) $nota->tipo_registro)
-                    ->where('id_registro', (string) $nota->id)->exists()) {
-                    throw ValidationException::withMessages(['documentos' => "La nota {$nota->id} ya está asociada a otra recepción."]);
-                }
-
                 $salidas = WmsSalida::query()->where('tipo_registro', (string) $nota->tipo_registro)
                     ->where('id_registro', (string) $nota->id)->orderBy('pallet')->orderBy('codigo')->get();
 
-                if ($salidas->isEmpty()) {
-                    throw ValidationException::withMessages(['documentos' => "La nota {$nota->id} no tiene pallets despachados registrados en WMS."]);
+                $palletsYaRecibidos = DB::table('wms_recepcion_agencia_pallets')
+                    ->where('tipo_registro', (string) $nota->tipo_registro)
+                    ->where('id_registro', (string) $nota->id)->pluck('pallet');
+
+                $palletsPendientes = $salidas->groupBy('pallet')
+                    ->reject(fn ($lineas, $pallet) => $palletsYaRecibidos->contains((string) $pallet));
+
+                if ($palletsPendientes->isEmpty()) {
+                    throw ValidationException::withMessages(['documentos' => "La nota {$nota->id} no tiene pallets pendientes de recepción."]);
                 }
             }
 
@@ -148,11 +150,19 @@ class WmsRecepcionAgenciaController extends Controller
 
                 $salidas = WmsSalida::query()->where('tipo_registro', (string) $nota->tipo_registro)
                     ->where('id_registro', (string) $nota->id)->orderBy('pallet')->orderBy('codigo')->get();
+                $palletsYaRecibidos = DB::table('wms_recepcion_agencia_pallets')
+                    ->where('tipo_registro', (string) $nota->tipo_registro)
+                    ->where('id_registro', (string) $nota->id)->pluck('pallet');
 
-                foreach ($salidas->groupBy('pallet') as $numeroPallet => $lineas) {
+                $palletsPendientes = $salidas->groupBy('pallet')
+                    ->reject(fn ($lineas, $pallet) => $palletsYaRecibidos->contains((string) $pallet));
+
+                foreach ($palletsPendientes as $numeroPallet => $lineas) {
                     $palletId = DB::table('wms_recepcion_agencia_pallets')->insertGetId([
                         'recepcion_id' => $recepcionId,
                         'documento_id' => $documentoId,
+                        'tipo_registro' => (string) $nota->tipo_registro,
+                        'id_registro' => (string) $nota->id,
                         'pallet' => (string) $numeroPallet,
                         'estado' => 'pendiente_descarga',
                         'created_at' => now(),
