@@ -430,6 +430,9 @@ class WmsRecepcionAgenciaController extends Controller
             if ($detalles->isEmpty() || $detalles->contains(fn ($d) => $d->codigo_fisico === null || $d->cantidad_fisica === null)) {
                 throw ValidationException::withMessages(['pallet' => 'El detalle físico del pallet está incompleto.']);
             }
+            if ((int) $detalles->sum('cantidad_fisica') <= 0) {
+                throw ValidationException::withMessages(['pallet' => 'El pallet no tiene cajas físicas para ingresar al stock WMS.']);
+            }
 
             $this->stockLock->bloquearPallets([$p->pallet]);
 
