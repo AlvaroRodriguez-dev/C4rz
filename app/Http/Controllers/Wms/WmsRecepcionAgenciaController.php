@@ -446,7 +446,7 @@ class WmsRecepcionAgenciaController extends Controller
                 }
                 WmsIngreso::create([
                     'rdocum' => $rdocum,
-                    'doc_origen' => $documento->id_registro,
+                    'doc_origen' => $documento->tipo_registro . ':' . $documento->id_registro,
                     'rfecha' => $documento->fecha_documento ?: now()->toDateString(),
                     'tipo_ingreso' => 'recepcion_agencia',
                     'motivo' => 'Recepción agencia #' . $cabecera->id . ' · Documento ' . $documento->id_registro,
