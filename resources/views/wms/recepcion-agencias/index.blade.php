@@ -38,6 +38,18 @@
                 </form>
             </div>
 
+            @can('wms.configurar')
+                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <h3 class="font-semibold text-amber-900">Zonas temporales de descarga</h3>
+                    <p class="text-sm text-amber-800 mt-1">Crea las posiciones de staging que utilizará la agencia. Se guardan como ubicaciones tipo RECEPCION y no forman parte del stock normal.</p>
+                    <form id="formZona" class="mt-3 flex flex-col sm:flex-row gap-2">
+                        <input id="codigoZona" class="rounded-lg border-gray-300 flex-1" maxlength="30" placeholder="Ej. REC-01" required>
+                        <button class="bg-amber-700 hover:bg-amber-800 text-white rounded-lg px-5 py-2 font-semibold">Crear zona temporal</button>
+                    </form>
+                    <div id="alertaZona" class="hidden text-sm mt-2"></div>
+                </div>
+            @endcan
+
             <div class="bg-white rounded-xl shadow overflow-hidden">
                 <div class="p-4 sm:p-6 border-b">
                     <h3 class="font-bold text-gray-800 text-lg">Recepciones recientes</h3>
@@ -85,6 +97,23 @@
                 data: params => ({q: params.term}),
                 processResults: data => ({results: data.results.map(x => ({...x, disabled: x.disabled}))}) }
         });
+
+        @can('wms.configurar')
+        $('#formZona').on('submit', async function(e) {
+            e.preventDefault();
+            const box=$('#alertaZona');
+            try {
+                const r=await fetch(@json(route('wms.recepcion-agencias.ubicaciones-temporales.store')), {
+                    method:'POST',headers:{'X-CSRF-TOKEN':csrf,'Accept':'application/json','Content-Type':'application/json'},
+                    body:JSON.stringify({codigo:$('#codigoZona').val()})
+                });
+                const d=await r.json();
+                if(!r.ok) throw new Error(d.message || Object.values(d.errors || {}).flat().join(' '));
+                box.removeClass('hidden text-red-800').addClass('text-green-800').text('Zona '+d.codigo+' creada correctamente.');
+                $('#codigoZona').val('');
+            } catch(err) { box.removeClass('hidden text-green-800').addClass('text-red-800').text(err.message); }
+        });
+        @endcan
 
         function mostrarAlerta(texto, error=false) {
             $('#alerta').removeClass('hidden bg-red-100 text-red-800 bg-green-100 text-green-800')
