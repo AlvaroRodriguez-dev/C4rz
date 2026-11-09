@@ -242,9 +242,14 @@
                     async decoded => {
                         await scanner.stop(); $('#readerWrap').addClass('hidden');
                         const value=decoded.trim();
-                        const option=new Option(value,value,true,true);
-                        $('#selectPallet').append(option).trigger('change');
-                        seleccionarPallet(value);
+                        try {
+                            const encontrados=await api(base+'/pallets/buscar?q='+encodeURIComponent(value));
+                            const match=encontrados.results.find(x => String(x.pallet).toUpperCase()===value.toUpperCase());
+                            if(!match) throw new Error('El QR no corresponde a un pallet de esta recepción.');
+                            const option=new Option(match.text,match.id,true,true);
+                            $('#selectPallet').append(option).trigger('change');
+                            seleccionarPallet(match.id);
+                        } catch(err) { alerta(err.message,true); }
                     },()=>{});
             } catch(e){alerta('No se pudo activar la cámara. Verifica los permisos del navegador.',true);}
         });
