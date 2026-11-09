@@ -312,7 +312,7 @@ class WmsRecepcionAgenciaController extends Controller
                         || trim((string) ($item['observacion'] ?? '')) !== '';
                     $hayDiferencias = $hayDiferencias || $difiere;
                     DB::table('wms_recepcion_agencia_detalles')->where('id', $esperado->id)->update([
-                        'codigo_fisico' => trim($item['codigo_fisico']),
+                        'codigo_fisico' => strtoupper(trim($item['codigo_fisico'])),
                         'lote_fisico' => trim((string) ($item['lote_fisico'] ?? '')),
                         'cantidad_fisica' => (int) $item['cantidad_fisica'],
                         'observacion' => $item['observacion'] ?? null,
@@ -329,7 +329,7 @@ class WmsRecepcionAgenciaController extends Controller
                 } else {
                     $hayDiferencias = true;
                     $detailId = DB::table('wms_recepcion_agencia_detalles')->insertGetId([
-                        'pallet_id' => $p->id, 'codigo_fisico' => trim($item['codigo_fisico']),
+                        'pallet_id' => $p->id, 'codigo_fisico' => strtoupper(trim($item['codigo_fisico'])),
                         'lote_fisico' => trim((string) ($item['lote_fisico'] ?? '')),
                         'cantidad_fisica' => (int) $item['cantidad_fisica'],
                         'observacion' => $item['observacion'] ?? 'Producto adicional no declarado en despacho.',
