@@ -23,14 +23,30 @@ class WmsRecepcionAgenciaController extends Controller
     public function index()
     {
         $almacen = $this->context->almacen();
+
+        // Resumen agregado por recepción para evitar seleccionar r.* dentro
+        // de una consulta agrupada incompatible con ONLY_FULL_GROUP_BY.
+        $resumenPallets = DB::table('wms_recepcion_agencia_pallets')
+            ->select('recepcion_id')
+            ->selectRaw('COUNT(id) as total_pallets')
+            ->selectRaw("SUM(CASE WHEN estado = 'ingresado' THEN 1 ELSE 0 END) as pallets_ingresados")
+            ->selectRaw("SUM(CASE WHEN estado = 'observado' THEN 1 ELSE 0 END) as pallets_observados")
+            ->groupBy('recepcion_id');
+
         $recepciones = DB::table('wms_recepciones_agencia as r')
-            ->leftJoin('wms_recepcion_agencia_pallets as p', 'p.recepcion_id', '=', 'r.id')
+            ->leftJoinSub($resumenPallets, 'p', function ($join) {
+                $join->on('p.recepcion_id', '=', 'r.id');
+            })
             ->where('r.almacen_id', $almacen->id)
-            ->select('r.*', DB::raw('COUNT(p.id) as total_pallets'),
-                DB::raw("SUM(CASE WHEN p.estado = 'ingresado' THEN 1 ELSE 0 END) as pallets_ingresados"),
-                DB::raw("SUM(CASE WHEN p.estado = 'observado' THEN 1 ELSE 0 END) as pallets_observados"))
-            ->groupBy('r.id')
-            ->orderByDesc('r.id')->limit(50)->get();
+            ->select(
+                'r.*',
+                DB::raw('COALESCE(p.total_pallets, 0) as total_pallets'),
+                DB::raw('COALESCE(p.pallets_ingresados, 0) as pallets_ingresados'),
+                DB::raw('COALESCE(p.pallets_observados, 0) as pallets_observados')
+            )
+            ->orderByDesc('r.id')
+            ->limit(50)
+            ->get();
 
         return view('wms.recepcion-agencias.index', compact('almacen', 'recepciones'));
     }
