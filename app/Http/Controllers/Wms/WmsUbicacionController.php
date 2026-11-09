@@ -49,7 +49,7 @@ class WmsUbicacionController extends Controller
         }
 
         $tipo = strtoupper(trim((string) $request->input('tipo', '')));
-        if (!in_array($tipo, ['NORMAL', 'PREPARACION', 'DESPACHO'], true)) {
+        if (!in_array($tipo, ['NORMAL', 'PREPARACION', 'DESPACHO', 'RECEPCION'], true)) {
             $tipo = '';
         }
 
@@ -73,7 +73,7 @@ class WmsUbicacionController extends Controller
                         ->orWhere('numero', $busqueda);
                 });
             })
-            ->orderByRaw("CASE tipo WHEN 'NORMAL' THEN 1 WHEN 'PREPARACION' THEN 2 WHEN 'DESPACHO' THEN 3 ELSE 9 END")
+            ->orderByRaw("CASE tipo WHEN 'NORMAL' THEN 1 WHEN 'PREPARACION' THEN 2 WHEN 'DESPACHO' THEN 3 WHEN 'RECEPCION' THEN 4 ELSE 9 END")
             ->orderBy('numero')
             ->orderBy('codigo');
 
@@ -81,7 +81,7 @@ class WmsUbicacionController extends Controller
         $resumen = [
             'total' => (clone $resumenQuery)->count(),
             'normales' => (clone $resumenQuery)->where('tipo', 'NORMAL')->count(),
-            'especiales' => (clone $resumenQuery)->whereIn('tipo', ['PREPARACION', 'DESPACHO'])->count(),
+            'especiales' => (clone $resumenQuery)->whereIn('tipo', ['PREPARACION', 'DESPACHO', 'RECEPCION'])->count(),
             'activas' => (clone $resumenQuery)->where('activo', true)->count(),
         ];
 
