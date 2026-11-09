@@ -76,10 +76,8 @@ class WmsRecepcionAgenciaController extends Controller
 
         $notas = DB::connection('faboce2026')->table('log_registro')
             ->whereBetween('tipo_registro', [1, 3])
-            ->where('agencia', $almacen)
-            ->when($q !== '', fn ($query) => $query->where(function ($sub) use ($q) {
-                $sub->where('id', 'like', "%{$q}%")->orWhere('glosa', 'like', "%{$q}%");
-            }))
+            ->where('destino', $almacen)
+            ->when($q !== '', fn ($query) => $query->where('id', 'like', "%{$q}%"))
             ->select('id', 'tipo_registro', 'agencia', 'glosa', 'fecha')
             ->orderByDesc('id')->limit(30)->get();
 
@@ -119,7 +117,7 @@ class WmsRecepcionAgenciaController extends Controller
             $notas = DB::connection('faboce2026')->table('log_registro')
                 ->whereIn('id', $data['documentos'])
                 ->whereBetween('tipo_registro', [1, 3])
-                ->where('agencia', $almacen->codigo)
+                ->where('destino', $almacen->codigo)
                 ->get()->keyBy(fn ($row) => (string) $row->id);
 
             if ($notas->count() !== count(array_unique($data['documentos']))) {
