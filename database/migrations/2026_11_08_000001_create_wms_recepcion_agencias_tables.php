@@ -30,7 +30,7 @@ return new class extends Migration
             $table->string('glosa', 150)->nullable();
             $table->date('fecha_documento')->nullable();
             $table->timestamps();
-            $table->unique(['tipo_registro', 'id_registro'], 'uq_wms_recep_agencia_documento');
+            $table->index(['tipo_registro', 'id_registro'], 'idx_wms_recep_agencia_documento');
             $table->index('recepcion_id');
         });
 
@@ -38,6 +38,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('recepcion_id')->constrained('wms_recepciones_agencia')->cascadeOnDelete();
             $table->foreignId('documento_id')->constrained('wms_recepcion_agencia_documentos')->restrictOnDelete();
+            $table->string('tipo_registro', 5);
+            $table->string('id_registro', 20);
             $table->string('pallet', 30);
             $table->string('estado', 24)->default('pendiente_descarga');
             $table->foreignId('ubicacion_temporal_id')->nullable()->constrained('wms_ubicaciones')->nullOnDelete();
@@ -49,7 +51,7 @@ return new class extends Migration
             $table->dateTime('ingresado_at')->nullable();
             $table->foreignId('ingresado_por')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
-            $table->unique(['documento_id', 'pallet'], 'uq_wms_recep_doc_pallet');
+            $table->unique(['tipo_registro', 'id_registro', 'pallet'], 'uq_wms_recep_doc_pallet');
             $table->index(['recepcion_id', 'estado'], 'idx_wms_recep_pallet_estado');
         });
 
