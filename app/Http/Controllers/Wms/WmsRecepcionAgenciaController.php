@@ -78,7 +78,7 @@ class WmsRecepcionAgenciaController extends Controller
             ->whereBetween('tipo_registro', [1, 3])
             ->where('destino', $almacen)
             ->when($q !== '', fn ($query) => $query->where('id', 'like', "%{$q}%"))
-            ->select('id', 'tipo_registro', 'agencia', 'glosa', 'fecha')
+            ->select('id', 'tipo_registro', 'destino', 'glosa', 'fecha')
             ->orderByDesc('id')->limit(30)->get();
 
         $results = $notas->map(function ($nota) {
