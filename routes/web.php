@@ -42,6 +42,7 @@ use App\Http\Controllers\Wms\WmsProduccionVerificacionController;
 use App\Http\Controllers\Wms\WmsLiberacionProduccionController;
 use App\Http\Controllers\Wms\WmsPaletizacionController;
 use App\Http\Controllers\Wms\WmsRecepcionController;
+use App\Http\Controllers\Wms\WmsRecepcionAgenciaController;
 use App\Http\Controllers\Wms\WmsVerificacionPalletController;
 
 Route::get('/', [WelcomeController::class, 'index'])->name('welcome');
