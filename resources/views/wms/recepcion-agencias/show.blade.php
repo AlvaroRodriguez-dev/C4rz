@@ -174,14 +174,16 @@
             } catch(e) { alerta(e.message,true); }
         }
 
+        const escapeHtml = value => $('<div>').text(value ?? '').html();
+
         function renderDetalles(items) {
             const html = items.map(x => `
                 <tr data-detail-id="${x.id}">
-                    <td class="p-2 min-w-48"><div class="font-mono font-semibold">${x.codigo_esperado || 'Adicional'}</div><div class="text-xs text-gray-500">Lote ${x.lote_esperado || '—'} · ${x.cantidad_esperada || 0} cajas</div></td>
-                    <td class="p-2"><input class="field codigo-fisico" value="${x.codigo_fisico || x.codigo_esperado || ''}" required></td>
-                    <td class="p-2"><input class="field lote-fisico" value="${x.lote_fisico || x.lote_esperado || ''}"></td>
+                    <td class="p-2 min-w-48"><div class="font-mono font-semibold">${escapeHtml(x.codigo_esperado || 'Adicional')}</div><div class="text-xs text-gray-500">Lote ${escapeHtml(x.lote_esperado || '—')} · ${x.cantidad_esperada || 0} cajas</div></td>
+                    <td class="p-2"><input class="field codigo-fisico" value="${escapeHtml(x.codigo_fisico || x.codigo_esperado || '')}" required></td>
+                    <td class="p-2"><input class="field lote-fisico" value="${escapeHtml(x.lote_fisico || x.lote_esperado || '')}"></td>
                     <td class="p-2"><input class="field cantidad-fisica" type="number" min="0" value="${x.cantidad_fisica ?? x.cantidad_esperada ?? 0}" required></td>
-                    <td class="p-2"><input class="field observacion-linea" value="${x.observacion || ''}" placeholder="Opcional"></td>
+                    <td class="p-2"><input class="field observacion-linea" value="${escapeHtml(x.observacion || '')}" placeholder="Opcional"></td>
                 </tr>`).join('');
             $('#detalleVerificacion').html(html);
             $('#observacionGeneral').val('');
