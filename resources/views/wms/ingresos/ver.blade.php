@@ -108,6 +108,10 @@
         }
 
         function renderTarjeta(item) {
+            const tipoIngresoLabel = item.tipo_ingreso === 'recepcion_agencia'
+                ? 'RECEPCIÓN AGENCIA'
+                : (item.tipo_ingreso === 'produccion' ? 'PRODUCCIÓN' : (item.tipo_ingreso === 'ajuste' ? 'AJUSTE' : 'INGRESO'));
+
             const pdfAction = item.pdf_url
                 ? `<a href="${item.pdf_url}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-sm font-medium text-red-700 hover:text-red-900 mt-3">📄 Generar nota PDF</a>`
                 : `<span class="inline-block text-xs text-gray-400 mt-3">PDF no disponible: registro sin documento asociado</span>`;
@@ -116,7 +120,7 @@
                 <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
                     <div class="flex items-start justify-between gap-3 mb-2">
                         <div class="min-w-0">
-                            <p class="text-xs text-gray-400">Nota Ingreso: ${item.rdocum} · ${item.rfecha}</p>
+                            <p class="text-xs text-gray-400"> ${tipoIngresoLabel} · Documento origen: ${item.doc_origen || item.rdocum} · ${item.rfecha}</p>
                             <p class="font-mono font-semibold text-gray-800 text-sm mt-0.5">${item.codigo}</p>
                             <p class="text-sm text-gray-600 leading-snug">${item.descripcion}</p>
                             ${item.clote ? `<p class="text-xs text-gray-400 mt-0.5">Lote: ${item.clote}</p>` : ''}
