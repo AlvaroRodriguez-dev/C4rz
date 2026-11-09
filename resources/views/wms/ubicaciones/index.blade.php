@@ -72,6 +72,7 @@
                                     <option value="NORMAL" @selected($tipo === 'NORMAL')>NORMAL</option>
                                     <option value="PREPARACION" @selected($tipo === 'PREPARACION')>PREPARACION</option>
                                     <option value="DESPACHO" @selected($tipo === 'DESPACHO')>DESPACHO</option>
+                                    <option value="RECEPCION" @selected($tipo === 'RECEPCION')>RECEPCION (TEMPORAL)</option>
                                 </select>
                             </div>
 
@@ -173,6 +174,10 @@
                                             @elseif ($ubicacion->tipo === 'DESPACHO')
                                                 <span class="inline-flex px-2 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">
                                                     DESPACHO
+                                                </span>
+                                            @elseif ($ubicacion->tipo === 'RECEPCION')
+                                                <span class="inline-flex px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+                                                    RECEPCION (TEMPORAL)
                                                 </span>
                                             @else
                                                 {{ $ubicacion->tipo }}
