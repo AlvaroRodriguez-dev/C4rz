@@ -205,7 +205,7 @@ class WmsRecepcionAgenciaController extends Controller
             ->orderBy('pallet')->limit(30)->get();
 
         return response()->json(['results' => $rows->map(fn ($p) => [
-            'id' => $p->id, 'text' => "{$p->pallet} · " . strtoupper(str_replace('_', ' ', $p->estado)),
+            'id' => $p->id, 'pallet' => $p->pallet, 'text' => "{$p->pallet} · " . strtoupper(str_replace('_', ' ', $p->estado)),
         ])]);
     }
 
@@ -291,6 +291,16 @@ class WmsRecepcionAgenciaController extends Controller
             if ($esperados->keys()->diff($ids)->isNotEmpty()) {
                 throw ValidationException::withMessages(['detalles' => 'Debes verificar todas las líneas esperadas del pallet.']);
             }
+
+            // Una nueva verificación sustituye las observaciones pendientes anteriores.
+            // Se conserva el historial marcándolas como resueltas, en lugar de borrarlas.
+            DB::table('wms_recepcion_agencia_observaciones')
+                ->where('pallet_id', $p->id)->where('estado', 'pendiente')
+                ->update([
+                    'estado' => 'resuelta',
+                    'comentario_autorizacion' => 'Revisada durante una nueva verificación física.',
+                    'updated_at' => now(),
+                ]);
 
             $hayDiferencias = trim((string) ($data['observacion_general'] ?? '')) !== '';
             foreach ($enviados as $item) {
@@ -462,6 +472,33 @@ class WmsRecepcionAgenciaController extends Controller
             'message' => "Recepción cerrada. {$pendientes} pallets permanecen pendientes o con observaciones; su estado se conserva para seguimiento.",
             'pendientes' => $pendientes,
         ]);
+    }
+
+    public function crearUbicacionTemporal(Request $request): JsonResponse
+    {
+        abort_unless(auth()->user()->can('wms.configurar'), 403);
+        $data = $request->validate([
+            'codigo' => ['required', 'string', 'max:30', 'regex:/^[A-Za-z0-9._-]+$/'],
+        ]);
+        $almacen = $this->context->almacen();
+        $codigo = strtoupper(trim($data['codigo']));
+
+        if (WmsUbicacion::query()->where('almacen_id', $almacen->id)->where('codigo', $codigo)->exists()) {
+            throw ValidationException::withMessages(['codigo' => 'Ya existe una ubicación con ese código en este almacén.']);
+        }
+
+        $id = DB::table('wms_ubicaciones')->insertGetId([
+            'almacen_id' => $almacen->id,
+            'galpon_id' => null,
+            'codigo' => $codigo,
+            'tipo' => 'RECEPCION',
+            'numero' => null,
+            'activo' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json(['ok' => true, 'message' => 'Zona temporal creada.', 'id' => $id, 'codigo' => $codigo], 201);
     }
 
     private function recepcion(int $id): object
