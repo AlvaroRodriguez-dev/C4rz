@@ -191,8 +191,10 @@ class WmsRecepcionAgenciaController extends Controller
         $cabecera = $this->recepcion($recepcion);
         $p = $this->pallet($cabecera->id, $pallet);
         $detalles = DB::table('wms_recepcion_agencia_detalles')->where('pallet_id', $p->id)->orderBy('id')->get();
+        $observaciones = DB::table('wms_recepcion_agencia_observaciones')
+            ->where('pallet_id', $p->id)->orderByDesc('id')->get();
 
-        return response()->json(['pallet' => $p, 'detalles' => $detalles]);
+        return response()->json(['pallet' => $p, 'detalles' => $detalles, 'observaciones' => $observaciones]);
     }
 
     public function buscarPallets(Request $request, int $recepcion): JsonResponse
@@ -243,8 +245,8 @@ class WmsRecepcionAgenciaController extends Controller
             $p = DB::table('wms_recepcion_agencia_pallets')->where('recepcion_id', $cabecera->id)
                 ->where('id', $pallet)->lockForUpdate()->first();
             if (!$p) abort(404);
-            if ($cabecera->estado !== 'abierta' || $p->estado === 'ingresado') {
-                throw ValidationException::withMessages(['pallet' => 'La recepción está cerrada o el pallet ya ingresó.']);
+            if ($cabecera->estado !== 'abierta' || !in_array($p->estado, ['pendiente_descarga', 'descargado'], true)) {
+                throw ValidationException::withMessages(['pallet' => 'La recepción está cerrada o el pallet ya pasó la etapa de descarga.']);
             }
 
             $ubicacion = WmsUbicacion::query()->where('id', $data['ubicacion_temporal_id'])
@@ -428,8 +430,20 @@ class WmsRecepcionAgenciaController extends Controller
                 throw ValidationException::withMessages(['pallet' => 'Ya existe un ingreso WMS para este pallet.']);
             }
 
+            $codigosFisicos = $detalles->pluck('codigo_fisico')->filter()->unique()->values();
+            $stockFisico = DB::connection('sisinvconsolidado2026')->table('stock')
+                ->whereIn('CODIGO', $codigosFisicos)
+                ->select('CODIGO', 'DESCRIP', 'DESCRIP1')
+                ->get()->keyBy('CODIGO');
+
             foreach ($detalles as $d) {
                 if ((int) $d->cantidad_fisica === 0) continue;
+                $productoFisico = $stockFisico->get($d->codigo_fisico);
+                if (!$productoFisico) {
+                    throw ValidationException::withMessages([
+                        'pallet' => "El código físico {$d->codigo_fisico} no existe en el maestro de productos. No se puede generar el ingreso.",
+                    ]);
+                }
                 WmsIngreso::create([
                     'rdocum' => $rdocum,
                     'doc_origen' => $documento->id_registro,
@@ -439,8 +453,8 @@ class WmsRecepcionAgenciaController extends Controller
                     'pallet' => $p->pallet,
                     'codigo' => $d->codigo_fisico,
                     'clote' => $d->lote_fisico,
-                    'descrip' => $d->descrip,
-                    'descrip1' => $d->descrip1,
+                    'descrip' => $productoFisico->DESCRIP ?? $d->descrip,
+                    'descrip1' => $productoFisico->DESCRIP1 ?? $d->descrip1,
                     'cantidad' => (int) $d->cantidad_fisica,
                     'almacen' => $almacen->codigo,
                     'galpon' => $ubicacion->galpon->codigo,
