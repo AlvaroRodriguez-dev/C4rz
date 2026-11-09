@@ -8,19 +8,16 @@ use App\Models\WmsSalida;
 use App\Models\WmsUbicacion;
 use App\Services\WmsContextService;
 use App\Services\WmsStockLockService;
-use App\Services\WmsUbicacionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
-use RuntimeException;
 
 class WmsRecepcionAgenciaController extends Controller
 {
     public function __construct(
         private WmsContextService $context,
-        private WmsStockLockService $stockLock,
-        private WmsUbicacionService $ubicacionService
+        private WmsStockLockService $stockLock
     ) {}
 
     public function index()
@@ -74,7 +71,7 @@ class WmsRecepcionAgenciaController extends Controller
             $tipo = (string) $nota->tipo_registro;
             $id = (string) $nota->id;
             $pallets = WmsSalida::query()->where('tipo_registro', $tipo)
-                ->where('id_registro', $id)->distinct('pallet')->count('pallet');
+                ->where('id_registro', $id)->distinct()->count('pallet');
             $yaAsociado = DB::table('wms_recepcion_agencia_documentos')
                 ->where('tipo_registro', $tipo)->where('id_registro', $id)->exists();
 
