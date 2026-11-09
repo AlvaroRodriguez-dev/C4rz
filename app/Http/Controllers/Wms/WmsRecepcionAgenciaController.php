@@ -422,7 +422,7 @@ class WmsRecepcionAgenciaController extends Controller
             $this->stockLock->bloquearPallets([$p->pallet]);
 
             $documento = DB::table('wms_recepcion_agencia_documentos')->where('id', $p->documento_id)->first();
-            $rdocum = 'RA-' . $p->id;
+            $rdocum = 'RA-' . strtoupper(base_convert((string) $p->id, 10, 36));
             if (WmsIngreso::query()->where('rdocum', $rdocum)->where('pallet', $p->pallet)->exists()) {
                 throw ValidationException::withMessages(['pallet' => 'Ya existe un ingreso WMS para este pallet.']);
             }
