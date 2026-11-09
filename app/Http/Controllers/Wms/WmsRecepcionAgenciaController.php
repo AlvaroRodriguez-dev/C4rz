@@ -276,6 +276,10 @@ class WmsRecepcionAgenciaController extends Controller
         $cabecera = $this->recepcion($recepcion);
 
         return DB::transaction(function () use ($cabecera, $pallet, $data) {
+            $recepcionActual = DB::table('wms_recepciones_agencia')->where('id', $cabecera->id)->lockForUpdate()->first();
+            if (!$recepcionActual || $recepcionActual->estado !== 'abierta') {
+                throw ValidationException::withMessages(['recepcion' => 'La recepción está cerrada.']);
+            }
             $p = DB::table('wms_recepcion_agencia_pallets')->where('recepcion_id', $cabecera->id)
                 ->where('id', $pallet)->lockForUpdate()->first();
             if (!$p) abort(404);
@@ -373,6 +377,10 @@ class WmsRecepcionAgenciaController extends Controller
         $cabecera = $this->recepcion($recepcion);
 
         return DB::transaction(function () use ($cabecera, $pallet) {
+            $recepcionActual = DB::table('wms_recepciones_agencia')->where('id', $cabecera->id)->lockForUpdate()->first();
+            if (!$recepcionActual || $recepcionActual->estado !== 'abierta') {
+                throw ValidationException::withMessages(['recepcion' => 'La recepción está cerrada.']);
+            }
             $p = DB::table('wms_recepcion_agencia_pallets')->where('recepcion_id', $cabecera->id)
                 ->where('id', $pallet)->lockForUpdate()->first();
             if (!$p || $p->estado !== 'observado') throw ValidationException::withMessages(['pallet' => 'El pallet no tiene observaciones pendientes.']);
@@ -402,6 +410,10 @@ class WmsRecepcionAgenciaController extends Controller
         $almacen = $this->context->almacen();
 
         return DB::transaction(function () use ($cabecera, $pallet, $data, $almacen) {
+            $recepcionActual = DB::table('wms_recepciones_agencia')->where('id', $cabecera->id)->lockForUpdate()->first();
+            if (!$recepcionActual || $recepcionActual->estado !== 'abierta') {
+                throw ValidationException::withMessages(['recepcion' => 'La recepción está cerrada.']);
+            }
             $p = DB::table('wms_recepcion_agencia_pallets')->where('recepcion_id', $cabecera->id)
                 ->where('id', $pallet)->lockForUpdate()->first();
             if (!$p) abort(404);
@@ -471,9 +483,12 @@ class WmsRecepcionAgenciaController extends Controller
     public function cerrar(int $recepcion): JsonResponse
     {
         $cabecera = $this->recepcion($recepcion);
-        DB::table('wms_recepciones_agencia')->where('id', $cabecera->id)->update([
-            'estado' => 'cerrada', 'update_id' => auth()->id(), 'updated_at' => now(),
-        ]);
+        DB::transaction(function () use ($cabecera) {
+            DB::table('wms_recepciones_agencia')->where('id', $cabecera->id)->lockForUpdate()->first();
+            DB::table('wms_recepciones_agencia')->where('id', $cabecera->id)->update([
+                'estado' => 'cerrada', 'update_id' => auth()->id(), 'updated_at' => now(),
+            ]);
+        });
 
         $pendientes = DB::table('wms_recepcion_agencia_pallets')
             ->where('recepcion_id', $cabecera->id)->whereNotIn('estado', ['ingresado'])->count();
