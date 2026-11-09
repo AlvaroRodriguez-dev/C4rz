@@ -91,6 +91,7 @@
                     <button id="btnIngresar" class="bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg px-5 py-3">Confirmar ubicación e ingreso definitivo</button>
                 </section>
                 <div id="detalleEstado" class="mt-4 text-sm text-gray-600"></div>
+                <div id="observacionesPallet" class="hidden mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"></div>
             </div>
 
             <div class="bg-white rounded-xl shadow overflow-hidden">
@@ -153,6 +154,13 @@
                     .attr('class','rounded-full px-3 py-1 text-xs font-bold '+(p.estado==='ingresado'?'bg-green-100 text-green-800':p.estado==='observado'?'bg-amber-100 text-amber-800':'bg-blue-100 text-blue-800'));
                 $('#panelDescarga,#panelVerificacion,#panelIngreso').addClass('hidden');
                 $('#detalleEstado').text('');
+                const pendientes=d.observaciones.filter(o => o.estado !== 'resuelta');
+                if (pendientes.length) {
+                    $('#observacionesPallet').removeClass('hidden').html('<strong>Observaciones registradas:</strong><ul class="list-disc pl-5 mt-1"></ul>');
+                    pendientes.forEach(o => $('#observacionesPallet ul').append($('<li>').text(o.descripcion+' · '+o.estado.toUpperCase())));
+                } else {
+                    $('#observacionesPallet').addClass('hidden').empty();
+                }
                 if (p.estado==='pendiente_descarga') $('#panelDescarga').removeClass('hidden');
                 if (['descargado','observado'].includes(p.estado)) {
                     $('#panelVerificacion').removeClass('hidden');
