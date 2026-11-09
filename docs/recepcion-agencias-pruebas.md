@@ -81,4 +81,4 @@ ORDER BY o.id DESC;
 - El ingreso conserva el número original de pallet.
 - El saldo físico se actualiza únicamente al crear los movimientos en `wms_ingresos`.
 - Cerrar la recepción no convierte automáticamente los pallets pendientes en ingresados.
-- Una nota ya asociada a una recepción no puede volver a utilizarse en otra recepción.
+- Un documento puede distribuirse entre varias recepciones/camiones si todavía quedan pallets pendientes; un mismo pallet de ese documento no puede asociarse dos veces.
