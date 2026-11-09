@@ -202,6 +202,7 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
         Route::get('/', [WmsRecepcionAgenciaController::class, 'index'])->name('index');
         Route::get('/documentos/buscar', [WmsRecepcionAgenciaController::class, 'buscarDocumentos'])->name('documentos.buscar');
         Route::get('/ubicaciones-temporales', [WmsRecepcionAgenciaController::class, 'ubicacionesTemporales'])->name('ubicaciones-temporales');
+        Route::post('/ubicaciones-temporales', [WmsRecepcionAgenciaController::class, 'crearUbicacionTemporal'])->name('ubicaciones-temporales.store')->middleware('permission:wms.configurar');
         Route::get('/ubicaciones-normales', [WmsRecepcionAgenciaController::class, 'ubicacionesNormales'])->name('ubicaciones-normales');
         Route::post('/', [WmsRecepcionAgenciaController::class, 'store'])->name('store');
         Route::get('/{recepcion}', [WmsRecepcionAgenciaController::class, 'show'])->whereNumber('recepcion')->name('show');
