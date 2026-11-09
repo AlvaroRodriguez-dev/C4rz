@@ -61,7 +61,21 @@
 
                 <section id="panelDescarga" class="hidden space-y-3">
                     <h4 class="font-semibold">1. Registrar descarga temporal</h4>
-                    <p class="text-sm text-gray-600">Ubica físicamente el pallet en una zona temporal. Esto no genera stock WMS.</p>
+                    <p class="text-sm text-gray-600">Revisa el contenido declarado del pallet antes de registrar su descarga. Ubícalo físicamente en una zona temporal; esta operación no genera stock WMS.</p>
+                    <div id="detalleDescarga" class="rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+                        <div class="flex items-center justify-between gap-2 mb-2">
+                            <h5 class="text-sm font-semibold text-gray-800">Contenido declarado del pallet</h5>
+                            <span id="totalCajasDescarga" class="text-xs font-semibold text-blue-800"></span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full text-sm">
+                                <thead class="text-xs uppercase text-gray-500 border-b">
+                                    <tr><th class="py-2 pr-3 text-left">Producto</th><th class="py-2 pr-3 text-left">Lote</th><th class="py-2 text-right">Cantidad</th></tr>
+                                </thead>
+                                <tbody id="detalleDescargaBody" class="divide-y divide-blue-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
                     <select id="ubicacionTemporal" class="w-full"></select>
                     <button id="btnDescargar" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg px-5 py-3">Registrar descarga</button>
                 </section>
@@ -161,7 +175,10 @@
                 } else {
                     $('#observacionesPallet').addClass('hidden').empty();
                 }
-                if (p.estado==='pendiente_descarga') $('#panelDescarga').removeClass('hidden');
+                if (p.estado==='pendiente_descarga') {
+                    renderResumenDescarga(d.detalles);
+                    $('#panelDescarga').removeClass('hidden');
+                }
                 if (['descargado','observado'].includes(p.estado)) {
                     $('#panelVerificacion').removeClass('hidden');
                     renderDetalles(d.detalles);
@@ -175,6 +192,25 @@
         }
 
         const escapeHtml = value => $('<div>').text(value ?? '').html();
+
+        function renderResumenDescarga(items) {
+            const total = items.reduce((sum, item) => sum + Number(item.cantidad_esperada || 0), 0);
+            $('#totalCajasDescarga').text(items.length + ' líneas · ' + total.toLocaleString('es-BO') + ' cajas');
+            if (!items.length) {
+                $('#detalleDescargaBody').html('<tr><td colspan="3" class="py-3 text-center text-gray-500">Este pallet no tiene detalle de productos declarado.</td></tr>');
+                return;
+            }
+            const html = items.map(item => `
+                <tr>
+                    <td class="py-2 pr-3">
+                        <div class="font-mono font-semibold text-gray-800">${escapeHtml(item.codigo_esperado || '—')}</div>
+                        <div class="text-xs text-gray-500">${escapeHtml([item.descrip, item.descrip1].filter(Boolean).join(' · ') || 'Sin descripción')}</div>
+                    </td>
+                    <td class="py-2 pr-3 font-mono">${escapeHtml(item.lote_esperado || '—')}</td>
+                    <td class="py-2 text-right font-semibold tabular-nums">${Number(item.cantidad_esperada || 0).toLocaleString('es-BO')}</td>
+                </tr>`).join('');
+            $('#detalleDescargaBody').html(html);
+        }
 
         function renderDetalles(items) {
             const html = items.map(x => `
