@@ -61,7 +61,35 @@ class IndicadoresProcesadoresSeeder extends Seeder
             ['i9-13900H', '2023-01-01', 'trimestre'],
             ['i9-13900K', '2022-10-01', 'trimestre'],
             ['Core Ultra 9 185H', '2023-10-01', 'trimestre'],
+            ['Core Ultra 9 288V', '2024-07-01', 'trimestre'],
+            ['Core Ultra 9 285H', '2025-01-01', 'trimestre'],
+            ['Core Ultra 7 355', '2026-01-01', 'trimestre'],
+            ['Core 7 150U', '2023-10-01', 'trimestre'],
         ];
+
+        // AMD: fechas tomadas de las fichas oficiales de producto.
+        $amdRows = [
+            ['Ryzen 7 7730U', '2023-01-01', 'trimestre', 'https://www.amd.com/es/support/downloads/drivers.html/processors/ryzen/ryzen-7000-series/amd-ryzen-7-7730u.html'],
+            ['Ryzen 7 3700U', '2019-01-01', 'trimestre', 'https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-3000-series/amd-ryzen-7-3700u.html'],
+            ['Ryzen 7 5700U', '2021-01-01', 'mes', 'https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-5000-series/amd-ryzen-7-5700u.html'],
+            ['Ryzen 5 3500U', '2019-01-01', 'trimestre', 'https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-3000-series/amd-ryzen-5-3500u.html'],
+            ['Ryzen 5 4600H', '2020-06-01', 'dia', 'https://www.amd.com/es/support/downloads/drivers.html/processors/ryzen/ryzen-4000-series/amd-ryzen-5-4600h.html'],
+        ];
+
+        foreach ($amdRows as [$model, $launch, $precision, $source]) {
+            IndicadoresProcesador::updateOrCreate(
+                ['modelo_normalizado' => mb_strtolower($model)],
+                [
+                    'fabricante' => 'AMD',
+                    'modelo' => $model,
+                    'fecha_lanzamiento' => $launch,
+                    'precision_fecha' => $precision,
+                    'fuente_url' => $source,
+                    'verificado_en' => now()->toDateString(),
+                    'activo' => true,
+                ]
+            );
+        }
 
         foreach ($rows as [$model, $launch, $precision]) {
             IndicadoresProcesador::updateOrCreate(
