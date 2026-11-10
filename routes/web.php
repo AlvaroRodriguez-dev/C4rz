@@ -9,6 +9,7 @@ use App\Http\Controllers\Comercial\AgenciaController;
 use App\Http\Controllers\Comercial\ComercialContactoController;
 use App\Http\Controllers\Comercial\TarjetaPublicaController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Indicadores\IndicadoresController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RrhhAgenciaController;
 use Illuminate\Support\Facades\Route;
@@ -43,7 +44,14 @@ use App\Http\Controllers\Wms\WmsLiberacionProduccionController;
 use App\Http\Controllers\Wms\WmsPaletizacionController;
 use App\Http\Controllers\Wms\WmsVerificacionPalletController;
 
-Route::get('/', [WelcomeController::class, 'index'])->name('welcome');\n\nRoute::middleware(['auth', 'permission:indicadores.ocs'])->prefix('indicadores')->name('indicadores.')->group(function () {\n    Route::get('/', [IndicadoresController::class, 'index'])->name('index');\n    Route::get('/importar', [IndicadoresController::class, 'create'])->name('create');\n    Route::post('/importar', [IndicadoresController::class, 'store'])->name('store');\n    Route::get('/{importacion}', [IndicadoresController::class, 'show'])->name('show');\n});
+Route::get('/', [WelcomeController::class, 'index'])->name('welcome');
+
+Route::middleware(['auth', 'permission:indicadores.ocs'])->prefix('indicadores')->name('indicadores.')->group(function () {
+    Route::get('/', [IndicadoresController::class, 'index'])->name('index');
+    Route::get('/importar', [IndicadoresController::class, 'create'])->name('create');
+    Route::post('/importar', [IndicadoresController::class, 'store'])->name('store');
+    Route::get('/{importacion}', [IndicadoresController::class, 'show'])->name('show');
+});
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware(['auth', 'role:SIS-ADMIN'])->prefix('admin/usuarios')->name('admin.usuarios.')->group(function () {
