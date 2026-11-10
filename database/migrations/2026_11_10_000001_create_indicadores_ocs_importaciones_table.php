@@ -12,6 +12,7 @@ return new class extends Migration {
             $table->unsignedSmallInteger('periodo_anio');
             $table->unsignedTinyInteger('periodo_mes');
             $table->string('archivo_original');
+            $table->string('archivo_ruta');
             $table->string('archivo_hash', 64);
             $table->unsignedInteger('total_registros')->default(0);
             $table->unsignedInteger('total_computadoras')->default(0);
