@@ -39,6 +39,8 @@ class RolesAndPermissionsSeeder extends Seeder
             'wms.produccion.verificar.ejecutar',
         ];
 
+        $indicadoresPermisos = ['indicadores.ocs'];
+
         $rrhhPermisos = [
             'rrhh.importar-usb',
             'rrhh.recuperar-datos',
@@ -46,7 +48,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'rrhh.novedades',
         ];
 
-        foreach (array_merge($wmsPermisos, $wmsPermisosVerificacion, $rrhhPermisos) as $permiso) {
+        foreach (array_merge($wmsPermisos, $wmsPermisosVerificacion, $rrhhPermisos, $indicadoresPermisos) as $permiso) {
             Permission::firstOrCreate(['name' => $permiso]);
         }
 
@@ -94,6 +96,6 @@ class RolesAndPermissionsSeeder extends Seeder
 
         // SIS-ADMIN: ve TODO el proyecto sin excepciones (WMS + RRHH + SIS)
         Role::firstOrCreate(['name' => 'SIS-ADMIN'])
-            ->givePermissionTo(array_merge($wmsPermisos, $wmsPermisosVerificacion, $rrhhPermisos, $sisPermisos));
+            ->givePermissionTo(array_merge($wmsPermisos, $wmsPermisosVerificacion, $rrhhPermisos, $sisPermisos, $indicadoresPermisos));
     }
 }
