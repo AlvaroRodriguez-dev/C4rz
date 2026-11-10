@@ -9,6 +9,7 @@ use RuntimeException;
 
 class OcsInventoryService
 {
+    private $processorCatalog = null;
     public function process(string $path, int $year, int $month): array
     {
         $handle = fopen($path, 'r');
@@ -145,7 +146,7 @@ class OcsInventoryService
         $normalized = preg_replace('/\(r\)|\(tm\)|\(c\)/', ' ', $normalized);
         $normalized = preg_replace('/\s+/', ' ', $normalized);
 
-        $catalog = IndicadoresProcesador::query()->where('activo', true)->get();
+        $catalog = $this->processorCatalog ??= IndicadoresProcesador::query()->where('activo', true)->get();
         foreach ($catalog as $processor) {
             $needle = Str::lower($processor->modelo_normalizado);
             if (preg_match('/(?<![a-z0-9])' . preg_quote($needle, '/') . '(?![a-z0-9])/i', $normalized)) {
