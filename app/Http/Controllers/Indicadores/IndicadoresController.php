@@ -10,13 +10,13 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 class IndicadoresController extends Controller {
  public function index() {
-  $importaciones=IndicadoresOcsImportacion::with('user')->orderByDesc('periodo_anio')->orderByDesc('periodo_mes')->paginate(12);
+  $importaciones=IndicadoresOcsImportacion::orderByDesc('periodo_anio')->orderByDesc('periodo_mes')->paginate(12);
   $actual=IndicadoresOcsImportacion::orderByDesc('periodo_anio')->orderByDesc('periodo_mes')->first();
   return view('indicadores.index',compact('importaciones','actual'));
  }
  public function create() { return view('indicadores.create'); }
  public function store(Request $request,OcsInventoryService $service) {
-  $data=$request->validate(['archivo'=>['required','file','mimes:csv,txt','max:20480'],'mes'=>['required','integer','between:1,12'],'anio'=>['required','integer','between:2020,2100']]);
+  $data=$request->validate(['archivo'=>['required','file','extensions:csv,txt','max:20480'],'mes'=>['required','integer','between:1,12'],'anio'=>['required','integer','between:2020,2100']]);
   $file=$request->file('archivo'); $hash=hash_file('sha256',$file->getRealPath());
   if(IndicadoresOcsImportacion::where('archivo_hash',$hash)->exists()) throw ValidationException::withMessages(['archivo'=>'Este archivo ya fue importado.']);
   $result=$service->process($file->getRealPath(),(int)$data['anio'],(int)$data['mes']);
