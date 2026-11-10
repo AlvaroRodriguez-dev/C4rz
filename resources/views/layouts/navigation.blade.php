@@ -17,6 +17,10 @@
                         {{ __('Dashboard') }}
                     </x-nav-link>
 
+                    @can('indicadores.ocs')
+                        <x-nav-link :href="route('indicadores.index')" :active="request()->routeIs('indicadores.*')">Indicadores</x-nav-link>
+                    @endcan
+
                     {{-- WMS - visible si tiene algún permiso de WMS --}}
                     @hasanyrole('WMS-ADMIN|WMS-ALMACEN|WMS-MONTACARGA|SIS-ADMIN')
                         <x-nav-link :href="route('wms.index')" :active="request()->routeIs('wms.*')">
@@ -241,6 +245,10 @@
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
+
+            @can('indicadores.ocs')
+                <x-responsive-nav-link :href="route('indicadores.index')" :active="request()->routeIs('indicadores.*')">Indicadores</x-responsive-nav-link>
+            @endcan
 
             @hasanyrole('WMS-ADMIN|WMS-ALMACEN|WMS-MONTACARGA|SIS-ADMIN')
                 <x-responsive-nav-link :href="route('wms.index')" :active="request()->routeIs('wms.*')">
