@@ -26,7 +26,7 @@ class IndicadoresController extends Controller {
             throw ValidationException::withMessages(['archivo' => 'Este archivo ya fue importado para otro período.']);
         }
   $result=$service->process($file->getRealPath(),(int)$data['anio'],(int)$data['mes']);
-  if($result['total_computadoras']===0) throw ValidationException::withMessages(['archivo'=>'No se encontraron equipos Windows de escritorio o portátiles en el archivo.']);
+  if($result['total_computadoras']===0) throw ValidationException::withMessages(['archivo'=>'No se encontraron equipos de escritorio o portátiles compatibles con el inventario en el archivo.']);
   $stored=$file->store('indicadores/ocs','local');
   $sem=fn($v,$yellow,$red)=>$v<=$yellow?'verde':($v<=$red?'amarillo':'rojo');
   try {
