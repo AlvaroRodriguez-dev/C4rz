@@ -27,6 +27,7 @@ class DatabaseSeeder extends Seeder
             WmsMasterDataSeeder::class,
             WmsTipoDocumentoSeeder::class,
             WmsUsuarioAlmacenSeeder::class,
+            IndicadoresProcesadoresSeeder::class,
         ]);
 
         $this->call(RolesAndPermissionsSeeder::class);
