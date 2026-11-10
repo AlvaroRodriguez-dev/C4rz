@@ -43,7 +43,7 @@ use App\Http\Controllers\Wms\WmsLiberacionProduccionController;
 use App\Http\Controllers\Wms\WmsPaletizacionController;
 use App\Http\Controllers\Wms\WmsVerificacionPalletController;
 
-Route::get('/', [WelcomeController::class, 'index'])->name('welcome');
+Route::get('/', [WelcomeController::class, 'index'])->name('welcome');\n\nRoute::middleware(['auth', 'permission:indicadores.ocs'])->prefix('indicadores')->name('indicadores.')->group(function () {\n    Route::get('/', [IndicadoresController::class, 'index'])->name('index');\n    Route::get('/importar', [IndicadoresController::class, 'create'])->name('create');\n    Route::post('/importar', [IndicadoresController::class, 'store'])->name('store');\n    Route::get('/{importacion}', [IndicadoresController::class, 'show'])->name('show');\n});
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware(['auth', 'role:SIS-ADMIN'])->prefix('admin/usuarios')->name('admin.usuarios.')->group(function () {
