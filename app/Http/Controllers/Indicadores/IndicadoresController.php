@@ -18,7 +18,13 @@ class IndicadoresController extends Controller {
  public function store(Request $request,OcsInventoryService $service) {
   $data=$request->validate(['archivo'=>['required','file','extensions:csv,txt','max:20480'],'mes'=>['required','integer','between:1,12'],'anio'=>['required','integer','between:2020,2100']]);
   $file=$request->file('archivo'); $hash=hash_file('sha256',$file->getRealPath());
-  if(IndicadoresOcsImportacion::where('archivo_hash',$hash)->exists()) throw ValidationException::withMessages(['archivo'=>'Este archivo ya fue importado.']);
+  if (IndicadoresOcsImportacion::where('archivo_hash', $hash)
+            ->where(function ($query) use ($data) {
+                $query->where('periodo_anio', '!=', $data['anio'])
+                    ->orWhere('periodo_mes', '!=', $data['mes']);
+            })->exists()) {
+            throw ValidationException::withMessages(['archivo' => 'Este archivo ya fue importado para otro período.']);
+        }
   $result=$service->process($file->getRealPath(),(int)$data['anio'],(int)$data['mes']);
   if($result['total_computadoras']===0) throw ValidationException::withMessages(['archivo'=>'No se encontraron equipos Windows de escritorio o portátiles en el archivo.']);
   $stored=$file->store('indicadores/ocs','local');
