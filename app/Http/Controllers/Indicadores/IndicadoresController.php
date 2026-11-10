@@ -28,7 +28,7 @@ class IndicadoresController extends Controller {
     $old=IndicadoresOcsImportacion::where('periodo_anio',$data['anio'])->where('periodo_mes',$data['mes'])->first();
     if($old){$old->delete();}
     $import=IndicadoresOcsImportacion::create([
-     'periodo_anio'=>$data['anio'],'periodo_mes'=>$data['mes'],'archivo_original'=>$file->getClientOriginalName(),'archivo_hash'=>$hash,
+     'periodo_anio'=>$data['anio'],'periodo_mes'=>$data['mes'],'archivo_original'=>$file->getClientOriginalName(),'archivo_ruta'=>$stored,'archivo_hash'=>$hash,
      'total_registros'=>$result['total_registros'],'total_computadoras'=>$result['total_computadoras'],
      'so_sin_soporte'=>$result['so_sin_soporte'],'so_pendiente_verificacion'=>$result['so_pendiente_verificacion'],
      'ram_hasta_4gb'=>$result['ram_hasta_4gb'],'antiguedad_mayor_5'=>$result['antiguedad_mayor_5'],'sin_fecha_compra'=>$result['sin_fecha_compra'],
