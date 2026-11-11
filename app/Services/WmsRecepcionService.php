@@ -128,6 +128,10 @@ class WmsRecepcionService
             ->get()
             ->keyBy('CODIGO');
 
+        // Capacidades configuradas por formato, igual que en INGRESO CON NOTA.
+        $capacidades = WmsConfigPallet::query()
+            ->pluck('cajas_x_pallet', 'codigo');
+
         $idsDetalle = $detallesOrigen
             ->pluck('id')
             ->unique()
@@ -184,12 +188,17 @@ class WmsRecepcionService
                 fn(array $item) =>
                 $item['codigo'] . '|' . $item['lote_origen']
             )
-            ->map(function (Collection $grupo) use ($stock) {
+            ->map(function (Collection $grupo) use ($stock, $capacidades) {
                 $primero = $grupo->first();
                 $stockInfo = $stock->get($primero['codigo']);
+                $formato = strtoupper(substr($primero['codigo'], 5, 4));
+                $capacidadPallet = $capacidades->get($formato);
 
                 return [
                     'codigo' => $primero['codigo'],
+                    'formato' => $formato,
+                    'capacidad_pallet' => $capacidadPallet !== null ? (int) $capacidadPallet : null,
+                    'sin_config' => $capacidadPallet === null || (int) $capacidadPallet <= 0,
                     'descrip' => $stockInfo->DESCRIP ?? null,
                     'descrip1' => $stockInfo->DESCRIP1 ?? null,
                     'lote_origen' => $primero['lote_origen'],
