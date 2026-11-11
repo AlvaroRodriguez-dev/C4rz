@@ -126,7 +126,7 @@
                     <div>
                         <h3 class="font-semibold text-lg">Preparación de pallets</h3>
                         <p class="text-sm text-gray-500">
-                            La distribución inicial separa por formato, código y lote. Puedes fusionar saldos manualmente en pallets del mismo formato, sin superar su capacidad.
+                            La distribución inicial separa por formato, código y lote. Para fusionar un saldo, quítalo de su pallet de origen y agrégalo al pallet destino del mismo formato; no se permite superar la capacidad.
                         </p>
                     </div>
 
@@ -447,7 +447,7 @@
                 );
             } else {
                 mensaje(
-                    'Pallets generados por formato, código y lote. Los pallets completos quedan separados y los saldos pueden fusionarse manualmente con otros productos o lotes del mismo formato, respetando la capacidad.',
+                    'Pallets generados por formato, código y lote. Los pallets completos quedan separados. Para fusionar saldos de otros productos o lotes, utiliza «Quitar» en el pallet de origen y luego «Agregar producto» en el pallet destino del mismo formato, respetando su capacidad.',
                     'success'
                 );
             }
