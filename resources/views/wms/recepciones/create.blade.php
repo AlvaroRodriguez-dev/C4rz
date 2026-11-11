@@ -922,7 +922,6 @@
                 selectProducto.appendChild(new Option('Seleccione producto pendiente', ''));
                 estado.items.forEach(origen => {
                     const disponible = restante(origen);
-                    if (disponible <= 0) return;
                     const descripcion = [origen.codigo, origen.descrip, origen.descrip1, `Lote ${origen.lote_origen || 'Sin lote'}`, `Pendiente ${disponible}`].filter(Boolean).join(' · ');
                     selectProducto.appendChild(new Option(descripcion, claveItem(origen)));
                 });
