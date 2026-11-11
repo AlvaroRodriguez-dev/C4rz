@@ -126,14 +126,9 @@
                     <div>
                         <h3 class="font-semibold text-lg">Preparación de pallets</h3>
                         <p class="text-sm text-gray-500">
-                            La distribución inicial separa por formato, código y lote. Para fusionar un saldo, quítalo de su pallet de origen y agrégalo al pallet destino del mismo formato; no se permite superar la capacidad.
+                            Los pallets se generan automáticamente por formato, producto y lote. Puedes fusionar saldos del mismo formato y copiar ubicaciones, respetando siempre la capacidad configurada.
                         </p>
                     </div>
-
-                    <button type="button" id="btnAgregarPallet"
-                            class="btn bg-blue-600 hover:bg-blue-700 text-white">
-                        + Agregar pallet
-                    </button>
                 </div>
 
                 <div id="listaPallets" class="space-y-4 mt-5"></div>
@@ -447,7 +442,7 @@
                 );
             } else {
                 mensaje(
-                    'Pallets generados por formato, código y lote. Los pallets completos quedan separados. Para fusionar saldos de otros productos o lotes, utiliza «Quitar» en el pallet de origen y luego «Agregar producto» en el pallet destino del mismo formato, respetando su capacidad.',
+                    'Pallets generados automáticamente. Puedes fusionar saldos compatibles desde cada tarjeta. Las discrepancias se gestionan desde las opciones avanzadas.',
                     'success'
                 );
             }
@@ -786,184 +781,206 @@
             contenedor.replaceChildren();
 
             estado.pallets.forEach((pallet, indice) => {
-                const card = elemento('div', '', 'border rounded-xl p-4');
+                const total = totalCajasPallet(pallet);
+                const capacidad = Number(pallet.capacidad || 0);
+                const esSaldo = capacidad > 0 && total < capacidad;
+                const sinConfig = !capacidad;
+                const card = elemento(
+                    'div',
+                    '',
+                    `border rounded-xl p-4 shadow-sm ${sinConfig ? 'border-orange-300 bg-orange-50' : (esSaldo ? 'border-blue-300 bg-blue-50' : 'border-gray-200 bg-white')}`
+                );
                 card.dataset.pallet = pallet.id;
 
-                const encabezado = elemento('div', '', 'flex justify-between items-center mb-4');
-                const totalPallet = totalCajasPallet(pallet);
-                const capacidadTexto = pallet.capacidad
-                    ? `${totalPallet} / ${pallet.capacidad} cajas`
-                    : `${totalPallet} cajas · SIN CONFIGURACIÓN`;
-                encabezado.append(
-                    elemento('h4', `Pallet ${indice + 1} · Formato ${pallet.formato || '—'} · ${capacidadTexto}`, 'font-semibold'),
-                );
+                const encabezado = elemento('div', '', 'flex items-center justify-between mb-2');
+                encabezado.appendChild(elemento('h4', `Pallet Local ${indice + 1}`, 'font-semibold text-gray-800'));
 
-                const btnEliminar = elemento(
-                    'button',
-                    'Eliminar pallet',
-                    'text-sm text-red-600 hover:text-red-800'
+                const etiqueta = elemento(
+                    'span',
+                    sinConfig ? 'SIN CONFIG.' : (esSaldo ? 'SALDO' : 'PALLET COMPLETO'),
+                    `inline-block text-[11px] font-semibold rounded-full px-2 py-0.5 ${sinConfig ? 'text-orange-700 bg-orange-100' : (esSaldo ? 'text-blue-700 bg-blue-100' : 'text-gray-600 bg-gray-100')}`
                 );
-
-                btnEliminar.type = 'button';
-                btnEliminar.addEventListener('click', () => eliminarPallet(pallet.id));
-                encabezado.appendChild(btnEliminar);
+                encabezado.appendChild(etiqueta);
                 card.appendChild(encabezado);
 
-                const ubicaciones = elemento('div', '', 'grid grid-cols-1 sm:grid-cols-2 gap-3');
+                pallet.items.forEach(item => {
+                    const fila = elemento('div', '', 'flex justify-between gap-3 text-sm py-2 border-t border-gray-100 first:border-0');
+                    const detalle = elemento('div', '', 'min-w-0');
+                    detalle.appendChild(elemento('p', item.codigo, 'font-mono text-gray-800 break-all'));
+                    if (item.descrip) detalle.appendChild(elemento('p', item.descrip, 'text-xs text-gray-600'));
+                    if (item.descrip1) detalle.appendChild(elemento('p', item.descrip1, 'text-xs text-gray-500'));
+                    detalle.appendChild(elemento('p', `Lote: ${item.clote || 'Sin lote'}`, 'text-xs text-gray-400'));
+                    fila.append(detalle, elemento('span', String(item.cantidad), 'font-semibold text-gray-800 shrink-0'));
+                    card.appendChild(fila);
+                });
+
+                const totalFila = elemento('div', '', 'flex justify-between items-center mt-2 pt-2 border-t border-gray-100');
+                totalFila.append(
+                    elemento('span', 'Total en este pallet', 'text-xs text-gray-500'),
+                    elemento('span', `${total} / ${capacidad || '—'}`, 'font-bold text-gray-800')
+                );
+                card.appendChild(totalFila);
+
+                if (esSaldo) {
+                    const compatibles = estado.pallets.filter(otro =>
+                        otro.id !== pallet.id &&
+                        Number(otro.capacidad || 0) === capacidad &&
+                        String(otro.formato || '').toUpperCase() === String(pallet.formato || '').toUpperCase() &&
+                        totalCajasPallet(otro) < capacidad &&
+                        totalCajasPallet(otro) + total <= capacidad
+                    );
+
+                    if (compatibles.length) {
+                        const fusion = elemento('div', '', 'mt-3 pt-3 border-t border-blue-100');
+                        fusion.appendChild(elemento('label', 'Fusionar con otro pallet de saldo (mismo formato)', 'block text-xs font-medium text-gray-600 mb-1'));
+                        const controles = elemento('div', '', 'flex gap-2');
+                        const select = elemento('select', '', 'campo flex-1');
+                        select.appendChild(new Option('Selecciona pallet destino...', ''));
+                        compatibles.forEach(otro => {
+                            const numero = estado.pallets.findIndex(p => p.id === otro.id) + 1;
+                            select.appendChild(new Option(`Pallet Local ${numero} (${totalCajasPallet(otro)}/${capacidad})`, otro.id));
+                        });
+                        const boton = elemento('button', 'Fusionar', 'btn bg-blue-600 hover:bg-blue-700 text-white');
+                        boton.type = 'button';
+                        boton.addEventListener('click', () => fusionarPallets(pallet.id, select.value));
+                        controles.append(select, boton);
+                        fusion.appendChild(controles);
+                        card.appendChild(fusion);
+                    }
+                }
+
+                const ubicaciones = elemento('div', '', 'grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3');
                 const campoGalpon = elemento('div');
-                campoGalpon.appendChild(elemento('label', 'Galpón', 'block text-sm font-medium mb-1'));
+                campoGalpon.appendChild(elemento('label', 'Galpón', 'block text-xs font-medium text-gray-500 mb-1'));
                 campoGalpon.appendChild(crearSelectGalpon(pallet));
-
                 const campoUbicacion = elemento('div');
-                campoUbicacion.appendChild(elemento('label', 'Ubicación', 'block text-sm font-medium mb-1'));
+                campoUbicacion.appendChild(elemento('label', 'Ubicación', 'block text-xs font-medium text-gray-500 mb-1'));
                 campoUbicacion.appendChild(crearSelectUbicacion(pallet));
-
                 ubicaciones.append(campoGalpon, campoUbicacion);
-                card.appendChild(ubicaciones);
 
-                // Recuperar las selecciones actuales al volver a renderizar.
                 const galponSelect = campoGalpon.querySelector('select');
                 galponSelect.value = pallet.galponId;
-
                 if (pallet.galponId) {
                     const ubicacionSelect = campoUbicacion.querySelector('select');
                     cargarUbicaciones(pallet, ubicacionSelect).then(() => {
                         ubicacionSelect.value = pallet.ubicacion;
                     });
                 }
+                card.appendChild(ubicaciones);
 
-                const separador = elemento('div', '', 'border-t mt-4 pt-4');
-                separador.appendChild(elemento('h5', 'Agregar producto', 'font-medium text-sm mb-3'));
+                if (estado.pallets.length > 1) {
+                    const copiar = elemento('div', '', 'mt-3 pt-2 border-t border-gray-100');
+                    const botonMostrar = elemento('button', '📋 Copiar esta ubicación a otros pallets', 'text-xs text-blue-600 font-medium');
+                    botonMostrar.type = 'button';
+                    const panel = elemento('div', '', 'hidden mt-2 bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2');
+                    panel.appendChild(elemento('p', 'Selecciona los pallets destino:', 'text-xs text-gray-500'));
+                    const checks = [];
+                    estado.pallets.forEach((otro, otroIndice) => {
+                        if (otro.id === pallet.id) return;
+                        const label = elemento('label', '', 'flex items-center gap-2 text-sm text-gray-700');
+                        const check = elemento('input');
+                        check.type = 'checkbox';
+                        check.value = otro.id;
+                        label.append(check, document.createTextNode(`Pallet Local ${otroIndice + 1}`));
+                        panel.appendChild(label);
+                        checks.push(check);
+                    });
+                    const acciones = elemento('div', '', 'flex gap-3 pt-1');
+                    const todos = elemento('button', 'Seleccionar todos', 'text-xs text-blue-600');
+                    todos.type = 'button';
+                    todos.addEventListener('click', () => checks.forEach(check => check.checked = true));
+                    const aplicar = elemento('button', 'Aplicar', 'btn bg-blue-600 text-white ml-auto');
+                    aplicar.type = 'button';
+                    aplicar.addEventListener('click', () => {
+                        const destinos = checks.filter(check => check.checked).map(check => check.value);
+                        if (!destinos.length) return mensaje('Selecciona al menos un pallet destino.', 'error');
+                        if (!pallet.galponId || !pallet.ubicacion) return mensaje('Completa Galpón y Ubicación en este pallet antes de copiar.', 'error');
+                        destinos.forEach(id => {
+                            const destino = estado.pallets.find(p => String(p.id) === String(id));
+                            if (destino) {
+                                destino.galponId = pallet.galponId;
+                                destino.galpon = pallet.galpon;
+                                destino.ubicacion = pallet.ubicacion;
+                            }
+                        });
+                        renderizarPallets();
+                        mensaje(`Ubicación copiada a ${destinos.length} pallet(s).`, 'success');
+                    });
+                    acciones.append(todos, aplicar);
+                    panel.appendChild(acciones);
+                    botonMostrar.addEventListener('click', () => panel.classList.toggle('hidden'));
+                    copiar.append(botonMostrar, panel);
+                    card.appendChild(copiar);
+                }
 
-                const formulario = elemento('div', '', 'grid grid-cols-1 sm:grid-cols-2 gap-3');
-
+                // Las operaciones excepcionales se mantienen disponibles, pero fuera del flujo habitual.
+                const avanzado = elemento('details', '', 'mt-3 border-t border-gray-200 pt-3');
+                const resumenAvanzado = elemento('summary', 'Opciones avanzadas · discrepancias', 'text-xs font-medium text-gray-600 cursor-pointer');
+                avanzado.appendChild(resumenAvanzado);
+                const formulario = elemento('div', '', 'mt-3 space-y-2');
                 const selectProducto = elemento('select', '', 'campo');
                 selectProducto.appendChild(new Option('Seleccione producto pendiente', ''));
-
-                estado.items.forEach(item => {
-                    const clave = claveItem(item);
-                    const disponible = restante(item);
-
-                    const descripciones = [item.descrip, item.descrip1]
-                        .filter(Boolean)
-                        .join(' · ');
-
-                    const textoProducto = [
-                        item.codigo,
-                        descripciones,
-                        `Lote ${item.lote_origen || 'Sin lote'}`,
-                        `Pendiente ${disponible}`
-                    ].filter(Boolean).join(' · ');
-
-                    selectProducto.appendChild(
-                        new Option(textoProducto, clave)
-                    );
+                estado.items.forEach(origen => {
+                    const disponible = restante(origen);
+                    if (disponible <= 0) return;
+                    const descripcion = [origen.codigo, origen.descrip, origen.descrip1, `Lote ${origen.lote_origen || 'Sin lote'}`, `Pendiente ${disponible}`].filter(Boolean).join(' · ');
+                    selectProducto.appendChild(new Option(descripcion, claveItem(origen)));
                 });
-
-                const inputCantidad = elemento('input', '', 'campo');
-                inputCantidad.type = 'number';
-                inputCantidad.min = '1';
-                inputCantidad.step = '1';
-                inputCantidad.placeholder = 'Cantidad de cajas';
-
-                const inputLote = elemento('input', '', 'campo');
-                inputLote.type = 'text';
-                inputLote.maxLength = 30;
-                inputLote.placeholder = 'Lote físico';
-
-                const inputObsExceso = elemento('textarea', '', 'campo');
-                inputObsExceso.rows = 2;
-                inputObsExceso.maxLength = 500;
-                inputObsExceso.placeholder = 'Observación por exceso de cantidad (si corresponde)';
-
-                const inputObsLote = elemento('textarea', '', 'campo');
-                inputObsLote.rows = 2;
-                inputObsLote.maxLength = 500;
-                inputObsLote.placeholder = 'Observación por diferencia de lote (si corresponde)';
-
+                const cantidad = elemento('input', '', 'campo');
+                cantidad.type = 'number'; cantidad.min = '1'; cantidad.step = '1'; cantidad.placeholder = 'Cantidad de cajas';
+                const lote = elemento('input', '', 'campo');
+                lote.type = 'text'; lote.maxLength = 30; lote.placeholder = 'Lote físico';
+                const obsExceso = elemento('textarea', '', 'campo');
+                obsExceso.rows = 2; obsExceso.maxLength = 500; obsExceso.placeholder = 'Justificación por exceso de cantidad (si corresponde)';
+                const obsLote = elemento('textarea', '', 'campo');
+                obsLote.rows = 2; obsLote.maxLength = 500; obsLote.placeholder = 'Justificación por diferencia de lote (si corresponde)';
                 selectProducto.addEventListener('change', () => {
                     const origen = obtenerItemOrigen(selectProducto.value);
-
-                    inputCantidad.value = origen ? restante(origen) : '';
-                    inputLote.value = origen ? (origen.lote_origen || '') : '';
+                    cantidad.value = origen ? restante(origen) : '';
+                    lote.value = origen ? (origen.lote_origen || '') : '';
                 });
-
-                formulario.append(
-                    selectProducto,
-                    inputCantidad,
-                    inputLote,
-                    inputObsExceso,
-                    inputObsLote
-                );
-
-                separador.appendChild(formulario);
-
-                const btnAgregar = elemento(
-                    'button',
-                    'Agregar producto al pallet',
-                    'btn bg-indigo-600 hover:bg-indigo-700 text-white mt-3'
-                );
-
-                btnAgregar.type = 'button';
-                btnAgregar.addEventListener('click', () => {
-                    agregarProducto(
-                        pallet.id,
-                        selectProducto.value,
-                        inputCantidad.value,
-                        inputLote.value,
-                        inputObsExceso.value,
-                        inputObsLote.value
-                    );
+                const agregar = elemento('button', 'Agregar producto / registrar discrepancia', 'btn bg-indigo-600 hover:bg-indigo-700 text-white');
+                agregar.type = 'button';
+                agregar.addEventListener('click', () => {
+                    agregarProducto(pallet.id, selectProducto.value, cantidad.value, lote.value, obsExceso.value, obsLote.value);
                 });
+                formulario.append(selectProducto, cantidad, lote, obsExceso, obsLote, agregar);
+                avanzado.appendChild(formulario);
+                card.appendChild(avanzado);
 
-                separador.appendChild(btnAgregar);
-                card.appendChild(separador);
-
-                const tabla = elemento('div', '', 'overflow-x-auto mt-4');
-                const table = elemento('table', '', 'w-full text-sm');
-                const thead = elemento('thead');
-                const trHead = elemento('tr', '', 'border-b text-left');
-
-                ['Producto', 'Lote físico', 'Cantidad', 'Formato', 'Acción'].forEach(t => {
-                    trHead.appendChild(elemento('th', t, 'p-2'));
-                });
-
-                thead.appendChild(trHead);
-                table.appendChild(thead);
-
-                const tbody = elemento('tbody');
-
-                pallet.items.forEach((item, itemIndex) => {
-                    const tr = document.createElement('tr');
-                    const formato = String(item.codigo).substring(5, 9).toUpperCase();
-
-                    tr.append(
-                        crearCeldaProducto(item),
-                        crearCelda(item.clote),
-                        crearCelda(item.cantidad),
-                        crearCelda(formato)
-                    );
-
-                    const tdAccion = elemento('td', '', 'p-2 border-b');
-                    const btnQuitar = elemento('button', 'Quitar', 'text-red-600');
-
-                    btnQuitar.type = 'button';
-                    btnQuitar.addEventListener('click', () => {
-                        pallet.items.splice(itemIndex, 1);
-                        renderizarPallets();
-                        actualizarResumen();
-                    });
-
-                    tdAccion.appendChild(btnQuitar);
-                    tr.appendChild(tdAccion);
-                    tbody.appendChild(tr);
-                });
-
-                table.appendChild(tbody);
-                tabla.appendChild(table);
-                card.appendChild(tabla);
                 contenedor.appendChild(card);
             });
+        }
+
+        function fusionarPallets(origenId, destinoId) {
+            const origen = estado.pallets.find(p => String(p.id) === String(origenId));
+            const destino = estado.pallets.find(p => String(p.id) === String(destinoId));
+            if (!origen || !destino) return mensaje('Selecciona un pallet válido para fusionar.', 'error');
+            if (origen.id === destino.id) return mensaje('No puedes fusionar un pallet consigo mismo.', 'error');
+
+            const formatoOrigen = String(origen.formato || '').toUpperCase();
+            const formatoDestino = String(destino.formato || '').toUpperCase();
+            const capacidad = Number(destino.capacidad || 0);
+            if (!capacidad || formatoOrigen !== formatoDestino || Number(origen.capacidad || 0) !== capacidad) {
+                return mensaje('Solo se pueden fusionar pallets del mismo formato y capacidad.', 'error');
+            }
+            if (totalCajasPallet(origen) >= capacidad || totalCajasPallet(destino) >= capacidad) {
+                return mensaje('La fusión solo está permitida entre pallets de saldo.', 'error');
+            }
+            if (totalCajasPallet(origen) + totalCajasPallet(destino) > capacidad) {
+                return mensaje(`La fusión supera la capacidad máxima de ${capacidad} cajas.`, 'error');
+            }
+
+            destino.items.push(...origen.items);
+            if (!destino.galponId && origen.galponId) {
+                destino.galponId = origen.galponId;
+                destino.galpon = origen.galpon;
+                destino.ubicacion = origen.ubicacion;
+            }
+            estado.pallets = estado.pallets.filter(p => p.id !== origen.id);
+            renderizarPallets();
+            actualizarResumen();
+            mensaje('Saldos fusionados correctamente.', 'success');
         }
 
         function actualizarResumen() {
@@ -1114,7 +1131,6 @@
 
             estado.enviando = true;
             $('btnRegistrar').disabled = true;
-            $('btnAgregarPallet').disabled = true;
 
             mensaje('Registrando pallets. No cierres esta ventana...', 'info');
 
@@ -1191,11 +1207,9 @@
             } finally {
                 estado.enviando = false;
                 $('btnRegistrar').disabled = false;
-                $('btnAgregarPallet').disabled = false;
             }
         }
 
-        $('btnAgregarPallet').addEventListener('click', agregarPallet);
         $('btnRegistrar').addEventListener('click', registrarIngreso);
 
         window.jQuery(document).ready(function () {
