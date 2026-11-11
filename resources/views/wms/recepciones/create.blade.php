@@ -126,7 +126,7 @@
                     <div>
                         <h3 class="font-semibold text-lg">Preparación de pallets</h3>
                         <p class="text-sm text-gray-500">
-                            Distribuye los productos pendientes entre uno o varios pallets.
+                            La distribución inicial separa por formato, código y lote. Puedes fusionar saldos manualmente en pallets del mismo formato, sin superar su capacidad.
                         </p>
                     </div>
 
@@ -361,49 +361,57 @@
             estado.pallets = [];
             estado.siguientePallet = 1;
 
-            const porFormato = new Map();
-
-            estado.items.forEach(origen => {
+            // Opción A: la distribución inicial se realiza por formato + código + lote.
+            // Cada combinación genera sus propios pallets completos y, si corresponde,
+            // un pallet de saldo. Los saldos podrán fusionarse manualmente después.
+            for (const origen of estado.items) {
+                let pendiente = Number(origen.cantidad_pendiente || 0);
                 const formato = String(
                     origen.formato || String(origen.codigo).substring(5, 9)
                 ).toUpperCase();
+                const capacidad = Number(origen.capacidad_pallet || 0);
+                const clave = claveItem(origen);
 
-                if (!porFormato.has(formato)) porFormato.set(formato, []);
-                porFormato.get(formato).push(origen);
-            });
+                if (pendiente <= 0) continue;
 
-            for (const [formato, productos] of porFormato.entries()) {
-                const capacidad = Number(productos[0].capacidad_pallet || 0);
-                let palletActual = null;
+                // Sin capacidad configurada se muestra el pendiente en un pallet
+                // individual, pero la validación impide registrarlo hasta configurar.
+                if (!capacidad) {
+                    const pallet = {
+                        id: estado.siguientePallet++,
+                        galponId: '',
+                        galpon: '',
+                        ubicacion: '',
+                        formato,
+                        capacidad: null,
+                        items: [{
+                            clave,
+                            codigo: origen.codigo,
+                            descrip: origen.descrip || '',
+                            descrip1: origen.descrip1 || '',
+                            clote: origen.lote_origen || '',
+                            cantidad: pendiente,
+                            observacion_exceso: '',
+                            observacion_lote: '',
+                            asignaciones: crearAsignacionesAutomaticas(origen, pendiente)
+                        }]
+                    };
+                    estado.pallets.push(pallet);
+                    continue;
+                }
 
-                for (const origen of productos) {
-                    let pendiente = Number(origen.cantidad_pendiente || 0);
-                    const clave = claveItem(origen);
-
-                    while (pendiente > 0) {
-                        if (
-                            !capacidad ||
-                            !palletActual ||
-                            totalCajasPallet(palletActual) >= capacidad
-                        ) {
-                            palletActual = {
-                                id: estado.siguientePallet++,
-                                galponId: '',
-                                galpon: '',
-                                ubicacion: '',
-                                formato,
-                                capacidad: capacidad || null,
-                                items: []
-                            };
-                            estado.pallets.push(palletActual);
-                        }
-
-                        const espacio = capacidad
-                            ? capacidad - totalCajasPallet(palletActual)
-                            : pendiente;
-                        const cantidad = Math.min(pendiente, espacio);
-
-                        palletActual.items.push({
+                // No se reutiliza el pallet de la combinación anterior:
+                // así no se mezclan automáticamente códigos ni lotes diferentes.
+                while (pendiente > 0) {
+                    const cantidad = Math.min(pendiente, capacidad);
+                    const pallet = {
+                        id: estado.siguientePallet++,
+                        galponId: '',
+                        galpon: '',
+                        ubicacion: '',
+                        formato,
+                        capacidad,
+                        items: [{
                             clave,
                             codigo: origen.codigo,
                             descrip: origen.descrip || '',
@@ -413,11 +421,11 @@
                             observacion_exceso: '',
                             observacion_lote: '',
                             asignaciones: crearAsignacionesAutomaticas(origen, cantidad)
-                        });
+                        }]
+                    };
 
-                        pendiente -= cantidad;
-                        if (!capacidad) palletActual = null;
-                    }
+                    estado.pallets.push(pallet);
+                    pendiente -= cantidad;
                 }
             }
 
@@ -438,7 +446,10 @@
                     'error'
                 );
             } else {
-                mensaje('Pallets distribuidos automáticamente según formato, código, lote y capacidad configurada. Revisa las ubicaciones antes de registrar.', 'success');
+                mensaje(
+                    'Pallets generados por formato, código y lote. Los pallets completos quedan separados y los saldos pueden fusionarse manualmente con otros productos o lotes del mismo formato, respetando la capacidad.',
+                    'success'
+                );
             }
         }
 
