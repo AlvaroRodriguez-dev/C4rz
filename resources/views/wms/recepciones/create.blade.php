@@ -322,6 +322,126 @@
             return estado.items.find(item => claveItem(item) === clave);
         }
 
+        function totalCajasPallet(pallet) {
+            return pallet.items.reduce((total, item) => total + Number(item.cantidad || 0), 0);
+        }
+
+        // Conserva la trazabilidad de cada caja contra el detalle original de SAS-ERP.
+        function crearAsignacionesAutomaticas(origen, cantidad) {
+            let porAsignar = Number(cantidad);
+            const asignaciones = [];
+
+            for (const detalle of origen.detalles_origen) {
+                if (porAsignar <= 0) break;
+
+                const pendiente = Number(detalle.cantidad_pendiente || 0);
+                const utilizado = cantidadUtilizada(detalle.id_detalle_origen);
+                const disponible = Math.max(0, pendiente - utilizado);
+                const asignado = Math.min(porAsignar, disponible);
+
+                if (asignado > 0) {
+                    asignaciones.push({
+                        id_detalle_origen: Number(detalle.id_detalle_origen),
+                        cantidad: asignado
+                    });
+                    porAsignar -= asignado;
+                }
+            }
+
+            if (porAsignar > 0) {
+                throw new Error(
+                    `No fue posible asignar ${porAsignar} cajas del producto ${origen.codigo} al detalle original.`
+                );
+            }
+
+            return asignaciones;
+        }
+
+        function prepararPalletsAutomaticamente() {
+            estado.pallets = [];
+            estado.siguientePallet = 1;
+
+            const porFormato = new Map();
+
+            estado.items.forEach(origen => {
+                const formato = String(
+                    origen.formato || String(origen.codigo).substring(5, 9)
+                ).toUpperCase();
+
+                if (!porFormato.has(formato)) porFormato.set(formato, []);
+                porFormato.get(formato).push(origen);
+            });
+
+            for (const [formato, productos] of porFormato.entries()) {
+                const capacidad = Number(productos[0].capacidad_pallet || 0);
+                let palletActual = null;
+
+                for (const origen of productos) {
+                    let pendiente = Number(origen.cantidad_pendiente || 0);
+                    const clave = claveItem(origen);
+
+                    while (pendiente > 0) {
+                        if (
+                            !capacidad ||
+                            !palletActual ||
+                            totalCajasPallet(palletActual) >= capacidad
+                        ) {
+                            palletActual = {
+                                id: estado.siguientePallet++,
+                                galponId: '',
+                                galpon: '',
+                                ubicacion: '',
+                                formato,
+                                capacidad: capacidad || null,
+                                items: []
+                            };
+                            estado.pallets.push(palletActual);
+                        }
+
+                        const espacio = capacidad
+                            ? capacidad - totalCajasPallet(palletActual)
+                            : pendiente;
+                        const cantidad = Math.min(pendiente, espacio);
+
+                        palletActual.items.push({
+                            clave,
+                            codigo: origen.codigo,
+                            descrip: origen.descrip || '',
+                            descrip1: origen.descrip1 || '',
+                            clote: origen.lote_origen || '',
+                            cantidad,
+                            observacion_exceso: '',
+                            observacion_lote: '',
+                            asignaciones: crearAsignacionesAutomaticas(origen, cantidad)
+                        });
+
+                        pendiente -= cantidad;
+                        if (!capacidad) palletActual = null;
+                    }
+                }
+            }
+
+            renderizarPallets();
+            actualizarResumen();
+
+            const formatosSinConfig = [...new Set(
+                estado.items
+                    .filter(item => item.sin_config || !Number(item.capacidad_pallet))
+                    .map(item => item.formato || String(item.codigo).substring(5, 9))
+            )];
+
+            if (formatosSinConfig.length) {
+                mensaje(
+                    'No existe una capacidad válida configurada para los formatos: ' +
+                    formatosSinConfig.join(', ') +
+                    '. Se muestran sus cantidades, pero debes configurar el límite antes de registrar.',
+                    'error'
+                );
+            } else {
+                mensaje('Pallets distribuidos automáticamente según formato, código, lote y capacidad configurada. Revisa las ubicaciones antes de registrar.', 'success');
+            }
+        }
+
         async function consultarRecepcion(codigo) {
             const consecutivo = ++estado.consulta;
 
@@ -377,7 +497,7 @@
                     if (consecutivo !== estado.consulta) return;
 
                     $('panelPreparacion').classList.remove('hidden');
-                    agregarPallet();
+                    prepararPalletsAutomaticamente();
                 }
 
                 mensaje('Recepción consultada correctamente.', 'success');
@@ -544,6 +664,18 @@
             }
 
             const cantidadIngresada = Number(cantidad);
+            const capacidad = Number(origen.capacidad_pallet || 0);
+            const totalActual = totalCajasPallet(pallet);
+
+            if (!capacidad) {
+                mensaje(`El formato ${formato} no tiene capacidad configurada en WMS.`, 'error');
+                return;
+            }
+
+            if (totalActual + cantidadIngresada > capacidad) {
+                mensaje(`El pallet del formato ${formato} admite como máximo ${capacidad} cajas. Espacio disponible: ${capacidad - totalActual}.`, 'error');
+                return;
+            }
 
             if (!Number.isInteger(cantidadIngresada) || cantidadIngresada <= 0) {
                 mensaje('La cantidad debe ser un número entero mayor a cero.', 'error');
@@ -618,6 +750,9 @@
                 }
             }
 
+            pallet.formato = formato;
+            pallet.capacidad = capacidad;
+
             pallet.items.push({
                 clave,
                 codigo,
@@ -644,8 +779,12 @@
                 card.dataset.pallet = pallet.id;
 
                 const encabezado = elemento('div', '', 'flex justify-between items-center mb-4');
+                const totalPallet = totalCajasPallet(pallet);
+                const capacidadTexto = pallet.capacidad
+                    ? `${totalPallet} / ${pallet.capacidad} cajas`
+                    : `${totalPallet} cajas · SIN CONFIGURACIÓN`;
                 encabezado.append(
-                    elemento('h4', `Pallet ${indice + 1}`, 'font-semibold'),
+                    elemento('h4', `Pallet ${indice + 1} · Formato ${pallet.formato || '—'} · ${capacidadTexto}`, 'font-semibold'),
                 );
 
                 const btnEliminar = elemento(
@@ -853,6 +992,17 @@
 
                 if (formatos.size !== 1) {
                     throw new Error(`El pallet ${index + 1} contiene formatos diferentes.`);
+                }
+
+                const capacidad = Number(pallet.capacidad || 0);
+                const totalPallet = totalCajasPallet(pallet);
+
+                if (!capacidad) {
+                    throw new Error(`El formato ${[...formatos][0]} del pallet ${index + 1} no tiene capacidad configurada.`);
+                }
+
+                if (totalPallet > capacidad) {
+                    throw new Error(`El pallet ${index + 1} supera su capacidad de ${capacidad} cajas.`);
                 }
 
                 for (const item of pallet.items) {
