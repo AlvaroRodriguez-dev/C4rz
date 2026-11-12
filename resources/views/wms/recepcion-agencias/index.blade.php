@@ -9,6 +9,7 @@
     <style>
         .select2-container .select2-selection--multiple { min-height:46px!important;border:1px solid #d1d5db!important;border-radius:10px!important;padding:5px }
         .select2-container--default .select2-selection--multiple .select2-selection__choice { padding:4px 7px }
+        .wms-sin-despacho { display:inline-block;margin-left:8px;padding:2px 7px;border-radius:9999px;background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;white-space:nowrap }
     </style>
 
     <div class="py-6 px-3 sm:px-6">
@@ -112,7 +113,13 @@
             width: '100%', minimumInputLength: 1,
             ajax: { url: buscarDocumentosUrl, dataType: 'json', delay: 300,
                 data: params => ({q: params.term}),
-                processResults: data => ({results: data.results.map(x => ({...x, disabled: x.disabled}))}) }
+                processResults: data => ({results: data.results.map(x => ({...x, disabled: x.disabled}))}) },
+            templateResult: item => {
+                if (!item.id || !item.sin_despacho) return item.text;
+                const contenido = $('<span>').text(item.text.replace(' · SIN DESPACHO FISICO', ''));
+                contenido.append($('<span>').addClass('wms-sin-despacho').text('SIN DESPACHO FISICO'));
+                return contenido;
+            }
         });
 
         @can('wms.configurar')
