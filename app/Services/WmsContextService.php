@@ -35,6 +35,26 @@ class WmsContextService
             ->get();
     }
 
+    /**
+     * Devuelve exclusivamente el almacén activo marcado como principal.
+     * No aplica selección alternativa: las operaciones deben detenerse si falta esta asignación.
+     */
+    public function almacenPrincipal(?User $usuario = null): ?WmsAlmacen
+    {
+        $usuario = $this->usuario($usuario);
+
+        return $usuario->belongsToMany(
+            WmsAlmacen::class,
+            'wms_usuario_almacenes',
+            'user_id',
+            'almacen_id'
+        )
+            ->wherePivot('activo', true)
+            ->wherePivot('es_principal', true)
+            ->where('wms_almacenes.activo', true)
+            ->first();
+    }
+
     public function almacen(?User $usuario = null): WmsAlmacen
     {
         $usuario = $this->usuario($usuario);
