@@ -15,6 +15,18 @@
         <div class="max-w-6xl mx-auto space-y-5">
             <a href="{{ route('wms.index') }}" class="text-sm text-gray-600 hover:text-gray-900">← Volver al WMS</a>
 
+            @if(!$almacen)
+                <div class="rounded-xl border border-amber-300 bg-amber-50 p-5 text-amber-900" role="alert">
+                    <div class="flex items-start gap-3">
+                        <span class="text-2xl" aria-hidden="true">⚠️</span>
+                        <div>
+                            <h3 class="font-bold">Almacén principal no asignado</h3>
+                            <p class="mt-1 text-sm">{{ $advertenciaAlmacen }}</p>
+                            <p class="mt-2 text-sm font-semibold">La recepción de agencias está bloqueada hasta que se configure tu almacén principal.</p>
+                        </div>
+                    </div>
+                </div>
+            @else
             <div class="bg-white rounded-xl shadow p-4 sm:p-6">
                 <h3 class="font-bold text-gray-800 text-lg">Nueva recepción de camión</h3>
                 <p class="text-sm text-gray-500 mt-1">Asocia una o varias notas logísticas. Cada pallet conserva su documento de despacho original.</p>
@@ -28,7 +40,7 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Notas de despacho / programación / tránsito</label>
                         <select id="documentos" name="documentos[]" multiple class="w-full"></select>
-                        <p class="text-xs text-gray-500 mt-1">Solo aparecen documentos dirigidos al almacén {{ $almacen->codigo }} que ya tienen pallets despachados en WMS.</p>
+                        <p class="text-xs text-gray-500 mt-1">Se muestran documentos dirigidos al almacén {{ $almacen->codigo }}. Los que aún no tienen salida física registrada en WMS aparecerán identificados y no podrán seleccionarse.</p>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Observación general</label>
@@ -37,7 +49,9 @@
                     <button id="btnCrear" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg px-6 py-3">Crear recepción y cargar pallets</button>
                 </form>
             </div>
+            @endif
 
+            @if($almacen)
             @can('wms.configurar')
                 <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
                     <h3 class="font-semibold text-amber-900">Zonas temporales de descarga</h3>
@@ -49,7 +63,9 @@
                     <div id="alertaZona" class="hidden text-sm mt-2"></div>
                 </div>
             @endcan
+            @endif
 
+            @if($almacen)
             <div class="bg-white rounded-xl shadow overflow-hidden">
                 <div class="p-4 sm:p-6 border-b">
                     <h3 class="font-bold text-gray-800 text-lg">Recepciones recientes</h3>
@@ -82,6 +98,7 @@
                     </table>
                 </div>
             </div>
+            @endif
         </div>
     </div>
 
