@@ -22,7 +22,15 @@ class WmsRecepcionAgenciaController extends Controller
 
     public function index()
     {
-        $almacen = $this->context->almacen();
+        $almacen = $this->context->almacenPrincipal();
+
+        if (!$almacen) {
+            return view('wms.recepcion-agencias.index', [
+                'almacen' => null,
+                'recepciones' => collect(),
+                'advertenciaAlmacen' => 'No tienes un almacén principal WMS activo asignado. Solicita al administrador que configure tu almacén principal. Por seguridad, no podrás realizar registros hasta que se complete esta asignación.',
+            ]);
+        }
 
         // Resumen agregado por recepción para evitar seleccionar r.* dentro
         // de una consulta agrupada incompatible con ONLY_FULL_GROUP_BY.
@@ -72,7 +80,7 @@ class WmsRecepcionAgenciaController extends Controller
     public function buscarDocumentos(Request $request): JsonResponse
     {
         $q = trim((string) $request->query('q', ''));
-        $almacen = $this->context->codigo();
+        $almacen = $this->almacenPrincipalOrFail()->codigo;
 
         $notas = DB::connection('faboce2026')->table('log_registro')
             ->whereBetween('tipo_registro', [1, 3])
@@ -86,18 +94,23 @@ class WmsRecepcionAgenciaController extends Controller
             $id = (string) $nota->id;
             $despachados = WmsSalida::query()->where('tipo_registro', $tipo)
                 ->where('id_registro', $id)->distinct()->pluck('pallet');
+            $sinDespacho = $despachados->isEmpty();
             $yaRecibidos = DB::table('wms_recepcion_agencia_pallets')
                 ->where('tipo_registro', $tipo)->where('id_registro', $id)->pluck('pallet');
             $pallets = $despachados->diff($yaRecibidos)->count();
+            $estadoDespacho = $sinDespacho
+                ? ' · SIN DESPACHO FISICO'
+                : " · {$pallets} pallets pendientes";
 
             return [
                 'id' => $id,
                 'tipo_registro' => $tipo,
-                'text' => "Tipo {$tipo} · #{$id} · " . ($nota->fecha ? date('d/m/Y', strtotime($nota->fecha)) : 'S/F') . " · {$nota->glosa} · {$pallets} pallets pendientes",
+                'text' => "Tipo {$tipo} · #{$id} · " . ($nota->fecha ? date('d/m/Y', strtotime($nota->fecha)) : 'S/F') . " · {$nota->glosa}{$estadoDespacho}",
                 'pallets' => $pallets,
-                'disabled' => $pallets === 0,
+                'sin_despacho' => $sinDespacho,
+                'disabled' => $sinDespacho || $pallets === 0,
             ];
-        })->filter(fn ($item) => $item['pallets'] > 0)->values();
+        })->filter(fn ($item) => $item['sin_despacho'] || $item['pallets'] > 0)->values();
 
         return response()->json(['results' => $results]);
     }
@@ -111,7 +124,7 @@ class WmsRecepcionAgenciaController extends Controller
             'documentos.*' => ['required', 'string', 'max:20'],
         ]);
 
-        $almacen = $this->context->almacen();
+        $almacen = $this->almacenPrincipalOrFail();
 
         return DB::transaction(function () use ($data, $almacen) {
             $notas = DB::connection('faboce2026')->table('log_registro')
@@ -234,7 +247,7 @@ class WmsRecepcionAgenciaController extends Controller
 
     public function ubicacionesTemporales(): JsonResponse
     {
-        $almacen = $this->context->almacen();
+        $almacen = $this->almacenPrincipalOrFail();
         $items = WmsUbicacion::query()->where('almacen_id', $almacen->id)
             ->where('tipo', 'RECEPCION')->where('activo', true)->orderBy('codigo')->get();
 
@@ -245,7 +258,7 @@ class WmsRecepcionAgenciaController extends Controller
 
     public function ubicacionesNormales(): JsonResponse
     {
-        $almacen = $this->context->almacen();
+        $almacen = $this->almacenPrincipalOrFail();
         $items = WmsUbicacion::query()->with('galpon')->where('almacen_id', $almacen->id)
             ->where('tipo', 'NORMAL')->where('activo', true)
             ->whereHas('galpon', fn ($q) => $q->where('activo', true))
@@ -431,7 +444,7 @@ class WmsRecepcionAgenciaController extends Controller
     {
         $data = $request->validate(['ubicacion_id' => ['required', 'integer']]);
         $cabecera = $this->recepcion($recepcion);
-        $almacen = $this->context->almacen();
+        $almacen = $this->almacenPrincipalOrFail();
 
         return DB::transaction(function () use ($cabecera, $pallet, $data, $almacen) {
             $recepcionActual = DB::table('wms_recepciones_agencia')->where('id', $cabecera->id)->lockForUpdate()->first();
@@ -533,7 +546,7 @@ class WmsRecepcionAgenciaController extends Controller
         $data = $request->validate([
             'codigo' => ['required', 'string', 'max:30', 'regex:/^[A-Za-z0-9._-]+$/'],
         ]);
-        $almacen = $this->context->almacen();
+        $almacen = $this->almacenPrincipalOrFail();
         $codigo = strtoupper(trim($data['codigo']));
 
         if (WmsUbicacion::query()->where('almacen_id', $almacen->id)->where('codigo', $codigo)->exists()) {
@@ -554,9 +567,20 @@ class WmsRecepcionAgenciaController extends Controller
         return response()->json(['ok' => true, 'message' => 'Zona temporal creada.', 'id' => $id, 'codigo' => $codigo], 201);
     }
 
+    private function almacenPrincipalOrFail(): \App\Models\WmsAlmacen
+    {
+        $almacen = $this->context->almacenPrincipal();
+
+        if (!$almacen) {
+            abort(403, 'No tienes un almacén principal WMS activo asignado. Solicita al administrador que configure tu almacén principal antes de realizar registros.');
+        }
+
+        return $almacen;
+    }
+
     private function recepcion(int $id): object
     {
-        $almacen = $this->context->almacen();
+        $almacen = $this->almacenPrincipalOrFail();
         $row = DB::table('wms_recepciones_agencia')->where('id', $id)
             ->where('almacen_id', $almacen->id)->first();
         if (!$row) abort(404);
