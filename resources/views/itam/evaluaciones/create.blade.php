@@ -20,7 +20,7 @@
 
         @if($evaluacionActual)
             <div class="mb-5 p-4 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg">
-                Esta solicitud ya tiene una evaluación registrada. Al guardar una nueva evaluación se conservará el historial anterior.
+                Esta solicitud ya tiene una evaluación registrada. El nuevo registro será una REVISIÓN de la última evaluación; la anterior permanecerá disponible en el historial.
                 <div class="mt-2 text-sm">
                     Última evaluación: #{{ $evaluacionActual->id }} ·
                     {{ $evaluacionActual->evaluador?->name ?? 'Usuario' }} ·
