@@ -1,8 +1,8 @@
 <?php
 
-namespace App\\Providers;
+namespace App\Providers;
 
-use Illuminate\\Support\\ServiceProvider;
+use Illuminate\Support\ServiceProvider;
 
 class ItamServiceProvider extends ServiceProvider
 {
