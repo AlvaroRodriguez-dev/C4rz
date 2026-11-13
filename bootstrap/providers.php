@@ -1,9 +1,7 @@
 <?php
 
-use App\Providers\AppServiceProvider;
-use App\Providers\ItamServiceProvider;
+use App\\Providers\\AppServiceProvider;
 
 return [
     AppServiceProvider::class,
-    ItamServiceProvider::class,
 ];
