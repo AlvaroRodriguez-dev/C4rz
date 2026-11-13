@@ -71,6 +71,19 @@ class WmsMasterDataSeeder extends Seeder
                 ->where('codigo', $galpon['codigo'])
                 ->first();
 
+            DB::table('wms_galpon_rangos')->updateOrInsert(
+                [
+                    'galpon_id' => $galponRow->id,
+                    'desde' => $galpon['desde'],
+                    'hasta' => $galpon['hasta'],
+                ],
+                [
+                    'activo' => true,
+                    'updated_at' => $ahora,
+                    'created_at' => $ahora,
+                ]
+            );
+
             for ($numero = $galpon['desde']; $numero <= $galpon['hasta']; $numero++) {
                 DB::table('wms_ubicaciones')->updateOrInsert(
                     [

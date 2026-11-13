@@ -7,7 +7,7 @@
                     WMS FABOCE
                 </h2>
                 <p class="text-sm text-gray-500">
-                    Modelo funcional
+                    Modelo funcional v2
                 </p>
             </div>
         </div>
@@ -26,10 +26,87 @@
             <!-- OPERACIONES -->
 
             <h3 class="font-bold text-gray-700 mb-3 uppercase tracking-wide">
-                Registros
+                Registro(s)
             </h3>
 
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+
+                <!-- Liberación RG-CB-36 Producción -->
+                @can('wms.produccion.liberar')
+                    <a href="{{ route('wms.produccion.liberacion.create') }}"
+                        class="bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <div class="flex justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                        </div>
+                        <div class="mt-3 font-bold text-base leading-tight">Liberación</div>
+                        <div class="text-xs opacity-90">RG-CB-36 Producción</div>
+                    </a>
+                @endcan
+
+                <!-- Verificación de Producción -->
+                @can('wms.produccion.verificar')
+                    <a href="{{ route('wms.produccion.verificacion.index') }}"
+                        class="bg-violet-600 hover:bg-violet-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <div class="flex justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M9 12l2 2 4-4m5.618-4.016A9 9 0 1112 3a9 9 0 014.618 13.984z" />
+                            </svg>
+                        </div>
+                        <div class="mt-3 font-bold text-base leading-tight">Verificación</div>
+                        <div class="text-xs opacity-90">Producción</div>
+                    </a>
+                @endcan
+
+                <!-- Verificación física de pallets: acceso independiente para Almacén -->
+                @can('wms.produccion.verificar.ejecutar')
+                    <a href="{{ route('wms.produccion.liberacion.verificacion.index') }}"
+                        class="bg-violet-600 hover:bg-violet-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M9 12l2 2 4-4m5.618-4.016A9 9 0 1112 3a9 9 0 014.618 13.984z" />
+                        </svg>
+                        <div class="mt-3 font-bold text-base leading-tight">Verificar pallets</div>
+                        <div class="text-xs opacity-90">Almacén de Producto Terminado</div>
+                    </a>
+                @endcan
+
+                <!-- Paletización Producción -->
+                @can('wms.produccion.paletizar')
+                    <a href="{{ route('wms.paletizacion.index') }}"
+                        class="bg-blue-600 hover:bg-blue-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <div class="flex justify-center">
+                            <svg class="w-9 h-9" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M3 7h18M5 7v10h14V7M8 11h8M8 15h8" />
+                            </svg>
+                        </div>
+                        <div class="mt-3 font-bold text-base leading-tight">Paletización</div>
+                        <div class="text-xs opacity-90">Producción</div>
+                    </a>
+                @endcan
+
+                <!-- Ingreso PT Liberado: ubicar pallet verificado y generar saldo físico -->
+                @can('wms.ingresos.create')
+                    <a href="{{ route('wms.ingreso-pt-liberado.index') }}"
+                        class="bg-teal-600 hover:bg-teal-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M3 7.5 12 3l9 4.5M3 7.5V17l9 4 9-4V7.5M12 12l9-4.5M12 12 3 7.5m9 4.5V21" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m9 15 2 2 4-4" />
+                        </svg>
+                        <div class="mt-3 font-bold text-base leading-tight">INGRESO PT LIBERADO</div>
+                        <div class="text-xs opacity-90">Ubicación de pallets verificados</div>
+                    </a>
+                @endcan
 
                 <!-- Registrar Ingreso -->
                 @can('wms.ingresos.create')
@@ -45,6 +122,38 @@
                         </div>
                         <div class="mt-3 font-bold text-base leading-tight">Registrar</div>
                         <div class="text-xs opacity-90">Ingreso</div>
+                    </a>
+                @endcan
+
+                <!-- Registrar Ingreso x recepcion -->
+                
+                @can('wms.ingresos.create')
+                    <a href="{{ route('wms.recepciones.create') }}"
+                        class="bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 7h18M5 7v10h14V7M8 11h8M8 15h8M9 3h6" />
+                        </svg>
+
+                        <div class="mt-3 font-bold text-base leading-tight">
+                            INGRESO x RECEPCIÓN
+                        </div>
+                        <div class="text-xs opacity-90">
+                            Recepciones pendientes de SAS-ERP
+                        </div>
+                    </a>
+                @endcan
+
+
+                <!-- Recepción física de agencias -->
+                @can('wms.ingresos.create')
+                    <a href="{{ route('wms.recepcion-agencias.index') }}"
+                        class="bg-cyan-700 hover:bg-cyan-800 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M5 7v10h14V7M8 11h8M8 15h8m-4-12v4m-3-1 3 3 3-3" />
+                        </svg>
+                        <div class="mt-3 font-bold text-base leading-tight">RECEPCIÓN AGENCIAS</div>
+                        <div class="text-xs opacity-90">Descarga, verificación e ingreso por pallet</div>
                     </a>
                 @endcan
 
@@ -182,7 +291,7 @@
                         <div class="text-xs opacity-90 uppercase">Ordenes de Trabajo</div>
                     </a>
                 @endcan
-                
+
             </div>
 
             <!-- CONSULTAS -->
@@ -283,6 +392,66 @@
             </h3>
 
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                @can('wms.configurar')
+                    <a href="{{ route('wms.almacenes.index') }}"
+                        class="bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <div class="flex justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-5h6v5M9 10h.01M15 10h.01M9 13h.01M15 13h.01" />
+                            </svg>
+                        </div>
+                        <div class="font-bold mt-3 text-base leading-tight">Almacenes</div>
+                        <div class="text-xs opacity-90">Maestros WMS</div>
+                    </a>
+                @endcan
+
+                @can('wms.configurar')
+                    <a href="{{ route('wms.galpones.index') }}"
+                        class="bg-cyan-600 hover:bg-cyan-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <div class="flex justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-5h6v5M9 10h.01M15 10h.01M9 13h.01M15 13h.01" />
+                            </svg>
+                        </div>
+                        <div class="font-bold mt-3 text-base leading-tight">Galpones</div>
+                        <div class="text-xs opacity-90">Posiciones WMS</div>
+                    </a>
+                @endcan
+
+                @can('wms.configurar')
+                    <a href="{{ route('wms.ubicaciones.index') }}"
+                        class="bg-sky-600 hover:bg-sky-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <div class="flex justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M9 6.75V5a2 2 0 012-2h2a2 2 0 012 2v1.75M9 6.75H6.5A2.5 2.5 0 004 9.25v8.5a2.5 2.5 0 002.5 2.5h11a2.5 2.5 0 002.5-2.5v-8.5a2.5 2.5 0 00-2.5-2.5H15M9 6.75h6M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01" />
+                            </svg>
+                        </div>
+                        <div class="font-bold mt-3 text-base leading-tight">Posiciones</div>
+                        <div class="text-xs opacity-90">Maestro WMS</div>
+                    </a>
+                @endcan
+
+                @can('wms.configurar')
+                    <a href="{{ route('wms.usuario-almacenes.index') }}"
+                        class="bg-violet-600 hover:bg-violet-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <div class="flex justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM6 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                        </div>
+                        <div class="font-bold mt-3 text-base leading-tight">Usuarios</div>
+                        <div class="text-xs opacity-90">Almacenes WMS</div>
+                    </a>
+                @endcan
+
                 @can('wms.configurar')
                     <a href="{{ route('wms.configurar.index') }}"
                         class="bg-gray-700 hover:bg-gray-800 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">

@@ -10,6 +10,16 @@
 
             <a href="{{ route('wms.index') }}" class="text-sm text-gray-600 mb-3 inline-flex items-center gap-1">&larr; Volver</a>
 
+            {{-- Almacenes habilitados para el usuario --}}
+            <div class="bg-white shadow rounded-xl p-4 mb-4">
+                <label for="filtroAlmacen" class="block text-sm font-medium text-gray-700 mb-2">Almacén</label>
+                <select id="filtroAlmacen" class="w-full border-gray-300 rounded-xl p-3 text-base">
+                    @foreach ($almacenes as $almacen)
+                        <option value="{{ $almacen->codigo }}">{{ $almacen->codigo }} - {{ $almacen->nombre }}</option>
+                    @endforeach
+                </select>
+            </div>
+
             {{-- Buscador --}}
             <div class="bg-white shadow rounded-xl p-4 mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Buscar</label>
@@ -44,6 +54,11 @@
         let timeoutBusqueda = null;
 
         document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('filtroAlmacen').addEventListener('change', () => {
+                paginaActual = 1;
+                cargarListado();
+            });
+
             cargarListado();
 
             document.getElementById('buscador').addEventListener('input', function () {
@@ -57,14 +72,18 @@
 
         function cargarListado() {
             const q = document.getElementById('buscador').value.trim();
+            const almacen = document.getElementById('filtroAlmacen').value;
             const listado = document.getElementById('listado');
             const sinResultados = document.getElementById('sinResultados');
 
             listado.innerHTML = '<p class="text-center text-gray-400 py-6 text-sm">Cargando...</p>';
             sinResultados.classList.add('hidden');
 
-            fetch(`${routeBuscar}?q=${encodeURIComponent(q)}&page=${paginaActual}`)
-                .then(res => res.json())
+            fetch(`${routeBuscar}?q=${encodeURIComponent(q)}&page=${paginaActual}&almacen=${encodeURIComponent(almacen)}`)
+                .then(res => {
+                    if (!res.ok) throw new Error('No fue posible consultar los ingresos del almacén seleccionado.');
+                    return res.json();
+                })
                 .then(data => {
                     listado.innerHTML = '';
                     document.getElementById('totalResultados').textContent = `${data.total} registro(s) encontrado(s)`;
@@ -80,15 +99,28 @@
                     });
 
                     renderPaginacion(data);
+                })
+                .catch(error => {
+                    listado.innerHTML = '';
+                    sinResultados.classList.remove('hidden');
+                    document.getElementById('totalResultados').textContent = error.message;
                 });
         }
 
         function renderTarjeta(item) {
+            const tipoIngresoLabel = item.tipo_ingreso === 'recepcion_agencia'
+                ? 'RECEPCIÓN AGENCIA'
+                : (item.tipo_ingreso === 'produccion' ? 'PRODUCCIÓN' : (item.tipo_ingreso === 'ajuste' ? 'AJUSTE' : 'INGRESO'));
+
+            const pdfAction = item.pdf_url
+                ? `<a href="${item.pdf_url}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-sm font-medium text-red-700 hover:text-red-900 mt-3">📄 Generar nota PDF</a>`
+                : `<span class="inline-block text-xs text-gray-400 mt-3">PDF no disponible: registro sin documento asociado</span>`;
+
             return `
                 <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
                     <div class="flex items-start justify-between gap-3 mb-2">
                         <div class="min-w-0">
-                            <p class="text-xs text-gray-400">Nota Ingreso: ${item.rdocum} · ${item.rfecha}</p>
+                            <p class="text-xs text-gray-400"> ${tipoIngresoLabel} · Documento origen: ${item.doc_origen || item.rdocum} · ${item.rfecha}</p>
                             <p class="font-mono font-semibold text-gray-800 text-sm mt-0.5">${item.codigo}</p>
                             <p class="text-sm text-gray-600 leading-snug">${item.descripcion}</p>
                             ${item.clote ? `<p class="text-xs text-gray-400 mt-0.5">Lote: ${item.clote}</p>` : ''}
@@ -114,6 +146,7 @@
                         <span>Registrado por <span class="font-medium text-gray-600">${item.usuario}</span></span>
                         <span>${item.creado}</span>
                     </div>
+                    ${pdfAction}
                 </div>
             `;
         }

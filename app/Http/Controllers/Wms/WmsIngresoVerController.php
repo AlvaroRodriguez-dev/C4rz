@@ -4,26 +4,44 @@ namespace App\Http\Controllers\Wms;
 
 use App\Http\Controllers\Controller;
 use App\Models\WmsIngreso;
+use App\Services\WmsContextService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class WmsIngresoVerController extends Controller
 {
+    public function __construct(private WmsContextService $context)
+    {
+    }
+
     public function index()
     {
-        return view('wms.ingresos.ver');
+        $almacenes = $this->context->almacenes();
+
+        return view('wms.ingresos.ver', compact('almacenes'));
     }
 
     /**
-     * AJAX - listado paginado con búsqueda libre sobre múltiples campos.
+     * AJAX: listado paginado limitado a un almacén activo asignado al usuario.
      */
     public function buscar(Request $request)
     {
-        $search = trim((string) $request->get('q'));
-        $page = (int) $request->get('page', 1);
+        $almacenes = $this->context->almacenes();
+        $codigosPermitidos = $almacenes->pluck('codigo')->map(fn ($codigo) => (string) $codigo);
 
-        $query = WmsIngreso::query()
+        $validated = $request->validate([
+            'almacen' => ['required', 'string', Rule::in($codigosPermitidos->all())],
+            'q' => ['nullable', 'string', 'max:100'],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $almacenCodigo = (string) $validated['almacen'];
+        $search = trim((string) ($validated['q'] ?? ''));
+        $page = (int) ($validated['page'] ?? 1);
+
+        $resultado = WmsIngreso::query()
             ->with('creador:id,name')
+            ->where('almacen', $almacenCodigo)
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($sub) use ($search) {
                     $sub->where('codigo', 'like', "%{$search}%")
@@ -35,6 +53,7 @@ class WmsIngresoVerController extends Controller
                         ->orWhere('ubicacion', 'like', "%{$search}%")
                         ->orWhere('cantidad', 'like', "%{$search}%")
                         ->orWhere('rdocum', 'like', "%{$search}%")
+                        ->orWhere('doc_origen', 'like', "%{$search}%")
                         ->orWhereRaw("DATE_FORMAT(rfecha, '%d/%m/%Y') like ?", ["%{$search}%"])
                         ->orWhereHas('creador', function ($u) use ($search) {
                             $u->where('name', 'like', "%{$search}%");
@@ -42,17 +61,17 @@ class WmsIngresoVerController extends Controller
                         ->orWhere('motivo', 'like', "%{$search}%");
                 });
             })
-            ->orderByDesc('created_at');
-
-        $resultado = $query->paginate(15, ['*'], 'page', $page);
+            ->orderByDesc('created_at')
+            ->paginate(15, ['*'], 'page', $page);
 
         $data = $resultado->through(function (WmsIngreso $ingreso) {
             return [
                 'id' => $ingreso->id,
                 'rdocum' => $ingreso->rdocum,
+                'doc_origen' => $ingreso->doc_origen,
                 'rfecha' => optional($ingreso->rfecha)->format('d/m/Y'),
-                'tipo_ingreso' => $ingreso->tipo_ingreso,   // <-- nuevo
-                'motivo' => $ingreso->motivo,                // <-- nuevo
+                'tipo_ingreso' => $ingreso->tipo_ingreso,
+                'motivo' => $ingreso->motivo,
                 'pallet' => $ingreso->pallet,
                 'codigo' => $ingreso->codigo,
                 'clote' => $ingreso->clote,
@@ -62,7 +81,20 @@ class WmsIngresoVerController extends Controller
                 'galpon' => $ingreso->galpon,
                 'ubicacion' => $ingreso->ubicacion,
                 'usuario' => $ingreso->creador->name ?? 'N/D',
-                'creado' => $ingreso->created_at->format('d/m/Y H:i'),
+                'creado' => optional($ingreso->created_at)->format('d/m/Y H:i'),
+                'pdf_url' => filled($ingreso->doc_origen)
+                    ? route('wms.ingresos.ver.pdf', [
+                        'almacen' => $ingreso->almacen,
+                        'tipoDocumento' => 'origen',
+                        'documento' => $ingreso->doc_origen,
+                    ])
+                    : (filled($ingreso->rdocum)
+                        ? route('wms.ingresos.ver.pdf', [
+                            'almacen' => $ingreso->almacen,
+                            'tipoDocumento' => 'rdocum',
+                            'documento' => $ingreso->rdocum,
+                        ])
+                        : null),
             ];
         });
 
@@ -72,5 +104,61 @@ class WmsIngresoVerController extends Controller
             'last_page' => $resultado->lastPage(),
             'total' => $resultado->total(),
         ]);
+    }
+
+    /**
+     * Genera una nota PDF consolidada por documento de origen y almacén.
+     * La pertenencia del usuario al almacén se vuelve a comprobar aquí.
+     */
+    public function pdf(string $almacen, string $tipoDocumento, string $documento)
+    {
+        $codigosPermitidos = $this->context->almacenes()
+            ->pluck('codigo')
+            ->map(fn ($codigo) => (string) $codigo);
+
+        abort_unless($codigosPermitidos->contains((string) $almacen), 403);
+
+        abort_unless(in_array($tipoDocumento, ['origen', 'rdocum'], true), 404);
+
+        $ingresos = WmsIngreso::query()
+            ->with('creador:id,name')
+            ->where('almacen', $almacen)
+            ->when($tipoDocumento === 'origen', function ($query) use ($documento) {
+                $query->whereNotNull('doc_origen')
+                    ->where('doc_origen', '<>', '')
+                    ->where('doc_origen', $documento);
+            }, function ($query) use ($documento) {
+                // Históricos: solo agrupar por rdocum cuando doc_origen no está informado.
+                $query->where(function ($missing) {
+                    $missing->whereNull('doc_origen')->orWhere('doc_origen', '');
+                })->where('rdocum', $documento);
+            })
+            ->orderBy('codigo')
+            ->orderBy('clote')
+            ->orderBy('created_at')
+            ->get();
+
+        abort_if($ingresos->isEmpty(), 404, 'No existen ingresos para el documento solicitado.');
+
+        $datos = [
+            'almacen' => $this->context->almacenes()
+                ->firstWhere('codigo', $almacen),
+            'docOrigen' => $documento,
+            'tipoIngreso' => $ingresos->first()->tipo_ingreso,
+            'ingresos' => $ingresos,
+            'totalCantidad' => $ingresos->sum('cantidad'),
+            'generado' => now()->format('d/m/Y H:i'),
+            'usuarioGenerador' => auth()->user()?->name ?? 'Usuario no identificado',
+        ];
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('wms.ingresos.pdf', $datos)
+            ->setPaper('letter', 'landscape');
+
+        $pdf->render();
+        $canvas = $pdf->getDomPDF()->getCanvas();
+        $canvas->page_text(30, 590, "Generado por: {$datos['usuarioGenerador']} · {$datos['generado']}", null, 8, [0.45, 0.45, 0.45]);
+        $canvas->page_text(700, 590, 'Página {PAGE_NUM} de {PAGE_COUNT}', null, 8, [0.45, 0.45, 0.45]);
+
+        return $pdf->stream("nota-ingreso-{$documento}-{$almacen}.pdf");
     }
 }

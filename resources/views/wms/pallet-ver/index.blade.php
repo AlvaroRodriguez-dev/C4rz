@@ -21,14 +21,19 @@
                 <label class="block text-sm font-medium text-gray-700 mb-2">Número de Pallet</label>
                 <div class="flex gap-2">
                     <select id="selectPallet" class="flex-1" style="width:100%"></select>
-                    <button id="btnEscanear" type="button"
-                        class="shrink-0 bg-gray-800 text-white rounded-xl px-4 flex items-center justify-center">
-                        📷
-                    </button>
+                    <button id="btnEscanear" type="button" class="shrink-0 bg-gray-800 text-white rounded-xl px-4 flex items-center justify-center">📷</button>
                 </div>
             </div>
 
-            <div id="qrReader" class="hidden mb-4 rounded-xl overflow-hidden border border-gray-200"></div>
+            <div id="qrReader" class="hidden mb-2 rounded-xl overflow-hidden border border-gray-200"></div>
+
+            <div id="qrZoomControl" class="hidden mb-3 bg-white border border-gray-200 rounded-xl px-4 py-3">
+                <div class="flex items-center gap-3">
+                    <span class="text-sm text-gray-600 shrink-0">🔍 Zoom</span>
+                    <input id="qrZoom" type="range" min="1" max="1" step="0.1" value="1" class="w-full">
+                    <span id="qrZoomValue" class="text-sm font-semibold text-gray-700 w-10 text-right">1×</span>
+                </div>
+            </div>
 
             <div id="resultado" class="hidden space-y-3">
                 <div class="bg-blue-600 text-white rounded-xl p-5 shadow text-center">
@@ -39,9 +44,7 @@
                 <div id="detalle" class="space-y-3"></div>
             </div>
 
-            <div id="sinDatos" class="hidden text-center text-gray-500 mt-6">
-                Este pallet no tiene saldo registrado.
-            </div>
+            <div id="sinDatos" class="hidden text-center text-gray-500 mt-6">Este pallet no tiene saldo registrado.</div>
         </div>
     </div>
 
@@ -52,77 +55,127 @@
 
         $(document).ready(function () {
             $('#selectPallet').select2({
-                placeholder: 'Selecciona o escribe un pallet...',
-                minimumInputLength: 1,
-                width: '100%',
+                placeholder: 'Selecciona o escribe un pallet...', minimumInputLength: 1, width: '100%',
                 ajax: {
                     url: routeBuscar, dataType: 'json', delay: 300,
                     data: params => ({ q: params.term }),
                     processResults: data => ({ results: data.results })
                 }
             });
-
             $('#selectPallet').on('select2:select', e => cargarPallet(e.params.data.id));
-
             $('#btnEscanear').on('click', toggleScanner);
+            $('#qrZoom').on('input', function () { aplicarZoom(Number(this.value)); });
+            $('#btnCopiarDiagnostico').on('click', copiarDiagnostico);
         });
+
+        function ocultarZoom() { $('#qrZoomControl').addClass('hidden'); }
+
+        function configurarZoom() {
+            try {
+                const capabilities = html5QrCode.getRunningTrackCapabilities();
+                const zoom = capabilities.zoom;
+                const slider = document.getElementById('qrZoom');
+                const settings = html5QrCode.getRunningTrackSettings();
+
+                if (zoom && zoom.max > zoom.min) {
+                    slider.min = zoom.min;
+                    slider.max = zoom.max;
+                    slider.step = zoom.step || 0.1;
+                    slider.value = settings.zoom ?? zoom.min;
+                    actualizarTextoZoom(slider.value);
+                    $('#qrZoomControl').removeClass('hidden');
+                } else {
+                    ocultarZoom();
+                }
+
+                mostrarDiagnostico(recopilarDiagnostico());
+            } catch (error) {
+                console.warn('No fue posible obtener las capacidades de la cámara.', error);
+                mostrarDiagnostico({
+                    browser: navigator.userAgent,
+                    platform: navigator.platform || 'no disponible',
+                    cameraLabel: 'ERROR',
+                    width: 'no disponible',
+                    height: 'no disponible',
+                    frameRate: 'no disponible',
+                    zoomSupported: false,
+                    zoomMin: 'no disponible',
+                    zoomMax: 'no disponible',
+                    zoomCurrent: 'no disponible',
+                    focusMode: 'no disponible',
+                    focusDistance: 'no disponible',
+                    capabilities: { error: String(error) }
+                });
+            }
+        }
+
+        function aplicarZoom(valor) {
+            if (!html5QrCode) return;
+            html5QrCode.applyVideoConstraints({ advanced: [{ zoom: valor }] })
+                .then(() => {
+                    actualizarTextoZoom(valor);
+                    try { mostrarDiagnostico(recopilarDiagnostico()); } catch (e) {}
+                })
+                .catch(error => console.warn('No fue posible aplicar el zoom.', error));
+        }
+
+        function actualizarTextoZoom(valor) { document.getElementById('qrZoomValue').textContent = `${Number(valor).toFixed(1)}×`; }
 
         function toggleScanner() {
             const reader = document.getElementById('qrReader');
             if (!reader.classList.contains('hidden')) {
                 html5QrCode?.stop();
+                ocultarZoom();
+                $('#qrDiagnostics').addClass('hidden');
                 reader.classList.add('hidden');
                 return;
             }
-
             reader.classList.remove('hidden');
             html5QrCode = new Html5Qrcode("qrReader");
             html5QrCode.start(
                 { facingMode: "environment" },
-                { fps: 10, qrbox: 250 },
+                {
+                    fps: 10,
+                    qrbox: 250,
+                    videoConstraints: {
+                        facingMode: { ideal: "environment" },
+                        width: { ideal: 1920, min: 1280 },
+                        height: { ideal: 2560, min: 720 },
+                        frameRate: { ideal: 30, min: 15 }
+                    }
+                },
                 (decodedText) => {
                     html5QrCode.stop();
+                    ocultarZoom();
+                    $('#qrDiagnostics').addClass('hidden');
                     reader.classList.add('hidden');
                     cargarPallet(decodedText.trim());
                 }
-            );
+            ).then(() => configurarZoom()).catch(error => console.error('No fue posible iniciar la cámara.', error));
         }
 
         function cargarPallet(pallet) {
             $('#resultado').addClass('hidden');
             $('#sinDatos').addClass('hidden');
             $('#detalle').empty();
-
             fetch(`${routeContenido}/${encodeURIComponent(pallet)}`)
                 .then(res => res.json())
                 .then(data => {
-                    if (data.total <= 0) {
-                        $('#sinDatos').removeClass('hidden');
-                        return;
-                    }
-
+                    if (data.total <= 0) { $('#sinDatos').removeClass('hidden'); return; }
                     $('#palletTitulo').text(`PALLET ${data.pallet}`);
                     $('#totalPallet').text(data.total);
                     $('#fechaLectura').text(data.fecha_lectura);
-
                     data.items.forEach(item => {
                         $('#detalle').append(`
                             <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-                                <div class="flex justify-between items-start">
-                                    <div>
-                                        <p class="font-mono font-semibold text-gray-800 text-sm">${item.codigo}</p>
-                                        <p class="text-sm text-gray-600">${item.descrip} ${item.descrip1 ?? ''}</p>
-                                        <p class="text-xs text-gray-400 mt-0.5">Lote: ${item.clote ?? 'S/L'}</p>
-                                    </div>
-                                    <p class="text-xl font-bold text-blue-700">${item.saldo}</p>
-                                </div>
-                                <p class="text-xs text-gray-500 mt-2 border-t border-gray-100 pt-2">
-                                    Galpón ${item.galpon} · Ubic. ${item.ubicacion}
-                                </p>
-                            </div>
-                        `);
+                                <div class="flex justify-between items-start"><div>
+                                    <p class="font-mono font-semibold text-gray-800 text-sm">${item.codigo}</p>
+                                    <p class="text-sm text-gray-600">${item.descrip} ${item.descrip1 ?? ''}</p>
+                                    <p class="text-xs text-gray-400 mt-0.5">Lote: ${item.clote ?? 'S/L'}</p>
+                                </div><p class="text-xl font-bold text-blue-700">${item.saldo}</p></div>
+                                <p class="text-xs text-gray-500 mt-2 border-t border-gray-100 pt-2">Galpón ${item.galpon} · Ubic. ${item.ubicacion}</p>
+                            </div>`);
                     });
-
                     $('#resultado').removeClass('hidden');
                 });
         }

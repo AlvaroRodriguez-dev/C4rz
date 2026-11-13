@@ -12,9 +12,37 @@
 
             <div id="alertBox" class="hidden mb-4 p-3 rounded-lg text-sm"></div>
 
-            <div id="listaOts" class="space-y-4"></div>
-            <div id="sinOts" class="hidden text-center text-gray-500 py-10">No hay Órdenes de Trabajo pendientes.
+            <!-- Buscador de Órdenes de Trabajo -->
+            <div class="mb-4">
+                <label for="buscadorOt" class="sr-only">Buscar Orden de Trabajo</label>
+                <div class="relative">
+                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                        <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z" />
+                        </svg>
+                    </div>
+                    <input
+                        type="search"
+                        id="buscadorOt"
+                        autocomplete="off"
+                        placeholder="Buscar OT, nota, glosa, pallet, producto o lote..."
+                        class="block w-full rounded-xl border border-gray-200 bg-white py-3 pl-10 pr-10 text-sm text-gray-700 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    >
+                    <button
+                        type="button"
+                        id="limpiarBusquedaOt"
+                        class="hidden absolute inset-y-0 right-0 items-center pr-3 text-gray-400 hover:text-gray-600"
+                        aria-label="Limpiar búsqueda"
+                    >
+                        <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
             </div>
+
+            <div id="listaOts" class="space-y-4"></div>
+            <div id="sinOts" class="hidden text-center text-gray-500 py-10">No hay Órdenes de Trabajo pendientes.</div>
             <div id="qrReader" class="hidden mt-4 rounded-xl overflow-hidden border border-gray-200"></div>
         </div>
     </div>
@@ -26,8 +54,24 @@
             `{{ url('wms/ordenes-trabajo') }}/${otId}/pallet/${encodeURIComponent(pallet)}/chequear`;
         const csrfToken = "{{ csrf_token() }}";
         let html5QrCode = null;
+        let busquedaOt = '';
 
-        document.addEventListener('DOMContentLoaded', cargarOts);
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('buscadorOt').addEventListener('input', (event) => {
+                busquedaOt = event.target.value.trim().toLowerCase();
+                actualizarVisibilidadBusqueda();
+            });
+
+            document.getElementById('limpiarBusquedaOt').addEventListener('click', () => {
+                const input = document.getElementById('buscadorOt');
+                input.value = '';
+                busquedaOt = '';
+                actualizarVisibilidadBusqueda();
+                input.focus();
+            });
+
+            cargarOts();
+        });
 
         function cargarOts() {
             fetch(routePendientes)
@@ -37,7 +81,9 @@
                     cont.innerHTML = '';
 
                     if (data.ordenes.length === 0) {
+                        document.getElementById('sinOts').textContent = 'No hay Órdenes de Trabajo pendientes.';
                         document.getElementById('sinOts').classList.remove('hidden');
+                        actualizarBotonLimpiarBusqueda();
                         return;
                     }
                     document.getElementById('sinOts').classList.add('hidden');
@@ -91,7 +137,45 @@
                     document.querySelectorAll('.btnChequear').forEach(btn => {
                         btn.addEventListener('click', () => chequearPallet(btn.dataset.ot, btn.dataset.pallet));
                     });
+
+                    actualizarVisibilidadBusqueda();
                 });
+        }
+
+        function actualizarVisibilidadBusqueda() {
+            const cont = document.getElementById('listaOts');
+            const cards = Array.from(cont.children);
+            const sinOts = document.getElementById('sinOts');
+            const limpiar = document.getElementById('limpiarBusquedaOt');
+
+            actualizarBotonLimpiarBusqueda();
+
+            if (cards.length === 0) {
+                return;
+            }
+
+            let visibles = 0;
+
+            cards.forEach(card => {
+                const texto = card.textContent.toLowerCase();
+                const coincide = busquedaOt === '' || texto.includes(busquedaOt);
+                card.classList.toggle('hidden', !coincide);
+                if (coincide) visibles++;
+            });
+
+            if (visibles === 0) {
+                sinOts.textContent = `No se encontraron Órdenes de Trabajo para "${document.getElementById('buscadorOt').value}".`;
+                sinOts.classList.remove('hidden');
+            } else {
+                sinOts.classList.add('hidden');
+            }
+        }
+
+        function actualizarBotonLimpiarBusqueda() {
+            const limpiar = document.getElementById('limpiarBusquedaOt');
+            const hayBusqueda = document.getElementById('buscadorOt').value.length > 0;
+            limpiar.classList.toggle('hidden', !hayBusqueda);
+            limpiar.classList.toggle('flex', hayBusqueda);
         }
 
         function chequearPallet(otId, pallet) {

@@ -59,4 +59,16 @@ class User extends Authenticatable
             'agencia_id'
         );
     }
+    public function wmsAlmacenes()
+    {
+        return $this->belongsToMany(
+            WmsAlmacen::class,
+            'wms_usuario_almacenes',
+            'user_id',
+            'almacen_id'
+        )
+            ->withPivot(['activo', 'es_principal'])
+            ->withTimestamps();
+    }
+
 }
