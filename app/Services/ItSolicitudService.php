@@ -27,7 +27,8 @@ class ItSolicitudService
                 }
 
                 if (($detalle['tipo_item'] ?? null) !== 'ACTIVO' || empty($detalle['tipo_activo_id'])
-                    || !DB::table('it_tipos_activo')->where('id', $detalle['tipo_activo_id'])->whereNull('deleted_at')->exists()) {
+                    || !DB::table('it_tipos_activo')->where('id', $detalle['tipo_activo_id'])->whereNull('deleted_at')
+                        ->whereNotIn('codigo', ['COMPONENTE', 'REPUESTO', 'ACCESORIO'])->exists()) {
                     throw new RuntimeException('ITAM en esta fase solo admite requerimientos de activos tecnológicos con tipo de activo definido.');
                 }
 
