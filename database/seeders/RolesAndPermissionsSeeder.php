@@ -36,7 +36,25 @@ class RolesAndPermissionsSeeder extends Seeder
             'rrhh.novedades',
         ];
 
-        foreach (array_merge($wmsPermisos, $rrhhPermisos) as $permiso) {
+        $itamPermisos = [
+            'it.solicitudes.view',
+            'it.solicitudes.create',
+            'it.solicitudes.update',
+            'it.solicitudes.evaluate',
+            'it.activos.view',
+            'it.activos.create',
+            'it.activos.update',
+            'it.activos.assign',
+            'it.activos.return',
+            'it.activos.transfer',
+            'it.activos.maintenance',
+            'it.activos.retire',
+            'it.compras.view',
+            'it.compras.create',
+            'it.compras.approve',
+        ];
+
+        foreach (array_merge($wmsPermisos, $rrhhPermisos, $itamPermisos) as $permiso) {
             Permission::firstOrCreate(['name' => $permiso]);
         }
 
@@ -83,6 +101,6 @@ class RolesAndPermissionsSeeder extends Seeder
 
         // SIS-ADMIN: ve TODO el proyecto sin excepciones (WMS + RRHH + SIS)
         Role::firstOrCreate(['name' => 'SIS-ADMIN'])
-            ->givePermissionTo(array_merge($wmsPermisos, $rrhhPermisos, $sisPermisos));
+            ->givePermissionTo(array_merge($wmsPermisos, $rrhhPermisos, $itamPermisos, $sisPermisos));
     }
 }
