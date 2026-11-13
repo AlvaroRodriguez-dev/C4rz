@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Services;
+namespace App\\Services;
 
-use App\Models\ItSolicitud;
-use Illuminate\Support\Facades\DB;
+use App\\Models\\ItSolicitud;
+use Illuminate\\Support\\Facades\\DB;
 use RuntimeException;
 
 class ItSolicitudService
@@ -26,9 +26,13 @@ class ItSolicitudService
                     throw new RuntimeException('La cantidad de cada detalle debe ser mayor a cero.');
                 }
 
+                if (($detalle['tipo_item'] ?? null) !== 'ACTIVO' || empty($detalle['tipo_activo_id'])) {
+                    throw new RuntimeException('ITAM en esta fase solo admite requerimientos de activos tecnológicos con tipo de activo definido.');
+                }
+
                 $solicitud->detalles()->create([
-                    'tipo_item' => $detalle['tipo_item'],
-                    'tipo_activo_id' => $detalle['tipo_activo_id'] ?? null,
+                    'tipo_item' => 'ACTIVO',
+                    'tipo_activo_id' => $detalle['tipo_activo_id'],
                     'descripcion_solicitada' => $detalle['descripcion_solicitada'],
                     'cantidad' => $cantidad,
                     'especificaciones' => $detalle['especificaciones'] ?? null,
@@ -48,13 +52,32 @@ class ItSolicitudService
 
     private function siguienteNumero(int $anio): string
     {
-        $ultimo = ItSolicitud::where('numero', 'like', "SOL-TI-{$anio}-%")
-            ->orderByDesc('id')
+        $ahora = now();
+
+        DB::table('it_correlativos')->insertOrIgnore([
+            'tipo' => 'SOL-TI',
+            'anio' => $anio,
+            'ultimo_numero' => 0,
+            'created_at' => $ahora,
+            'updated_at' => $ahora,
+        ]);
+
+        $contador = DB::table('it_correlativos')
+            ->where('tipo', 'SOL-TI')
+            ->where('anio', $anio)
             ->lockForUpdate()
-            ->value('numero');
+            ->first();
 
-        $correlativo = $ultimo ? ((int) substr($ultimo, -6)) + 1 : 1;
+        if (!$contador) {
+            throw new RuntimeException('No fue posible reservar el correlativo de la solicitud ITAM.');
+        }
 
-        return sprintf('SOL-TI-%d-%06d', $anio, $correlativo);
+        $siguiente = (int) $contador->ultimo_numero + 1;
+
+        DB::table('it_correlativos')
+            ->where('id', $contador->id)
+            ->update(['ultimo_numero' => $siguiente, 'updated_at' => $ahora]);
+
+        return sprintf('SOL-TI-%d-%06d', $anio, $siguiente);
     }
 }
