@@ -37,7 +37,7 @@ class ItSolicitudController extends Controller
 
     public function create()
     {
-        $tiposActivo = ItTipoActivo::query()->orderBy('descripcion')->get();
+        $tiposActivo = ItTipoActivo::query()->whereNotIn('codigo', ['COMPONENTE', 'REPUESTO', 'ACCESORIO'])->orderBy('descripcion')->get();
         $ubicaciones = ItUbicacion::query()->orderBy('codigo')->get();
 
         return view('itam.solicitudes.create', compact('tiposActivo', 'ubicaciones'));
@@ -58,7 +58,9 @@ class ItSolicitudController extends Controller
             'detalles.*.tipo_activo_id' => [
                 'required',
                 'integer',
-                Rule::exists('it_tipos_activo', 'id')->whereNull('deleted_at'),
+                Rule::exists('it_tipos_activo', 'id')
+                    ->whereNull('deleted_at')
+                    ->whereNotIn('codigo', ['COMPONENTE', 'REPUESTO', 'ACCESORIO']),
             ],
             'detalles.*.descripcion_solicitada' => ['required', 'string', 'max:255'],
             'detalles.*.cantidad' => ['required', 'integer', 'min:1'],
