@@ -1,13 +1,13 @@
 <?php
 
-namespace App\\Http\\Controllers\\Itam;
+namespace App\Http\Controllers\Itam;
 
-use App\\Http\\Controllers\\Controller;
-use App\\Models\\ItEvaluacion;
-use App\\Models\\ItSolicitud;
-use App\\Services\\ItEvaluacionService;
-use Illuminate\\Http\\Request;
-use Illuminate\\Validation\\Rule;
+use App\Http\Controllers\Controller;
+use App\Models\ItEvaluacion;
+use App\Models\ItSolicitud;
+use App\Services\ItEvaluacionService;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class ItEvaluacionController extends Controller
 {
