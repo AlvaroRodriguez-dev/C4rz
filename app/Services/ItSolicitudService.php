@@ -26,7 +26,8 @@ class ItSolicitudService
                     throw new RuntimeException('La cantidad de cada detalle debe ser mayor a cero.');
                 }
 
-                if (($detalle['tipo_item'] ?? null) !== 'ACTIVO' || empty($detalle['tipo_activo_id'])) {
+                if (($detalle['tipo_item'] ?? null) !== 'ACTIVO' || empty($detalle['tipo_activo_id'])
+                    || !DB::table('it_tipos_activo')->where('id', $detalle['tipo_activo_id'])->whereNull('deleted_at')->exists()) {
                     throw new RuntimeException('ITAM en esta fase solo admite requerimientos de activos tecnológicos con tipo de activo definido.');
                 }
 
