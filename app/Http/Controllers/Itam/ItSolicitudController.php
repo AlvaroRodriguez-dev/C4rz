@@ -47,7 +47,6 @@ class ItSolicitudController extends Controller
     {
         $data = $request->validate([
             'solicitante_id' => ['required', 'integer', 'min:1'],
-            'area_id' => ['nullable', 'integer', 'min:1'],
             'ubicacion_id' => ['nullable', 'integer', 'exists:it_ubicaciones,id'],
             'fecha_solicitud' => ['required', 'date'],
             'prioridad' => ['required', 'in:BAJA,NORMAL,ALTA,URGENTE'],
