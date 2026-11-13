@@ -1,3 +1,0 @@
-GitHub WMS branch write-permission test.
-Created on 2026-09-28.
-This file is intentionally temporary.
