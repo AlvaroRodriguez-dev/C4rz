@@ -1,17 +1,17 @@
 <?php
 
-namespace App\\Http\\Controllers\\Itam;
+namespace App\Http\Controllers\Itam;
 
-use App\\Http\\Controllers\\Controller;
-use App\\Models\\ItSolicitud;
-use App\\Models\\ItTipoActivo;
-use App\\Models\\ItUbicacion;
-use App\\Services\\ItSolicitudService;
-use Illuminate\\Http\\JsonResponse;
-use Illuminate\\Http\\Request;
-use Illuminate\\Support\\Facades\\DB;
-use Illuminate\\Validation\\Rule;
-use Illuminate\\Validation\\ValidationException;
+use App\Http\Controllers\Controller;
+use App\Models\ItSolicitud;
+use App\Models\ItTipoActivo;
+use App\Models\ItUbicacion;
+use App\Services\ItSolicitudService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class ItSolicitudController extends Controller
