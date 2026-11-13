@@ -1,13 +1,10 @@
 <?php
 
-namespace App\Providers;
+namespace App\\Providers;
 
-use Illuminate\Support\ServiceProvider;
+use Illuminate\\Support\\ServiceProvider;
 
 class ItamServiceProvider extends ServiceProvider
 {
-    public function boot(): void
-    {
-        $this->loadRoutesFrom(base_path('routes/itam.php'));
-    }
+    // Las rutas ITAM se registran una sola vez desde bootstrap/app.php.
 }
