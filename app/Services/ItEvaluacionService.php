@@ -1,46 +1,47 @@
 <?php
 
-namespace App\Services;
+namespace App\\Services;
 
-use App\Models\ItEvaluacion;
-use App\Models\ItSolicitud;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
+use App\\Models\\ItEvaluacion;
+use App\\Models\\ItSolicitud;
+use Illuminate\\Support\\Facades\\DB;
+use Illuminate\\Validation\\ValidationException;
 
 class ItEvaluacionService
 {
     public const RESULTADOS = [
-        'REASIGNACION',
-        'REPARACION',
-        'STOCK',
-        'COMPRA',
-        'MEJORA',
-        'REEMPLAZO',
-        'OTRO',
+        'REASIGNACION', 'REPARACION', 'STOCK', 'COMPRA', 'MEJORA', 'REEMPLAZO', 'OTRO',
     ];
 
     public function registrar(ItSolicitud $solicitud, array $data): ItEvaluacion
     {
         return DB::transaction(function () use ($solicitud, $data) {
+            $solicitud = ItSolicitud::query()
+                ->whereKey($solicitud->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
             if (!in_array($solicitud->estado, ['PENDIENTE', 'EN_EVALUACION'], true)) {
                 throw ValidationException::withMessages([
                     'solicitud' => 'La solicitud no está disponible para una nueva evaluación técnica.',
                 ]);
             }
 
+            $evaluacionAnterior = ItEvaluacion::query()
+                ->where('solicitud_id', $solicitud->id)
+                ->latest('id')
+                ->lockForUpdate()
+                ->first();
+
             $detallesSolicitud = $solicitud->detalles()->get()->keyBy('id');
             $detallesEvaluacion = collect($data['detalles'] ?? []);
 
             if ($detallesSolicitud->isEmpty()) {
-                throw ValidationException::withMessages([
-                    'detalles' => 'La solicitud no tiene requerimientos para evaluar.',
-                ]);
+                throw ValidationException::withMessages(['detalles' => 'La solicitud no tiene requerimientos para evaluar.']);
             }
 
             if ($detallesEvaluacion->isEmpty()) {
-                throw ValidationException::withMessages([
-                    'detalles' => 'Debe registrar al menos una decisión técnica.',
-                ]);
+                throw ValidationException::withMessages(['detalles' => 'Debe registrar al menos una decisión técnica.']);
             }
 
             $cantidadesPorDetalle = [];
@@ -50,16 +51,12 @@ class ItEvaluacionService
                 $solicitudDetalle = $detallesSolicitud->get($solicitudDetalleId);
 
                 if (!$solicitudDetalle) {
-                    throw ValidationException::withMessages([
-                        'detalles' => 'Uno de los requerimientos seleccionados no pertenece a la solicitud.',
-                    ]);
+                    throw ValidationException::withMessages(['detalles' => 'Uno de los requerimientos seleccionados no pertenece a la solicitud.']);
                 }
 
                 $resultado = $detalle['resultado'] ?? '';
                 if (!in_array($resultado, self::RESULTADOS, true)) {
-                    throw ValidationException::withMessages([
-                        'detalles' => 'Existe un resultado de evaluación no válido.',
-                    ]);
+                    throw ValidationException::withMessages(['detalles' => 'Existe un resultado de evaluación no válido.']);
                 }
 
                 $cantidad = (int) ($detalle['cantidad'] ?? 0);
@@ -69,8 +66,7 @@ class ItEvaluacionService
                     ]);
                 }
 
-                $cantidadesPorDetalle[$solicitudDetalleId] =
-                    ($cantidadesPorDetalle[$solicitudDetalleId] ?? 0) + $cantidad;
+                $cantidadesPorDetalle[$solicitudDetalleId] = ($cantidadesPorDetalle[$solicitudDetalleId] ?? 0) + $cantidad;
             }
 
             foreach ($detallesSolicitud as $solicitudDetalleId => $solicitudDetalle) {
@@ -84,14 +80,8 @@ class ItEvaluacionService
                 }
             }
 
-            $resultados = $detallesEvaluacion
-                ->pluck('resultado')
-                ->unique()
-                ->values();
-
-            $resultadoGeneral = $resultados->count() === 1
-                ? $resultados->first()
-                : 'MIXTA';
+            $resultados = $detallesEvaluacion->pluck('resultado')->unique()->values();
+            $resultadoGeneral = $resultados->count() === 1 ? $resultados->first() : 'MIXTA';
 
             $evaluacion = ItEvaluacion::create([
                 'solicitud_id' => $solicitud->id,
@@ -100,6 +90,7 @@ class ItEvaluacionService
                 'resultado' => $resultadoGeneral,
                 'justificacion' => $data['justificacion'] ?? null,
                 'observaciones' => $data['observaciones'] ?? null,
+                'revision_de_id' => $evaluacionAnterior?->id,
             ]);
 
             foreach ($detallesEvaluacion as $detalle) {
@@ -116,7 +107,7 @@ class ItEvaluacionService
                 'responsable_id' => auth()->id(),
             ]);
 
-            return $evaluacion->load(['detalles.solicitudDetalle', 'evaluador']);
+            return $evaluacion->load(['detalles.solicitudDetalle', 'evaluador', 'revisionDe']);
         });
     }
 }
