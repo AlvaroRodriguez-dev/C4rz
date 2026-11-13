@@ -14,6 +14,7 @@ class WmsIngreso extends Model
 
     protected $fillable = [
         'rdocum',
+        'doc_origen',
         'rfecha',
         'tipo_ingreso',
         'motivo',
@@ -79,4 +80,16 @@ class WmsIngreso extends Model
     {
         return $this->belongsTo(\App\Models\User::class, 'delete_id');
     }
+
+    public function detallesRecepcion()
+    {
+        return $this->hasMany(WmsRecepcionDetalle::class, 'wms_ingreso_id');
+    }
+
+    public function excepcionesRecepcion()
+    {
+        return $this->hasMany(WmsRecepcionExcepcion::class, 'wms_ingreso_id');
+    }
+    
+
 }

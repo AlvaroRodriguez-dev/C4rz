@@ -2,92 +2,112 @@
 
 namespace App\Services;
 
+use App\Models\WmsAlmacen;
 use App\Models\WmsPalletCorrelativo;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 class PalletCorrelativoService
 {
     /**
-     * Genera el siguiente código de pallet: {AA}{correlativo de 5 dígitos}
-     * Ej: 26 + 00010 = 2600010
+     * Genera el siguiente código físico de pallet:
+     * {codigo_almacen}-{anio}{correlativo de 4 dígitos}
+     *
+     * Ejemplo para el almacén 110, año 26 y correlativo 3193:
+     * 110-263193
      */
-    public function generarSiguiente(): string
+    public function generarSiguiente(WmsAlmacen $almacen): string
     {
-        return DB::transaction(function () {
-            $anioActual = date('y'); // '26', '27', ...
+        return DB::transaction(function () use ($almacen) {
+            $anioActual = date('y');
+            $registro = $this->obtenerOInicializar($almacen, $anioActual);
 
-            $registro = WmsPalletCorrelativo::where('anio', $anioActual)
-                ->lockForUpdate()
-                ->first();
+            $siguiente = ((int) $registro->correlativo) + 1;
 
-            if (!$registro) {
-                $registro = WmsPalletCorrelativo::create([
-                    'anio' => $anioActual,
-                    'correlativo' => $this->extraerCorrelativoBase(),
-                ]);
+            $registro->update([
+                'correlativo' => $siguiente,
+            ]);
 
-                // Volvemos a leer con lock para mantener el flujo consistente
-                $registro = WmsPalletCorrelativo::where('anio', $anioActual)
-                    ->lockForUpdate()
-                    ->first();
-            }
-
-            $siguiente = $registro->correlativo + 1;
-            $registro->update(['correlativo' => $siguiente]);
-
-            $correlativoFormateado = str_pad($siguiente, 5, '0', STR_PAD_LEFT);
-
-            return "{$anioActual}{$correlativoFormateado}";
+            return $this->formatear($almacen, $anioActual, $siguiente);
         });
     }
 
     /**
-     * Toma los últimos 5 dígitos de PALLET_INICIO como base.
-     * PALLET_INICIO=2600009 -> base = 9 (siguiente = 10 -> "00010")
+     * Genera y consume varios correlativos para un almacén.
      */
-    private function extraerCorrelativoBase(): int
-    {
-        $palletInicio = (string) config('wms.pallet_inicio');
-
-        return (int) substr($palletInicio, -5);
-    }
-
-    /**
-     * Genera y CONSUME varios correlativos de una sola vez.
-     */
-    public function generarSiguientes(int $cantidad): array
+    public function generarSiguientes(WmsAlmacen $almacen, int $cantidad): array
     {
         if ($cantidad <= 0) {
             return [];
         }
 
-        return DB::transaction(function () use ($cantidad) {
+        return DB::transaction(function () use ($almacen, $cantidad) {
             $anioActual = date('y');
+            $registro = $this->obtenerOInicializar($almacen, $anioActual);
 
-            $registro = WmsPalletCorrelativo::where('anio', $anioActual)
-                ->lockForUpdate()
-                ->first();
-
-            if (!$registro) {
-                WmsPalletCorrelativo::create([
-                    'anio' => $anioActual,
-                    'correlativo' => $this->extraerCorrelativoBase(),
-                ]);
-                $registro = WmsPalletCorrelativo::where('anio', $anioActual)
-                    ->lockForUpdate()
-                    ->first();
-            }
-
-            $inicio = $registro->correlativo;
-            $registro->update(['correlativo' => $inicio + $cantidad]);
+            $inicio = (int) $registro->correlativo;
+            $registro->update([
+                'correlativo' => $inicio + $cantidad,
+            ]);
 
             $resultado = [];
+
             for ($i = 1; $i <= $cantidad; $i++) {
-                $correlativoFormateado = str_pad($inicio + $i, 5, '0', STR_PAD_LEFT);
-                $resultado[] = "{$anioActual}{$correlativoFormateado}";
+                $resultado[] = $this->formatear(
+                    $almacen,
+                    $anioActual,
+                    $inicio + $i
+                );
             }
 
             return $resultado;
         });
+    }
+
+    private function obtenerOInicializar(WmsAlmacen $almacen, string $anio): WmsPalletCorrelativo
+    {
+        $registro = WmsPalletCorrelativo::query()
+            ->where('almacen_id', $almacen->id)
+            ->where('anio', $anio)
+            ->lockForUpdate()
+            ->first();
+
+        if ($registro) {
+            return $registro;
+        }
+
+        // El registro histórico del almacén 110 ya contiene el correlativo real
+        // desde el cual debe continuar la numeración (3192 -> 3193).
+        // Para un almacén/año que todavía no tenga historial, iniciamos en 0.
+        // Así cada almacén mantiene su propia secuencia independiente.
+        DB::table('wms_pallet_correlativos')->insertOrIgnore([
+            'almacen_id' => $almacen->id,
+            'anio' => $anio,
+            'correlativo' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return WmsPalletCorrelativo::query()
+            ->where('almacen_id', $almacen->id)
+            ->where('anio', $anio)
+            ->lockForUpdate()
+            ->firstOrFail();
+    }
+
+    private function formatear(WmsAlmacen $almacen, string $anio, int $correlativo): string
+    {
+        if ($correlativo > 9999) {
+            throw new RuntimeException(
+                "El correlativo de pallets del almacén {$almacen->codigo} superó el límite de 4 dígitos."
+            );
+        }
+
+        return sprintf(
+            '%s-%s%04d',
+            $almacen->codigo,
+            $anio,
+            $correlativo
+        );
     }
 }

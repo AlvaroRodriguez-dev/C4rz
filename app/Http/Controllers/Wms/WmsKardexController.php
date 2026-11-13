@@ -148,13 +148,16 @@ class WmsKardexController extends Controller
             ->get()
             ->each(function (WmsIngreso $r) use (&$movimientos) {
                 $esAjuste = $r->tipo_ingreso === 'ajuste';
+                $esRecepcionAgencia = $r->tipo_ingreso === 'recepcion_agencia';
 
                 $movimientos->push([
                     'fecha' => $r->created_at,
-                    'tipo' => $esAjuste ? 'INGRESO (AJUSTE)' : 'INGRESO',
+                    'tipo' => $esAjuste ? 'INGRESO (AJUSTE)' : ($esRecepcionAgencia ? 'INGRESO (RECEPCIÓN AGENCIA)' : 'INGRESO'),
                     'documento' => $esAjuste
                         ? "Ajuste: {$r->rdocum} · Pallet {$r->pallet}" . ($r->motivo ? " · Motivo: {$r->motivo}" : '')
-                        : "Nota: {$r->rdocum} · Pallet {$r->pallet}",
+                        : ($esRecepcionAgencia
+                            ? "Documento origen: {$r->doc_origen} · Pallet {$r->pallet}"
+                            : "Nota: {$r->rdocum} · Pallet {$r->pallet}"),
                     'detalle_ubicacion' => "Origen: Galpón {$r->galpon} · {$r->ubicacion}",
                     'clote' => $r->clote,
                     'usuario' => $r->creador->name ?? 'N/D',

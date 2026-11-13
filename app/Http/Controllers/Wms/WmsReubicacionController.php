@@ -6,13 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Models\WmsReubicacion;
 use App\Services\ReubicacionService;
 use App\Services\SaldoService;
+use App\Services\WmsStockLockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class WmsReubicacionController extends Controller
 {
-    public function __construct(private SaldoService $saldoService, private ReubicacionService $reubicacionService) {}
+    public function __construct(
+        private SaldoService $saldoService,
+        private ReubicacionService $reubicacionService,
+        private WmsStockLockService $stockLockService
+    ) {}
 
 
     public function index()
@@ -56,30 +61,45 @@ class WmsReubicacionController extends Controller
 
         $data = $validator->validated();
 
-        $items = $this->saldoService->calcular(['pallet' => $data['pallet_origen']]);
+        $resultado = DB::transaction(function () use ($data, $request) {
+            $pallet = $data['pallet_origen'];
+            $this->stockLockService->bloquearPallets([$pallet]);
 
-        if ($items->isEmpty()) {
-            return response()->json(['errors' => ['general' => ['Este pallet no tiene saldo disponible para reubicar.']]], 422);
-        }
+            $respuestaAutorizacion = $this->validarMovimientoConReserva([$pallet], $request);
+            if ($respuestaAutorizacion) {
+                return $respuestaAutorizacion;
+            }
 
-        $mismaUbicacion = $items->every(
-            fn($i) =>
-            $i['galpon'] == $data['galpon_destino'] && $i['ubicacion'] == $data['ubicacion_destino']
-        );
+            // El saldo se vuelve a calcular dentro de la transacción y después del bloqueo.
+            $items = $this->saldoService->calcular(['pallet' => $pallet]);
 
-        if ($mismaUbicacion) {
-            return response()->json(['errors' => ['general' => ['El destino es igual a la ubicación actual del pallet.']]], 422);
-        }
+            if ($items->isEmpty()) {
+                return response()->json(['errors' => ['general' => ['Este pallet no tiene saldo disponible para reubicar.']]], 422);
+            }
 
-        DB::transaction(function () use ($data) {
+            $mismaUbicacion = $items->every(
+                fn ($i) => $i['galpon'] == $data['galpon_destino']
+                    && $i['ubicacion'] == $data['ubicacion_destino']
+            );
+
+            if ($mismaUbicacion) {
+                return response()->json(['errors' => ['general' => ['El destino es igual a la ubicación actual del pallet.']]], 422);
+            }
+
             $this->reubicacionService->trasladarPalletCompleto(
-                $data['pallet_origen'],
+                $pallet,
                 $data['galpon_destino'],
                 $data['ubicacion_destino'],
                 null,
                 $data['observacion'] ?? null
             );
+
+            return null;
         });
+
+        if ($resultado) {
+            return $resultado;
+        }
 
         return response()->json(['message' => 'Pallet reubicado correctamente.']);
     }
@@ -113,42 +133,92 @@ class WmsReubicacionController extends Controller
 
         $data = $validator->validated();
 
-        $saldoActual = $this->saldoService->saldoDeGrupo(
-            $data['codigo'],
-            $data['clote'] ?? null,
-            $data['pallet_origen'],
-            $data['almacen_origen'],
-            $data['galpon_origen'],
-            $data['ubicacion_origen']
-        );
+        $resultado = DB::transaction(function () use ($data, $request) {
+            $pallets = [$data['pallet_origen'], $data['pallet_destino']];
+            $this->stockLockService->bloquearPallets($pallets);
 
-        if ($data['cantidad'] > $saldoActual) {
-            return response()->json([
-                'errors' => ['general' => ["El pallet {$data['pallet_origen']} no tiene saldo suficiente. Disponible: {$saldoActual}."]],
-            ], 422);
+            $respuestaAutorizacion = $this->validarMovimientoConReserva($pallets, $request);
+            if ($respuestaAutorizacion) {
+                return $respuestaAutorizacion;
+            }
+
+            // Validar el saldo bajo bloqueo para no aceptar cantidades obsoletas.
+            $saldoActual = $this->saldoService->saldoDeGrupo(
+                $data['codigo'],
+                $data['clote'] ?? null,
+                $data['pallet_origen'],
+                $data['almacen_origen'],
+                $data['galpon_origen'],
+                $data['ubicacion_origen']
+            );
+
+            if ($data['cantidad'] > $saldoActual) {
+                return response()->json([
+                    'errors' => ['general' => ["El pallet {$data['pallet_origen']} no tiene saldo suficiente. Disponible: {$saldoActual}."]],
+                ], 422);
+            }
+
+            WmsReubicacion::create([
+                'tipo' => 'completar_pallet',
+                'codigo' => $data['codigo'],
+                'clote' => $data['clote'] ?? null,
+                'descrip' => $data['descrip'] ?? null,
+                'descrip1' => $data['descrip1'] ?? null,
+                'cantidad' => $data['cantidad'],
+                'pallet_origen' => $data['pallet_origen'],
+                'almacen_origen' => $data['almacen_origen'],
+                'galpon_origen' => $data['galpon_origen'],
+                'ubicacion_origen' => $data['ubicacion_origen'],
+                'pallet_destino' => $data['pallet_destino'],
+                'almacen_destino' => $data['almacen_destino'],
+                'galpon_destino' => $data['galpon_destino'],
+                'ubicacion_destino' => $data['ubicacion_destino'],
+                'observacion' => $data['observacion'] ?? null,
+            ]);
+
+            return null;
+        });
+
+        if ($resultado) {
+            return $resultado;
         }
-
-        WmsReubicacion::create([
-            'tipo' => 'completar_pallet',
-            'codigo' => $data['codigo'],
-            'clote' => $data['clote'] ?? null,
-            'descrip' => $data['descrip'] ?? null,
-            'descrip1' => $data['descrip1'] ?? null,
-            'cantidad' => $data['cantidad'],
-            'pallet_origen' => $data['pallet_origen'],
-            'almacen_origen' => $data['almacen_origen'],
-            'galpon_origen' => $data['galpon_origen'],
-            'ubicacion_origen' => $data['ubicacion_origen'],
-            'pallet_destino' => $data['pallet_destino'],
-            'almacen_destino' => $data['almacen_destino'],
-            'galpon_destino' => $data['galpon_destino'],
-            'ubicacion_destino' => $data['ubicacion_destino'],
-            'observacion' => $data['observacion'] ?? null,
-        ]);
 
         return response()->json(['message' => 'Cajas reubicadas correctamente.']);
     }
 
 
-    
+    /**
+     * Un pallet reservado por una OT pendiente solo puede moverse con confirmación
+     * explícita de un administrador WMS/sistema. La validación se hace dentro de
+     * la transacción y después de bloquear los pallets involucrados.
+     */
+    private function validarMovimientoConReserva(array $pallets, Request $request)
+    {
+        $reservados = collect($pallets)
+            ->unique()
+            ->filter(fn ($pallet) => $this->stockLockService->cantidadReservada($pallet) > 0)
+            ->values();
+
+        if ($reservados->isEmpty()) {
+            return null;
+        }
+
+        $supervisor = $request->user()?->hasAnyRole(['WMS-ADMIN', 'SIS-ADMIN']) ?? false;
+        $confirmado = $request->boolean('confirmar_reubicacion_reservada');
+
+        if (!$supervisor || !$confirmado) {
+            return response()->json([
+                'requires_supervisor_confirmation' => true,
+                'supervisor_can_confirm' => $supervisor,
+                'pallets_reservados' => $reservados,
+                'errors' => [
+                    'general' => [
+                        'Uno o más pallets tienen cajas reservadas en una Orden de Trabajo pendiente. Se requiere confirmación explícita de un supervisor WMS.'
+                    ]
+                ],
+            ], 409);
+        }
+
+        return null;
+    }
 }

@@ -8,6 +8,8 @@ use App\Models\WmsOrdenTrabajo;
 use App\Models\WmsSalida;
 use App\Services\LoteExcepcionService;
 use App\Services\SaldoService;
+use App\Services\WmsStockLockService;
+use App\Services\WmsContextService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -15,11 +17,18 @@ use Illuminate\Support\Facades\Validator;
 class WmsSalidaController extends Controller
 {
 
-    public function __construct(private SaldoService $saldoService, private LoteExcepcionService $loteExcepcionService) {}
+    public function __construct(
+        private SaldoService $saldoService,
+        private LoteExcepcionService $loteExcepcionService,
+        private WmsStockLockService $stockLockService,
+        private WmsContextService $context
+    ) {}
     private function getSaldosPorPallet(string $codigo, ?string $clote): array
     {
+        $almacenCodigo = $this->context->codigo();
+
         return $this->saldoService->calcular(['codigo' => $codigo])
-            ->filter(fn($s) => $s['clote'] == $clote)
+            ->filter(fn($s) => $s['clote'] == $clote && (string) $s['almacen'] === $almacenCodigo)
             ->map(function ($s) {
                 $reservado = $this->saldoService->reservadoEnOtsPendientes(
                     $s['codigo'],
@@ -58,11 +67,12 @@ class WmsSalidaController extends Controller
     public function buscarNotas(Request $request)
     {
         $q = trim((string) $request->get('q'));
+        $almacenCodigo = $this->context->codigo();
 
         $notas = DB::connection('faboce2026')
             ->table('log_registro')
             ->whereBetween('tipo_registro', [1, 3])
-            ->where('agencia', 110)
+            ->where('agencia', $almacenCodigo)
             ->when($q !== '', function ($query) use ($q) {
                 $query->where(function ($sub) use ($q) {
                     $sub->where('id', 'like', "%{$q}%")
@@ -96,12 +106,21 @@ class WmsSalidaController extends Controller
      */
     public function detalleNota(string $id)
     {
-        // Obtenemos la fecha de la nota para decidir si exige despacho 100% completo
+        $almacenCodigo = $this->context->codigo();
+
+        // La nota debe pertenecer al almacén asignado, incluso si se invoca
+        // directamente este endpoint sin pasar por el selector.
         $nota = DB::connection('faboce2026')
             ->table('log_registro')
             ->where('id', $id)
-            ->select('fecha')
+            ->whereBetween('tipo_registro', [1, 3])
+            ->where('agencia', $almacenCodigo)
+            ->select('fecha', 'agencia', 'tipo_registro')
             ->first();
+
+        if (!$nota) {
+            return response()->json(['message' => 'La nota no existe o no pertenece al almacén asignado.'], 404);
+        }
 
         $fechaCorte = \Illuminate\Support\Carbon::parse(config('wms.salida_parcial_fecha_corte'));
         $exigeDespachoCompleto = $nota && \Illuminate\Support\Carbon::parse($nota->fecha)->gte($fechaCorte);
@@ -130,6 +149,7 @@ class WmsSalidaController extends Controller
 
         // Cantidad ya efectivamente descontada (OT ya chequeada -> wms_salidas real)
         $yaDespachado = WmsSalida::where('id_registro', $id)
+            ->where('almacen', $almacenCodigo)
             ->select('codigo', 'lote_declarado', DB::raw('SUM(cantidad) as total'))
             ->groupBy('codigo', 'lote_declarado')
             ->get()
@@ -139,6 +159,7 @@ class WmsSalidaController extends Controller
         // están pendientes de verificación (todavía no descontaron stock, pero ya
         // "reservaron" ese cupo de la nota y no deben poder duplicarse).
         $reservadoEnOt = \App\Models\WmsOrdenTrabajoDetalle::query()
+            ->where('almacen_origen', $almacenCodigo)
             ->whereHas('ordenTrabajo', fn($q) => $q->where('estado', 'pendiente')->where('id_registro', $id))
             ->select('codigo', 'lote_declarado', DB::raw('SUM(cantidad) as total'))
             ->groupBy('codigo', 'lote_declarado')
@@ -161,7 +182,7 @@ class WmsSalidaController extends Controller
             $cantidadOriginal = (int) $detalle->cantidad_despacho;
             $pendiente = $cantidadOriginal - $procesado;
 
-            $saldoLoteDeclarado = $this->loteExcepcionService->stockTotal($detalle->codigo, $detalle->lote);
+            $saldoLoteDeclarado = $this->loteExcepcionService->stockTotal($detalle->codigo, $detalle->lote, $almacenCodigo);
             $requiereCambioLote = $pendiente > 0 && $saldoLoteDeclarado < $pendiente;
             $cambioLotePermitido = $this->loteExcepcionService->esElegibleParaCambioLote($detalle->lote);
             $cambioLoteBloqueado = $requiereCambioLote && !$cambioLotePermitido;
@@ -204,7 +225,7 @@ class WmsSalidaController extends Controller
         $codigo = $request->get('codigo');
         $loteExcluir = $request->get('lote_excluir');
 
-        return response()->json(['lotes' => $this->loteExcepcionService->lotesAlternativos($codigo, $loteExcluir)]);
+        return response()->json(['lotes' => $this->loteExcepcionService->lotesAlternativos($codigo, $loteExcluir, $this->context->codigo())]);
     }
 
     /** AJAX - Pallets con saldo de un código+lote específico (tras elegir el lote sustituto). */
@@ -242,6 +263,17 @@ class WmsSalidaController extends Controller
      */
     public function store(Request $request)
     {
+        // La validación de saldo y la creación de la reserva deben compartir
+        // una transacción: de lo contrario, dos solicitudes podrían reservar
+        // simultáneamente las mismas cajas.
+        return DB::transaction(fn () => $this->storeWithinTransaction($request));
+    }
+
+    private function storeWithinTransaction(Request $request)
+    {
+        $almacen = $this->context->almacen();
+        $almacenCodigo = (string) $almacen->codigo;
+
         $validator = Validator::make($request->all(), [
             'tipo_registro' => ['required'],
             'id_registro' => ['required'],
@@ -276,6 +308,129 @@ class WmsSalidaController extends Controller
         }
 
         $data = $validator->validated();
+
+        // El almacén nunca se toma del navegador: se fuerza el almacén principal
+        // activo asignado al usuario para todas las ubicaciones enviadas.
+        foreach ($data['lines'] as &$line) {
+            if (isset($line['salidas'])) {
+                foreach ($line['salidas'] as &$salida) {
+                    $salida['almacen'] = $almacenCodigo;
+                }
+                unset($salida);
+            }
+            if (isset($line['lotes_aplicados'])) {
+                foreach ($line['lotes_aplicados'] as &$loteAplicado) {
+                    foreach ($loteAplicado['salidas'] as &$salida) {
+                        $salida['almacen'] = $almacenCodigo;
+                    }
+                    unset($salida);
+                }
+                unset($loteAplicado);
+            }
+        }
+        unset($line);
+
+        // La nota también se valida en servidor; el selector no es una barrera de seguridad.
+        $notaOrigenValida = DB::connection('faboce2026')
+            ->table('log_registro')
+            ->where('id', $data['id_registro'])
+            ->where('tipo_registro', $data['tipo_registro'])
+            ->where('agencia', $almacenCodigo)
+            ->exists();
+
+        if (!$notaOrigenValida) {
+            return response()->json(['errors' => ['id_registro' => ['La nota no existe o no pertenece al almacén asignado.']]], 422);
+        }
+
+        $palletsAReservar = collect($data['lines'])
+            ->flatMap(function ($line) {
+                if (!empty($line['lotes_aplicados'])) {
+                    return collect($line['lotes_aplicados'])
+                        ->flatMap(fn ($lote) => collect($lote['salidas'] ?? [])->pluck('pallet'));
+                }
+
+                return collect($line['salidas'] ?? [])->pluck('pallet');
+            })
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        // Primero serializamos todas las reservas de esta nota. Así, dos solicitudes
+        // con pallets distintos no pueden validar simultáneamente el mismo cupo pendiente.
+        $this->stockLockService->bloquearNota(
+            (string) $data['tipo_registro'],
+            (string) $data['id_registro']
+        );
+
+        // Después bloqueamos los pallets en orden estable para proteger el stock físico.
+        $this->stockLockService->bloquearPallets($palletsAReservar);
+
+        // Revalidar el stock disponible real por combinación física. Esto impide
+        // que una solicitud manipulada reserve cajas ya comprometidas en otra OT
+        // o repita el mismo pallet en varias líneas para superar su saldo.
+        $asignacionesFisicas = collect($data['lines'])->flatMap(function ($line) {
+            if (!empty($line['lotes_aplicados'])) {
+                return collect($line['lotes_aplicados'])->flatMap(function ($lote) use ($line) {
+                    return collect($lote['salidas'] ?? [])->map(fn ($salida) => [
+                        'codigo' => $line['codigo'],
+                        'clote' => $lote['clote'],
+                        'pallet' => $salida['pallet'],
+                        'almacen' => $salida['almacen'] ?? '110',
+                        'galpon' => $salida['galpon'],
+                        'ubicacion' => $salida['ubicacion'],
+                        'cantidad' => (int) $salida['cantidad'],
+                    ]);
+                });
+            }
+
+            return collect($line['salidas'] ?? [])->map(fn ($salida) => [
+                'codigo' => $line['codigo'],
+                'clote' => $line['clote'] ?? null,
+                'pallet' => $salida['pallet'],
+                'almacen' => $salida['almacen'] ?? '110',
+                'galpon' => $salida['galpon'],
+                'ubicacion' => $salida['ubicacion'],
+                'cantidad' => (int) $salida['cantidad'],
+            ]);
+        });
+
+        $asignacionesFisicas->groupBy(fn ($item) => implode('|', [
+            $item['codigo'],
+            $item['clote'] ?? '',
+            $item['pallet'],
+            $item['almacen'],
+            strtoupper(trim($item['galpon'])),
+            strtoupper(trim($item['ubicacion'])),
+        ]))->each(function ($grupo) {
+            $item = $grupo->first();
+            $saldoFisico = $this->saldoService->saldoDeGrupo(
+                $item['codigo'],
+                $item['clote'],
+                $item['pallet'],
+                $item['almacen'],
+                $item['galpon'],
+                $item['ubicacion']
+            );
+            $reservado = $this->saldoService->reservadoEnOtsPendientes(
+                $item['codigo'],
+                $item['clote'],
+                $item['pallet'],
+                $item['almacen'],
+                $item['galpon'],
+                $item['ubicacion']
+            );
+            $disponible = max(0, $saldoFisico - $reservado);
+            $solicitado = (int) $grupo->sum('cantidad');
+
+            if ($solicitado > $disponible) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'lines' => [
+                        "El pallet {$item['pallet']} solo tiene {$disponible} cajas disponibles después de descontar las reservas existentes; se solicitaron {$solicitado}.",
+                    ],
+                ]);
+            }
+        });
 
         // --- NUEVO: si la nota exige despacho completo, validar que TODO quede cubierto ---
         $nota = DB::connection('faboce2026')
@@ -332,13 +487,13 @@ class WmsSalidaController extends Controller
                 $asignadoAhora = $asignadoPorGrupo[$clave] ?? 0;
 
                 if ($pendienteAntes > 0 && $asignadoAhora < $pendienteAntes) {
-                    return response()->json([
-                        'errors' => ['general' => [
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'general' => [
                             "Esta nota tiene fecha " . \Illuminate\Support\Carbon::parse($nota->fecha)->format('d/m/Y') .
                                 " y requiere despacho completo en una sola operación. El producto {$codigoGrupo} (lote {$loteGrupo}) " .
                                 "quedaría con " . ($pendienteAntes - $asignadoAhora) . " cajas sin asignar."
-                        ]],
-                    ], 422);
+                        ],
+                    ]);
                 }
             }
         }
@@ -363,18 +518,18 @@ class WmsSalidaController extends Controller
             // --- CAMINO: Cambio de Lote MÚLTIPLE ---
             if (!empty($line['lotes_aplicados'])) {
                 if (!$this->loteExcepcionService->esElegibleParaCambioLote($loteDeclarado)) {
-                    return response()->json([
-                        'errors' => ['general' => ["El lote {$loteDeclarado} no admite cambio de lote (producción posterior a la fecha límite permitida)."]],
-                    ], 422);
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'general' => ["El lote {$loteDeclarado} no admite cambio de lote (producción posterior a la fecha límite permitida)."],
+                    ]);
                 }
 
                 $totalAsignado = collect($line['lotes_aplicados'])
                     ->sum(fn($l) => collect($l['salidas'])->sum('cantidad'));
 
                 if ($totalAsignado != $pendienteReal) {
-                    return response()->json([
-                        'errors' => ['general' => ["El código {$line['codigo']}: el cambio de lote debe cubrir exactamente el 100% del pedido pendiente ({$pendienteReal} cajas). Asignado: {$totalAsignado}."]],
-                    ], 422);
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'general' => ["El código {$line['codigo']}: el cambio de lote debe cubrir exactamente el 100% del pedido pendiente ({$pendienteReal} cajas). Asignado: {$totalAsignado}."],
+                    ]);
                 }
 
                 foreach ($line['lotes_aplicados'] as $asignacion) {
@@ -382,7 +537,8 @@ class WmsSalidaController extends Controller
                     $validacion = $this->loteExcepcionService->validar($line['codigo'], $asignacion['clote'], $subtotal);
 
                     if (!$validacion['valido']) {
-                        return response()->json(['errors' => ['general' => [$validacion['mensaje']]]], 422);
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'general' => [$validacion['mensaje']]]);
                     }
 
                     foreach ($asignacion['salidas'] as $salida) {
@@ -396,9 +552,9 @@ class WmsSalidaController extends Controller
                         );
 
                         if ($salida['cantidad'] > $saldoReal) {
-                            return response()->json([
-                                'errors' => ['general' => ["El pallet {$salida['pallet']} ({$line['codigo']}, lote {$asignacion['clote']}) no tiene saldo suficiente. Disponible: {$saldoReal}."]],
-                            ], 422);
+                            throw \Illuminate\Validation\ValidationException::withMessages([
+                                'general' => ["El pallet {$salida['pallet']} ({$line['codigo']}, lote {$asignacion['clote']}) no tiene saldo suficiente. Disponible: {$saldoReal}."],
+                            ]);
                         }
                     }
                 }
@@ -411,21 +567,22 @@ class WmsSalidaController extends Controller
             $totalPedido = collect($line['salidas'])->sum('cantidad');
 
             if ($totalPedido > $pendienteReal) {
-                return response()->json([
-                    'errors' => ['general' => ["El código {$line['codigo']} (lote {$loteDeclarado}) ya no tiene cupo pendiente en esta nota. Pendiente real: {$pendienteReal}."]],
-                ], 422);
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'general' => ["El código {$line['codigo']} (lote {$loteDeclarado}) ya no tiene cupo pendiente en esta nota. Pendiente real: {$pendienteReal}."],
+                ]);
             }
 
             if ($loteFisico !== $loteDeclarado) {
                 if (!$this->loteExcepcionService->esElegibleParaCambioLote($loteDeclarado)) {
-                    return response()->json([
-                        'errors' => ['general' => ["El lote {$loteDeclarado} no admite cambio de lote (producción posterior a la fecha límite permitida)."]],
-                    ], 422);
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'general' => ["El lote {$loteDeclarado} no admite cambio de lote (producción posterior a la fecha límite permitida)."],
+                    ]);
                 }
 
                 $validacion = $this->loteExcepcionService->validar($line['codigo'], $loteFisico, $totalPedido);
                 if (!$validacion['valido']) {
-                    return response()->json(['errors' => ['general' => [$validacion['mensaje']]]], 422);
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'general' => [$validacion['mensaje']]]);
                 }
             }
 
@@ -440,9 +597,9 @@ class WmsSalidaController extends Controller
                 );
 
                 if ($salida['cantidad'] > $saldoReal) {
-                    return response()->json([
-                        'errors' => ['general' => ["El pallet {$salida['pallet']} ({$line['codigo']}) no tiene saldo suficiente. Disponible: {$saldoReal}."]],
-                    ], 422);
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'general' => ["El pallet {$salida['pallet']} ({$line['codigo']}) no tiene saldo suficiente. Disponible: {$saldoReal}."],
+                    ]);
                 }
             }
         }
@@ -563,7 +720,7 @@ class WmsSalidaController extends Controller
         $cantidad = (int) $request->get('cantidad');
 
         return response()->json(
-            $this->loteExcepcionService->distribuirAutomatico($codigo, $loteExcluir, $cantidad)
+            $this->loteExcepcionService->distribuirAutomatico($codigo, $loteExcluir, $cantidad, $this->context->codigo())
         );
     }
 }

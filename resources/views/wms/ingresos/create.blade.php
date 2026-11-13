@@ -47,7 +47,12 @@
         const routeBuscarNotas = "{{ route('wms.ingresos.notas.buscar') }}";
         const routeDetalleNota = "{{ url('wms/ingresos/notas') }}";
         const routeStore = "{{ route('wms.ingresos.store') }}";
+        const routeOpcionesUbicacion = "{{ route('wms.maestros.ubicaciones.opciones') }}";
+        const routeUbicacionesGalpon = "{{ url('wms/maestros/ubicaciones/galpon') }}";
         const csrfToken = "{{ csrf_token() }}";
+
+        let galponesWms = [];
+        const ubicacionesWms = {};
 
         let notaSeleccionada = null;
         let grupos = []; // [{ id, items: [...], galpon, ubicacion }]
@@ -70,7 +75,38 @@
             });
 
             $('#btnGuardar').on('click', guardarIngreso);
+            cargarMaestroUbicaciones();
         });
+
+        function cargarMaestroUbicaciones() {
+            fetch(routeOpcionesUbicacion).then(res => res.json()).then(data => {
+                galponesWms = data.galpones ?? [];
+                renderGrupos();
+            }).catch(() => mostrarAlerta('No fue posible cargar las posiciones WMS disponibles.', 'error'));
+        }
+
+        function cargarUbicacionesGalpon(galponId) {
+            if (!galponId || ubicacionesWms[galponId]) return Promise.resolve();
+            return fetch(routeUbicacionesGalpon + '/' + encodeURIComponent(galponId))
+                .then(res => { if (!res.ok) throw new Error(); return res.json(); })
+                .then(data => { ubicacionesWms[galponId] = data.ubicaciones ?? []; });
+        }
+
+        function opcionesGalpon(galponSeleccionado) {
+            return '<option value="">Selecciona galpón...</option>' + galponesWms.map(g =>
+                '<option value="' + g.codigo + '" ' + (g.codigo === galponSeleccionado ? 'selected' : '') + '>' +
+                g.codigo + ' · ' + g.nombre + '</option>'
+            ).join('');
+        }
+
+        function opcionesUbicacion(galponCodigo, ubicacionSeleccionada) {
+            const galpon = galponesWms.find(g => g.codigo === galponCodigo);
+            const ubicaciones = galpon ? (ubicacionesWms[galpon.id] ?? []) : [];
+            return '<option value="">Selecciona ubicación...</option>' + ubicaciones.map(u =>
+                '<option value="' + u.codigo + '" ' + (String(u.codigo) === String(ubicacionSeleccionada) ? 'selected' : '') + '>' +
+                u.codigo + '</option>'
+            ).join('');
+        }
 
         function cargarDetalle(rdocum) {
             $('#tablaDetalle').empty();
@@ -217,13 +253,18 @@
                         <div class="grid grid-cols-2 gap-2 mt-3">
                             <div>
                                 <label class="block text-[11px] font-medium text-gray-500 mb-1">Galpón</label>
-                                <input type="text" data-grupo="${idx}" data-field="galpon" value="${grupo.galpon}"
-                                    class="row-input grupo-input w-full border-gray-300 rounded-lg p-2.5" placeholder="Galpón">
+                                <select data-grupo="${idx}" data-field="galpon"
+                                        class="grupo-input w-full border-gray-300 rounded-lg p-2.5">
+                                    ${opcionesGalpon(grupo.galpon)}
+                                </select>
                             </div>
                             <div>
                                 <label class="block text-[11px] font-medium text-gray-500 mb-1">Ubicación</label>
-                                <input type="text" data-grupo="${idx}" data-field="ubicacion" value="${grupo.ubicacion}"
-                                    class="row-input grupo-input w-full border-gray-300 rounded-lg p-2.5" placeholder="Ubicación">
+                                <select data-grupo="${idx}" data-field="ubicacion"
+                                        class="grupo-input w-full border-gray-300 rounded-lg p-2.5"
+                                        ${grupo.galpon ? '' : 'disabled'}>
+                                    ${opcionesUbicacion(grupo.galpon, grupo.ubicacion)}
+                                </select>
                             </div>
                         </div>
 
@@ -232,8 +273,29 @@
                 `);
             });
 
-            $('.grupo-input').on('input', function () {
-                grupos[$(this).data('grupo')][$(this).data('field')] = $(this).val();
+            $('.grupo-input').on('change', async function () {
+                const idx = Number($(this).data('grupo'));
+                const field = $(this).data('field');
+                const value = $(this).val() ?? '';
+
+                if (field === 'galpon') {
+                    grupos[idx].galpon = value;
+                    grupos[idx].ubicacion = '';
+
+                    const galpon = galponesWms.find(g => g.codigo === value);
+                    if (galpon) {
+                        try {
+                            await cargarUbicacionesGalpon(galpon.id);
+                        } catch (error) {
+                            mostrarAlerta('No fue posible cargar las ubicaciones del galpón seleccionado.', 'error');
+                        }
+                    }
+
+                    renderGrupos();
+                    return;
+                }
+
+                grupos[idx].ubicacion = value;
             });
 
             $('.btnFusionar').on('click', function () {

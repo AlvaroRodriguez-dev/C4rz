@@ -32,11 +32,11 @@ class WmsProduccionVerificacionController extends Controller
 
         $query = WmsEntregaProduccion::query()
             ->with('documento')
+            ->withCount('hu')
             ->where('almacen_id', $almacen->id)
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($sub) use ($search) {
                     $sub->where('rdocum_sas', 'like', "%{$search}%")
-                        ->orWhere('folio_fisico', 'like', "%{$search}%")
                         ->orWhere('origen', 'like', "%{$search}%")
                         ->orWhereHas('documento', function ($doc) use ($search) {
                             $doc->where('id_documento', 'like', "%{$search}%");
@@ -59,7 +59,7 @@ class WmsProduccionVerificacionController extends Controller
                     'origen' => $entrega->origen,
                     'total_declarado' => $entrega->total_declarado,
                     'total_fisico' => $entrega->total_fisico,
-                    'pallets' => $entrega->hu()->count(),
+                    'pallets' => (int) $entrega->hu_count,
                     'estado' => $entrega->estado,
                 ];
             })->items(),
@@ -175,7 +175,7 @@ class WmsProduccionVerificacionController extends Controller
             'id' => $detalle->id,
             'cantidad_declarada' => $detalle->cantidad_declarada,
             'cantidad_fisica' => $detalle->cantidad_fisica,
-            'diferencia' => (int) $detalle->cantidad_fisica - (int) $detalle->cantidad_declarada,
+            'diferencia' => $detalle->cantidad_fisica - $detalle->cantidad_declarada,
             'estado' => $detalle->estado,
         ];
     }
