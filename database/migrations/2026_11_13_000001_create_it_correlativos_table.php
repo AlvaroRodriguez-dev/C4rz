@@ -1,9 +1,9 @@
 <?php
 
-use Illuminate\\Database\\Migrations\\Migration;
-use Illuminate\\Database\\Schema\\Blueprint;
-use Illuminate\\Support\\Facades\\DB;
-use Illuminate\\Support\\Facades\\Schema;
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -24,7 +24,7 @@ return new class extends Migration
             ->where('numero', 'like', 'SOL-TI-%')
             ->pluck('numero')
             ->each(function ($numero) use (&$maximos) {
-                if (preg_match('/^SOL-TI-(\\d{4})-(\\d{6})$/', $numero, $coincidencias)) {
+                if (preg_match('/^SOL-TI-(\d{4})-(\d{6})$/', $numero, $coincidencias)) {
                     $anio = (int) $coincidencias[1];
                     $correlativo = (int) $coincidencias[2];
                     $maximos[$anio] = max($maximos[$anio] ?? 0, $correlativo);
