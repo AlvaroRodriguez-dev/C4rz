@@ -7,7 +7,6 @@ use App\\Models\\ItSolicitud;
 use App\\Models\\ItTipoActivo;
 use App\\Models\\ItUbicacion;
 use App\\Services\\ItSolicitudService;
-use Illuminate\\Database\\QueryException;
 use Illuminate\\Http\\JsonResponse;
 use Illuminate\\Http\\Request;
 use Illuminate\\Support\\Facades\\DB;
@@ -74,7 +73,7 @@ class ItSolicitudController extends Controller
                 ->table('rrhh_personal')
                 ->where('ID', $data['solicitante_id'])
                 ->whereNull('DELETED_AT')
-                ->first(['ID', 'AREA_ID']);
+                ->first(['ID as id', 'AREA_ID as area_id']);
         } catch (Throwable $exception) {
             report($exception);
 
