@@ -71,7 +71,10 @@
                 <div class="border rounded-lg p-4 mb-4 last:mb-0">
                     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-3">
                         <div>
-                            <p class="font-semibold">Evaluación #{{ $evaluacion->id }}</p>
+                            <p class="font-semibold">{{ $evaluacion->revision_de_id ? "Revisión" : "Evaluación" }} #{{ $evaluacion->id }}</p>
+                            @if($evaluacion->revision_de_id)
+                                <p class="text-xs text-blue-700">Revisa la evaluación #{{ $evaluacion->revision_de_id }}</p>
+                            @endif
                             <p class="text-sm text-gray-500">
                                 {{ $evaluacion->fecha_evaluacion?->format('d/m/Y H:i') }}
                                 · {{ $evaluacion->evaluador?->name ?? 'Usuario no disponible' }}
