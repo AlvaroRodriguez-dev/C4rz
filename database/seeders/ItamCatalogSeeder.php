@@ -1,16 +1,14 @@
 <?php
 
-namespace Database\Seeders;
+namespace Database\\Seeders;
 
-use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
+use Illuminate\\Database\\Seeder;
+use Illuminate\\Support\\Facades\\DB;
 
 class ItamCatalogSeeder extends Seeder
 {
     public function run(): void
     {
-        $now = now();
-
         $tiposActivo = [
             ['codigo' => 'LAPTOP', 'descripcion' => 'Laptop', 'requiere_serial' => true],
             ['codigo' => 'PC', 'descripcion' => 'PC de escritorio', 'requiere_serial' => true],
@@ -27,23 +25,20 @@ class ItamCatalogSeeder extends Seeder
             ['codigo' => 'CAMARA', 'descripcion' => 'Cámara', 'requiere_serial' => true],
             ['codigo' => 'TELEFONO', 'descripcion' => 'Teléfono', 'requiere_serial' => true],
             ['codigo' => 'TABLET', 'descripcion' => 'Tablet', 'requiere_serial' => true],
-            ['codigo' => 'COMPONENTE', 'descripcion' => 'Componente', 'requiere_serial' => false],
-            ['codigo' => 'REPUESTO', 'descripcion' => 'Repuesto', 'requiere_serial' => false],
-            ['codigo' => 'ACCESORIO', 'descripcion' => 'Accesorio', 'requiere_serial' => false],
         ];
 
         foreach ($tiposActivo as $tipo) {
-            DB::table('it_tipos_activo')->updateOrInsert(
-                ['codigo' => $tipo['codigo']],
-                [
-                    'descripcion' => $tipo['descripcion'],
-                    'requiere_serial' => $tipo['requiere_serial'],
-                    'deleted_at' => null,
-                    'updated_at' => $now,
-                    'created_at' => $now,
-                ]
-            );
+            // No actualizar timestamps ni reactivar registros eliminados al repetir el seeder.
+            if (!DB::table('it_tipos_activo')->where('codigo', $tipo['codigo'])->exists()) {
+                DB::table('it_tipos_activo')->insert([...$tipo, 'created_at' => now(), 'updated_at' => now()]);
+            }
         }
+
+        // Categorías fuera del alcance actual: inactivar sin borrar su historial ni sus referencias.
+        DB::table('it_tipos_activo')
+            ->whereIn('codigo', ['COMPONENTE', 'REPUESTO', 'ACCESORIO'])
+            ->whereNull('deleted_at')
+            ->update(['deleted_at' => now(), 'updated_at' => now()]);
 
         $ubicaciones = [
             ['codigo' => 'STOCK-TI', 'descripcion' => 'Stock TI'],
@@ -58,17 +53,15 @@ class ItamCatalogSeeder extends Seeder
         ];
 
         foreach ($ubicaciones as $ubicacion) {
-            DB::table('it_ubicaciones')->updateOrInsert(
-                ['codigo' => $ubicacion['codigo']],
-                [
-                    'descripcion' => $ubicacion['descripcion'],
+            if (!DB::table('it_ubicaciones')->where('codigo', $ubicacion['codigo'])->exists()) {
+                DB::table('it_ubicaciones')->insert([
+                    ...$ubicacion,
                     'ubicacion_padre_id' => null,
                     'nivel_jerarquia' => 1,
-                    'deleted_at' => null,
-                    'updated_at' => $now,
-                    'created_at' => $now,
-                ]
-            );
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
         }
     }
 }
