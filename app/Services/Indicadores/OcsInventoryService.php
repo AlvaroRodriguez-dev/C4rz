@@ -81,7 +81,7 @@ class OcsInventoryService
             $ageMonths = $purchaseDate
                 ? max(0, Carbon::parse($purchaseDate)->startOfMonth()->diffInMonths($periodDate, false))
                 : null;
-            $isOld = $ageMonths !== null && $ageMonths > 60;
+            $isOld = $ageMonths !== null && $ageMonths > 120;
 
             if ($type === 'computadora') {
                 $pcs++;
