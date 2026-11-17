@@ -23,6 +23,51 @@ class ItActivoService
                 ]);
             }
 
+            $recepcionDetalle = null;
+
+            if (($data['origen_documento'] ?? null) === 'ADQUISICION') {
+                $recepcionDetalle = DB::table('it_recepcion_detalles')
+                    ->where('id', $data['recepcion_detalle_id'] ?? 0)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$recepcionDetalle || (int) $recepcionDetalle->cantidad_pendiente < 1) {
+                    throw ValidationException::withMessages([
+                        'recepcion_detalle_id' => 'La línea de recepción no tiene unidades pendientes de identificación.',
+                    ]);
+                }
+
+                if ($recepcionDetalle->orden_compra_detalle_id) {
+                    $tipoComprado = DB::table('it_orden_compra_detalles')
+                        ->where('id', $recepcionDetalle->orden_compra_detalle_id)
+                        ->value('tipo_activo_id');
+
+                    if ($tipoComprado && (int) $tipoComprado !== (int) $data['tipo_activo_id']) {
+                        throw ValidationException::withMessages([
+                            'tipo_activo_id' => 'El tipo de activo no coincide con el tipo definido en la orden de compra.',
+                        ]);
+                    }
+                }
+
+                $data['origen_linea'] = $recepcionDetalle->id;
+                $data['costo'] ??= $recepcionDetalle->costo_unitario;
+                $data['fecha_adquisicion'] ??= DB::table('it_recepciones')
+                    ->where('id', $recepcionDetalle->recepcion_id)
+                    ->value('fecha');
+                $data['recepcion_detalle_id'] = $recepcionDetalle->id;
+
+                DB::table('it_recepcion_detalles')
+                    ->where('id', $recepcionDetalle->id)
+                    ->update([
+                        'cantidad_identificada' => DB::raw('cantidad_identificada + 1'),
+                        'cantidad_pendiente' => DB::raw('cantidad_pendiente - 1'),
+                        'updated_at' => now(),
+                    ]);
+            } else {
+                $data['recepcion_detalle_id'] = null;
+                $data['origen_linea'] = null;
+            }
+
             $activo = ItActivo::create([
                 ...$data,
                 'codigo_ti' => $this->generarCodigo(),
