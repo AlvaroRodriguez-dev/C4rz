@@ -36,6 +36,19 @@
                             @foreach ($modelos as $modelo)<option value="{{ $modelo->id }}" @selected(old('modelo_id') == $modelo->id)>{{ $modelo->marca?->nombre }} — {{ $modelo->nombre }}</option>@endforeach
                         </select>
                     </label>
+                    <label class="text-sm font-medium md:col-span-2">Línea de recepción (obligatoria para adquisiciones)
+                        <select name="recepcion_detalle_id" class="mt-1 w-full rounded-lg border-gray-300">
+                            <option value="">Seleccione una recepción pendiente...</option>
+                            @foreach ($recepcionesPendientes as $detalle)
+                                <option value="{{ $detalle->id }}" @selected(old('recepcion_detalle_id') == $detalle->id)>
+                                    {{ $detalle->recepcion_numero }} — {{ $detalle->descripcion }}
+                                    @if ($detalle->codigo_suministros) ({{ $detalle->codigo_suministros }}) @endif
+                                    · Pendientes: {{ $detalle->cantidad_pendiente }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <span class="mt-1 block text-xs text-gray-500">Al registrar el activo, se descontará una unidad pendiente de identificación de la recepción seleccionada.</span>
+                    </label>
                     <label class="text-sm font-medium">Número de serie
                         <input name="numero_serie" value="{{ old('numero_serie') }}" maxlength="150" class="mt-1 w-full rounded-lg border-gray-300" placeholder="Serie del fabricante">
                     </label>
@@ -61,7 +74,7 @@
                 <label class="block text-sm font-medium">Observaciones
                     <textarea name="observaciones" rows="3" class="mt-1 w-full rounded-lg border-gray-300">{{ old('observaciones') }}</textarea>
                 </label>
-                <p class="text-xs text-gray-500">* Los tipos marcados requieren número de serie. El registro se crea como DISPONIBLE y sin custodio; la asignación se realizará en el siguiente proceso.</p>
+                <p class="text-xs text-gray-500">* Los tipos marcados requieren número de serie. Para origen Adquisición debe seleccionarse una línea con unidades pendientes. El activo se crea como DISPONIBLE y sin custodio.</p>
                 <div class="flex justify-end gap-3">
                     <a href="{{ route('itam.activos.index') }}" class="rounded-lg border px-4 py-2 text-sm">Cancelar</a>
                     <button class="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700">Registrar activo</button>
