@@ -28,6 +28,7 @@ class ItActivo extends Model
         'garantia_fecha',
         'origen_documento',
         'origen_linea',
+        'recepcion_detalle_id',
         'fecha_alta',
         'observaciones',
         'created_by',
@@ -65,6 +66,11 @@ class ItActivo extends Model
     public function ubicacion()
     {
         return $this->belongsTo(ItUbicacion::class, 'ubicacion_id');
+    }
+
+    public function recepcionDetalle()
+    {
+        return $this->belongsTo(ItRecepcionDetalle::class, 'recepcion_detalle_id');
     }
 
     public function caracteristicas()
