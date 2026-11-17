@@ -65,7 +65,7 @@ class ItActivoController extends Controller
                 'nullable', 'string', 'max:150',
                 Rule::unique('it_activos', 'numero_serie')
                     ->where(fn ($query) => $query->where('tipo_activo_id', $request->integer('tipo_activo_id')))
-                    ->whereNull('deleted_at'),
+                     ,
             ],
             'numero_parte' => ['nullable', 'string', 'max:150'],
             'ubicacion_id' => ['required', 'integer', Rule::exists('it_ubicaciones', 'id')->whereNull('deleted_at')],
