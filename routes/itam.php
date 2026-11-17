@@ -9,6 +9,16 @@ Route::middleware(['auth'])->prefix('itam')->name('itam.')->group(function () {
         Route::view('/', 'itam.index')->name('index');
     });
 
+    Route::middleware(['role_or_permission:SIS-ADMIN|it.activos.create'])->group(function () {
+        Route::get('/activos/crear', [ItActivoController::class, 'create'])->name('activos.create');
+        Route::post('/activos', [ItActivoController::class, 'store'])->name('activos.store');
+    });
+
+    Route::middleware(['role_or_permission:SIS-ADMIN|it.activos.view'])->group(function () {
+        Route::get('/activos', [ItActivoController::class, 'index'])->name('activos.index');
+        Route::get('/activos/{activo}', [ItActivoController::class, 'show'])->name('activos.show');
+    });
+
     Route::middleware(['role_or_permission:SIS-ADMIN|it.solicitudes.create'])->group(function () {
         Route::get('/solicitudes/crear', [ItSolicitudController::class, 'create'])->name('solicitudes.create');
         Route::post('/solicitudes', [ItSolicitudController::class, 'store'])->name('solicitudes.store');
