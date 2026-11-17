@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Itam\ItActivoController;
 use App\Http\Controllers\Itam\ItEvaluacionController;
 use App\Http\Controllers\Itam\ItSolicitudController;
 use Illuminate\Support\Facades\Route;
