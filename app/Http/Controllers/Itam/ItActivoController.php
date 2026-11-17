@@ -42,11 +42,6 @@ class ItActivoController extends Controller
             'tiposActivo' => ItTipoActivo::orderBy('descripcion')->get(),
             'estados' => ItEstado::orderBy('descripcion')->get(),
             'ubicaciones' => ItUbicacion::orderBy('codigo')->get(),
-            'recepcionesPendientes' => DB::table('it_recepcion_detalles as d')
-                ->join('it_recepciones as r', 'r.id', '=', 'd.recepcion_id')
-                ->where('d.cantidad_pendiente', '>', 0)
-                ->orderByDesc('r.fecha')
-                ->get(['d.id', 'd.descripcion', 'd.codigo_suministros', 'd.cantidad_pendiente', 'd.costo_unitario', 'r.numero as recepcion_numero', 'r.fecha']),
         ]);
     }
 
@@ -57,6 +52,11 @@ class ItActivoController extends Controller
             'marcas' => ItMarca::orderBy('nombre')->get(),
             'modelos' => ItModelo::with('marca')->orderBy('nombre')->get(),
             'ubicaciones' => ItUbicacion::orderBy('codigo')->get(),
+            'recepcionesPendientes' => DB::table('it_recepcion_detalles as d')
+                ->join('it_recepciones as r', 'r.id', '=', 'd.recepcion_id')
+                ->where('d.cantidad_pendiente', '>', 0)
+                ->orderByDesc('r.fecha')
+                ->get(['d.id', 'd.descripcion', 'd.codigo_suministros', 'd.cantidad_pendiente', 'd.costo_unitario', 'r.numero as recepcion_numero', 'r.fecha']),
         ]);
     }
 
