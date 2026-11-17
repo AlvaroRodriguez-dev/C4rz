@@ -11,6 +11,7 @@ use App\Models\ItTipoActivo;
 use App\Models\ItUbicacion;
 use App\Services\Itam\ItActivoService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class ItActivoController extends Controller
@@ -41,6 +42,11 @@ class ItActivoController extends Controller
             'tiposActivo' => ItTipoActivo::orderBy('descripcion')->get(),
             'estados' => ItEstado::orderBy('descripcion')->get(),
             'ubicaciones' => ItUbicacion::orderBy('codigo')->get(),
+            'recepcionesPendientes' => DB::table('it_recepcion_detalles as d')
+                ->join('it_recepciones as r', 'r.id', '=', 'd.recepcion_id')
+                ->where('d.cantidad_pendiente', '>', 0)
+                ->orderByDesc('r.fecha')
+                ->get(['d.id', 'd.descripcion', 'd.codigo_suministros', 'd.cantidad_pendiente', 'd.costo_unitario', 'r.numero as recepcion_numero', 'r.fecha']),
         ]);
     }
 
@@ -73,11 +79,16 @@ class ItActivoController extends Controller
             'costo' => ['nullable', 'numeric', 'min:0', 'max:999999999999.99'],
             'garantia_fecha' => ['nullable', 'date', 'after_or_equal:fecha_adquisicion'],
             'origen_documento' => ['required', Rule::in(['INVENTARIO_INICIAL', 'ADQUISICION'])],
+            'recepcion_detalle_id' => [Rule::requiredIf(fn () => $request->input('origen_documento') === 'ADQUISICION'), 'nullable', 'integer', 'exists:it_recepcion_detalles,id'],
             'observaciones' => ['nullable', 'string', 'max:5000'],
         ], [
             'numero_serie.required' => 'El tipo de activo seleccionado requiere número de serie.',
             'numero_serie.unique' => 'Ya existe un activo de este tipo con el mismo número de serie.',
         ]);
+
+        if (($data['origen_documento'] ?? null) === 'INVENTARIO_INICIAL' && !empty($data['recepcion_detalle_id'])) {
+            return back()->withInput()->withErrors(['recepcion_detalle_id' => 'El inventario inicial no debe vincularse a una recepción de compra.']);
+        }
 
         if ($data['modelo_id'] ?? false) {
             $modelo = ItModelo::findOrFail($data['modelo_id']);
@@ -98,7 +109,7 @@ class ItActivoController extends Controller
     public function show(ItActivo $activo)
     {
         $activo->load([
-            'tipoActivo', 'marca', 'modelo', 'estado', 'ubicacion',
+            'tipoActivo', 'marca', 'modelo', 'estado', 'ubicacion', 'recepcionDetalle.recepcion',
             'caracteristicas' => fn ($q) => $q->whereNull('fecha_fin')->orderBy('nombre_caracteristica'),
             'componentesInstalados' => fn ($q) => $q->whereNull('fecha_retiro')->with('componente'),
             'accesorios' => fn ($q) => $q->whereNull('fecha_fin'),
