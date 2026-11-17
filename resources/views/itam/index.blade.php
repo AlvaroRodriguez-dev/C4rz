@@ -59,15 +59,6 @@
                     <div class="text-xs opacity-90">Próximamente</div>
                 </div>
 
-                @can('it.activos.view')
-                    <a href="{{ route('itam.activos.index') }}" class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" />
-                        </svg>
-                        <div class="mt-3 font-bold text-base leading-tight">Inventario</div>
-                        <div class="text-xs opacity-90">Activos tecnológicos</div>
-                    </a>
-                @endcan
                 @can('it.activos.create')
                     <a href="{{ route('itam.activos.create') }}" class="bg-cyan-600 hover:bg-cyan-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -136,15 +127,16 @@
 
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
 
-                <div class="bg-gray-400 rounded-2xl shadow-md text-white p-6 flex flex-col items-center justify-center text-center opacity-80">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none"
-                        viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                    </svg>
-                    <div class="mt-3 font-bold text-base leading-tight">Inventario</div>
-                    <div class="text-xs opacity-90">Próximamente</div>
-                </div>
+                @can('it.activos.view')
+                    <a href="{{ route('itam.activos.index') }}" class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" />
+                        </svg>
+                        <div class="mt-3 font-bold text-base leading-tight">Inventario</div>
+                        <div class="text-xs opacity-90">Activos tecnológicos</div>
+                    </a>
+                @endcan
+
 
                 <div class="bg-gray-400 rounded-2xl shadow-md text-white p-6 flex flex-col items-center justify-center text-center opacity-80">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none"
