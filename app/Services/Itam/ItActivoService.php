@@ -12,25 +12,25 @@ class ItActivoService
     public function registrar(array $data): ItActivo
     {
         return DB::transaction(function () use ($data) {
-            $codigo = $this->generarCodigo();
+            $estadoDisponibleId = DB::table('it_estados')
+                ->where('codigo', 'DISPONIBLE')
+                ->whereNull('deleted_at')
+                ->value('id');
 
-            $activo = ItActivo::create([
-                ...$data,
-                'codigo_ti' => $codigo,
-                'estado_id' => DB::table('it_estados')
-                    ->where('codigo', 'DISPONIBLE')
-                    ->whereNull('deleted_at')
-                    ->value('id'),
-                'custodio_id' => null,
-                'usuario_asignado_id' => null,
-                'fecha_alta' => now()->toDateString(),
-            ]);
-
-            if (!$activo->estado_id) {
+            if (!$estadoDisponibleId) {
                 throw ValidationException::withMessages([
                     'estado_id' => 'No existe el estado DISPONIBLE. Ejecute el seeder de catálogos ITAM.',
                 ]);
             }
+
+            $activo = ItActivo::create([
+                ...$data,
+                'codigo_ti' => $this->generarCodigo(),
+                'estado_id' => $estadoDisponibleId,
+                'custodio_id' => null,
+                'usuario_asignado_id' => null,
+                'fecha_alta' => now()->toDateString(),
+            ]);
 
             return $activo->load(['tipoActivo', 'marca', 'modelo', 'estado', 'ubicacion']);
         }, 3);
