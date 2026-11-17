@@ -24,6 +24,7 @@
 ### Fase 1 — Inventario individual (entrega actual)
 - Listado con búsqueda y filtros básicos.
 - Alta de activo con tipo, marca, modelo, serie, ubicación, fecha/costo, garantía y origen.
+- Si el origen es ADQUISICION, selección obligatoria de una línea de recepción con saldo pendiente; vínculo mediante `recepcion_detalle_id` y descuento transaccional de una unidad pendiente.
 - Código ITAM generado por servidor.
 - Ficha individual de consulta.
 - Catálogo inicial de estados.
@@ -81,6 +82,7 @@ Se reutilizan las tablas existentes de activos y catálogos. Se incorporarán en
 - Si el tipo exige serie, el dato es obligatorio.
 - Tipo, marca, modelo, estado y ubicación deben existir y estar activos.
 - El activo nuevo inicia en estado DISPONIBLE y sin custodio.
+- Para adquisiciones, la línea de recepción queda vinculada y sus cantidades `cantidad_identificada` / `cantidad_pendiente` se actualizan dentro de la misma transacción.
 - El alta queda asociada al usuario autenticado.
 - No se modifican ramas protegidas ni se integra automáticamente a otra rama.
 
