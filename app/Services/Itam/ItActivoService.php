@@ -49,11 +49,20 @@ class ItActivoService
                     }
                 }
 
-                $data['origen_linea'] = $recepcionDetalle->id;
-                $data['costo'] ??= $recepcionDetalle->costo_unitario;
-                $data['fecha_adquisicion'] ??= DB::table('it_recepciones')
+                $recepcion = DB::table('it_recepciones')
                     ->where('id', $recepcionDetalle->recepcion_id)
-                    ->value('fecha');
+                    ->first();
+
+                $data['origen_linea'] = $recepcionDetalle->id;
+                $data['costo'] = $recepcionDetalle->costo_unitario;
+                $data['fecha_adquisicion'] = $recepcion?->fecha;
+
+                if ($recepcion?->orden_compra_id) {
+                    $data['proveedor_id'] = DB::table('it_ordenes_compra')
+                        ->where('id', $recepcion->orden_compra_id)
+                        ->value('proveedor_id');
+                }
+
                 $data['recepcion_detalle_id'] = $recepcionDetalle->id;
 
                 DB::table('it_recepcion_detalles')
