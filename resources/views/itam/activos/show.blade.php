@@ -31,6 +31,9 @@
                     <h3 class="mb-4 font-bold text-gray-800">Adquisición y garantía</h3>
                     <dl class="space-y-3 text-sm">
                         <div><dt class="text-gray-500">Origen</dt><dd class="font-medium">{{ $activo->origen_documento === 'ADQUISICION' ? 'Adquisición' : 'Inventario inicial' }}</dd></div>
+                        @if ($activo->recepcionDetalle)
+                            <div><dt class="text-gray-500">Recepción</dt><dd class="font-medium">{{ $activo->recepcionDetalle->recepcion?->numero }} — {{ $activo->recepcionDetalle->descripcion }}</dd></div>
+                        @endif
                         <div><dt class="text-gray-500">Fecha adquisición</dt><dd class="font-medium">{{ $activo->fecha_adquisicion?->format('d/m/Y') ?? '—' }}</dd></div>
                         <div><dt class="text-gray-500">Costo</dt><dd class="font-medium">{{ $activo->costo !== null ? number_format((float) $activo->costo, 2) : '—' }}</dd></div>
                         <div><dt class="text-gray-500">Garantía hasta</dt><dd class="font-medium">{{ $activo->garantia_fecha?->format('d/m/Y') ?? '—' }}</dd></div>
