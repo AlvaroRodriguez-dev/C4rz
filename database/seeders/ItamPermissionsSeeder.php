@@ -17,7 +17,7 @@ class ItamPermissionsSeeder extends Seeder
             'it.solicitudes.view',
             'it.solicitudes.create',
             'it.solicitudes.update',
-            'it.solicitudes.evaluate',
+            'it.solicitudes.evaluate',\n            'it.activos.view',\n            'it.activos.create',
         ];
 
         foreach ($permisos as $permiso) {
