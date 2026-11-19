@@ -109,6 +109,7 @@
                                                     <select name="detalles[{{ $detalle->id }}][codigo]" class="producto-correccion w-full border-gray-300 rounded-lg font-mono" data-calidad-select="calidad-{{ $detalle->id }}" data-formato="{{ $hu->formato }}" @disabled(!$permiteCodigoCalidad) required>
                                                         <option value="{{ $detalle->codigo }}" selected>{{ $detalle->codigo }} · {{ $detalle->descripcion }}</option>
                                                     </select>
+                                                    @unless($permiteCodigoCalidad)<input type="hidden" name="detalles[{{ $detalle->id }}][codigo]" value="{{ $detalle->codigo }}">@endunless
                                                 </div>
                                                 <div>
                                                     <label class="block text-xs font-semibold text-gray-600 mb-1">Calidad</label>
@@ -117,6 +118,7 @@
                                                             <option value="{{ $calidad }}" @selected(old('detalles.'.$detalle->id.'.calidad', $detalle->calidad) === $calidad)>{{ $calidad }}</option>
                                                         @endforeach
                                                     </select>
+                                                    @unless($permiteCodigoCalidad)<input type="hidden" name="detalles[{{ $detalle->id }}][calidad]" value="{{ $detalle->calidad }}">@endunless
                                                 </div>
                                                 <div>
                                                     <label class="block text-xs font-semibold text-gray-600 mb-1">Cantidad física</label>
