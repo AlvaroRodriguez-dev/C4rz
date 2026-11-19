@@ -31,6 +31,42 @@
                 <div class="rounded-lg bg-red-50 border border-red-200 text-red-800 p-3 mb-4 text-sm">{{ session('error') }}</div>
             @endif
             <div id="alertBox" class="hidden rounded-lg p-3 mb-4 text-sm"></div>
+            @if ($entrega->estado === 'VERIFICADA')
+                <div class="bg-white shadow rounded-xl p-3 mb-3">
+                    <div class="font-bold text-green-800 mb-2">DOCUMENTO COMPLETAMENTE VERIFICADO</div>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="bg-gray-50 rounded p-2"><span class="text-gray-500">Documento</span><div class="font-semibold">{{ $entrega->documento?->id_documento ?? '—' }}</div></div>
+                        <div class="bg-gray-50 rounded p-2"><span class="text-gray-500">Origen</span><div class="font-semibold">{{ $entrega->origen ?? '—' }}</div></div>
+                        <div class="bg-gray-50 rounded p-2"><span class="text-gray-500">Fecha</span><div class="font-semibold">{{ $entrega->verificado_at?->format('d/m/Y H:i') ?? '—' }}</div></div>
+                        <div class="bg-gray-50 rounded p-2"><span class="text-gray-500">Verificador</span><div class="font-semibold">{{ $entrega->verificadoPor?->name ?? '—' }}</div></div>
+                    </div>
+                </div>
+                <div class="space-y-2 mb-5">
+                    @foreach ($entrega->hu as $hu)
+                        <details class="bg-white border rounded-xl shadow-sm">
+                            <summary class="cursor-pointer p-3 flex justify-between gap-2">
+                                <div class="min-w-0"><div class="font-mono font-bold text-sm">{{ $hu->numero }}</div><div class="text-xs text-gray-500">{{ $hu->formato ?? '—' }} · {{ $hu->tipo ?? '—' }}</div></div>
+                                <div class="text-right shrink-0"><div class="font-bold">{{ $hu->verificacion?->cantidad_verificada ?? $hu->cantidad_total }} cajas</div><div class="text-xs {{ $hu->verificacion?->resultado === 'CONFIRMADO_CON_DIFERENCIA' ? 'text-orange-700' : 'text-green-700' }}">{{ $hu->verificacion?->resultado === 'CONFIRMADO_CON_DIFERENCIA' ? 'Con diferencia' : 'Confirmado' }}</div></div>
+                            </summary>
+                            <div class="border-t p-3 text-xs space-y-2">
+                                <div class="grid grid-cols-3 gap-2"><div><span class="text-gray-500">Esperada</span><div class="font-semibold">{{ $hu->verificacion?->cantidad_esperada ?? $hu->cantidad_total }}</div></div><div><span class="text-gray-500">Verificada</span><div class="font-semibold">{{ $hu->verificacion?->cantidad_verificada ?? '—' }}</div></div><div><span class="text-gray-500">Diferencia</span><div class="font-semibold">{{ $hu->verificacion?->diferencia ?? 0 }}</div></div></div>
+                                <div class="text-gray-500">Verificación: {{ $hu->verificacion?->verificado_at?->format('d/m/Y H:i') ?? '—' }} · {{ $hu->verificacion?->verificadoPor?->name ?? '—' }}</div>
+                                <div class="font-semibold pt-1">Contenido</div>
+                                @forelse ($hu->detalles as $detalle)
+                                    <div class="border rounded-lg p-2 flex justify-between gap-2"><div class="min-w-0"><div class="font-semibold break-words">{{ trim(($detalle->descripcion ?? '') . ' ' . ($detalle->descripcion2 ?? '')) ?: 'Producto' }}</div><div class="font-mono break-all">{{ $detalle->codigo }} · {{ $detalle->calidad ?? '—' }}</div><div class="text-gray-500">Lote {{ $detalle->lote ?? 'S/L' }} · Tono {{ $detalle->entregaDetalle?->tono ?? '—' }} · Calibre {{ $detalle->entregaDetalle?->calibre ?? '—' }}</div></div><div class="font-bold shrink-0">{{ $detalle->cantidad }}</div></div>
+                                @empty<div class="text-gray-500">Sin contenido detallado.</div>
+                                @endforelse
+                                @if ($hu->discrepancias->isNotEmpty())
+                                    <div class="font-semibold pt-1">Discrepancias / registro</div>
+                                    @foreach ($hu->discrepancias as $d)
+                                        <div class="bg-orange-50 border border-orange-100 rounded p-2"><div class="font-semibold">{{ str_replace('_', ' ', $d->tipo) }} · {{ $d->valor_esperado ?? '—' }} → {{ $d->valor_observado ?? '—' }}</div>@if($d->observacion)<div>{{ $d->observacion }}</div>@endif<div class="text-gray-500">{{ $d->estado }}</div></div>
+                                    @endforeach
+                                @endif
+                            </div>
+                        </details>
+                    @endforeach
+                </div>
+            @else
 
             <div class="bg-white shadow rounded-xl p-4 sm:p-5 mb-5">
                 <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-5">
@@ -124,6 +160,9 @@
         </div>
     </div>
 
+            @endif
+
+            @if ($entrega->estado !== 'VERIFICADA')
     <script>
         const baseUrl = @json(url('/wms/produccion-liberacion/' . $entrega->id . '/verificacion-pallets'));
         const routeBuscar = @json(route('wms.produccion.liberacion.verificacion.pallets.buscar', $entrega));
@@ -396,4 +435,5 @@
             return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
         }
     </script>
+            @endif
 </x-app-layout>
