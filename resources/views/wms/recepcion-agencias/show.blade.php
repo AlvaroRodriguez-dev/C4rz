@@ -224,10 +224,10 @@
                     <td class="p-2"><input class="field codigo-fisico" value="${escapeHtml(x.codigo_fisico || x.codigo_esperado || '')}" ${ro('codigo')} required></td>
                     <td class="p-2"><input class="field lote-fisico" value="${escapeHtml(x.lote_fisico || x.lote_esperado || '')}" ${ro('lote')}></td>
                     <td class="p-2"><input class="field cantidad-fisica" type="number" min="0" value="${x.cantidad_fisica ?? x.cantidad_esperada ?? 0}" ${ro('cantidad')} required></td>
-                    <td class="p-2"><input class="field observacion-linea" value="${escapeHtml(x.observacion || '')}" placeholder="Opcional"></td>
+                    <td class="p-2"><input class="field observacion-linea" value="${escapeHtml(x.observacion || '')}" ${modoCorreccion ? 'readonly disabled' : ''} placeholder="Opcional"></td>
                 </tr>`).join('');
             $('#detalleVerificacion').html(html);
-            $('#observacionGeneral').val('');
+            $('#observacionGeneral').val('').prop('disabled', modoCorreccion);
         }
         $('#btnAgregarDetalle').toggleClass('hidden', modoCorreccion);\n            $('#btnVerificar').text(modoCorreccion ? 'Guardar corrección' : 'Guardar verificación del pallet');\n            $('#btnAgregarDetalle').on('click',()=>$('#detalleVerificacion').append(`
             <tr data-detail-id="">
