@@ -324,6 +324,19 @@ class WmsRecepcionAgenciaController extends Controller
                 throw ValidationException::withMessages(['pallet' => 'Primero descarga el pallet en una ubicación temporal.']);
             }
             if ($p->estado === 'ingresado') throw ValidationException::withMessages(['pallet' => 'El pallet ya tiene ingreso definitivo.']);
+            if ($p->estado === 'observado') {
+                foreach ($data['detalles'] as $item) {
+                    if (empty($item['id'])) throw ValidationException::withMessages(['detalles' => 'No se pueden agregar productos durante la corrección de discrepancias.']);
+                    $actual = $esperados->get((int) $item['id']);
+                    if (!$actual) throw ValidationException::withMessages(['detalles' => 'Detalle inválido.']);
+                    $codigoEditable = strtoupper(trim((string) ($actual->codigo_fisico ?? $actual->codigo_esperado))) !== strtoupper(trim((string) $actual->codigo_esperado));
+                    $loteEditable = strtoupper(trim((string) ($actual->lote_fisico ?? $actual->lote_esperado))) !== strtoupper(trim((string) $actual->lote_esperado));
+                    $cantidadEditable = (int) ($actual->cantidad_fisica ?? $actual->cantidad_esperada) !== (int) $actual->cantidad_esperada;
+                    if (!$codigoEditable && strtoupper(trim($item['codigo_fisico'])) !== strtoupper(trim((string) ($actual->codigo_fisico ?? $actual->codigo_esperado)))) throw ValidationException::withMessages(['detalles' => 'El código no está habilitado para corrección.']);
+                    if (!$loteEditable && strtoupper(trim((string) ($item['lote_fisico'] ?? ''))) !== strtoupper(trim((string) ($actual->lote_fisico ?? $actual->lote_esperado)))) throw ValidationException::withMessages(['detalles' => 'El lote no está habilitado para corrección.']);
+                    if (!$cantidadEditable && (int) $item['cantidad_fisica'] !== (int) ($actual->cantidad_fisica ?? $actual->cantidad_esperada)) throw ValidationException::withMessages(['detalles' => 'La cantidad no está habilitada para corrección.']);
+                }
+            }
 
             $esperados = DB::table('wms_recepcion_agencia_detalles')->where('pallet_id', $p->id)->get()->keyBy('id');
             $enviados = collect($data['detalles']);
