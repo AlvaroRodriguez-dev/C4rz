@@ -85,7 +85,7 @@
                     <p class="text-sm text-gray-600">Compara cada línea con el contenido físico. Puedes corregir código, lote y cantidad; las diferencias bloquearán únicamente este pallet.</p>
                     <div class="overflow-x-auto">
                         <table class="min-w-full text-sm">
-                            <thead class="bg-gray-50"><tr><th class="p-2 text-left">Esperado</th><th class="p-2 text-left">Código físico</th><th class="p-2 text-left">Lote físico</th><th class="p-2 text-left">Cajas físicas</th><th class="p-2 text-left">Observación</th></tr></thead>
+                            <thead class="bg-gray-50"><tr><th class="p-2 text-left">Pallet / producto confirmado</th><th class="p-2 text-left">Código físico</th><th class="p-2 text-left">Lote físico</th><th class="p-2 text-left">Cajas físicas</th><th class="p-2 text-left">Observación</th></tr></thead>
                             <tbody id="detalleVerificacion" class="divide-y"></tbody>
                         </table>
                     </div>
@@ -215,7 +215,12 @@
         function renderDetalles(items) {
             const html = items.map(x => `
                 <tr data-detail-id="${x.id}">
-                    <td class="p-2 min-w-48"><div class="font-mono font-semibold">${escapeHtml(x.codigo_esperado || 'Adicional')}</div><div class="text-xs text-gray-500">Lote ${escapeHtml(x.lote_esperado || '—')} · ${x.cantidad_esperada || 0} cajas</div></td>
+                    <td class="p-2 min-w-56">
+                <div class="font-mono font-semibold">${escapeHtml(x.codigo_esperado || 'Adicional')}</div>
+                <div class="text-sm text-gray-700">${escapeHtml(x.descrip || '')}</div>
+                <div class="text-xs text-gray-500">${escapeHtml(x.descrip1 || '')}</div>
+                <div class="text-xs text-gray-600 mt-1">Lote: <span class="font-mono">${escapeHtml(x.lote_esperado || '—')}</span> · ${x.cantidad_esperada || 0} cajas</div>
+            </td>
                     <td class="p-2"><input class="field codigo-fisico" value="${escapeHtml(x.codigo_fisico || x.codigo_esperado || '')}" required></td>
                     <td class="p-2"><input class="field lote-fisico" value="${escapeHtml(x.lote_fisico || x.lote_esperado || '')}"></td>
                     <td class="p-2"><input class="field cantidad-fisica" type="number" min="0" value="${x.cantidad_fisica ?? x.cantidad_esperada ?? 0}" required></td>
@@ -256,7 +261,9 @@
                         observacion:$(this).find('.observacion-linea').val()});
                 });
                 const d=await api(base+'/pallets/'+palletActual.id+'/verificar','POST',{detalles,observacion_general:$('#observacionGeneral').val()});
-                alerta(d.message); setTimeout(()=>location.reload(),900);
+                // Mantener al usuario en el pallet para continuar corrigiendo diferencias.
+                alerta('Datos guardados correctamente. '+d.message);
+                await seleccionarPallet(palletActual.id);
             } catch(e){alerta(e.message,true);}
         });
         $('#btnAutorizar').on('click',async()=>{
