@@ -43,7 +43,7 @@ class WmsVerificacionPalletController extends Controller
             'almacen',
             'hu' => fn ($query) => $query
                 ->where('estado', '!=', 'SUSTITUIDO')
-                ->with(['detalles', 'verificacion.verificadoPor'])
+                ->with(['detalles.entregaDetalle', 'verificacion.verificadoPor', 'discrepancias'])
                 ->orderBy('id'),
         ]);
 
