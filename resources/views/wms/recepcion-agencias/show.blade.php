@@ -213,23 +213,34 @@
         }
 
         function renderDetalles(items, modoCorreccion=false) {
-            const html = items.map(x => {\n                const discrepancias = modoCorreccion ? {codigo: String(x.codigo_fisico||x.codigo_esperado||'').trim().toUpperCase() !== String(x.codigo_esperado||'').trim().toUpperCase(), lote: String(x.lote_fisico||x.lote_esperado||'').trim().toUpperCase() !== String(x.lote_esperado||'').trim().toUpperCase(), cantidad: Number(x.cantidad_fisica ?? x.cantidad_esperada) !== Number(x.cantidad_esperada)} : {codigo:true,lote:true,cantidad:true};\n                const ro = campo => modoCorreccion && !discrepancias[campo] ? 'readonly disabled' : '';\n                return `
+            const html = items.map(x => {
+                const discrepancias = modoCorreccion ? {
+                    codigo: String(x.codigo_fisico || x.codigo_esperado || '').trim().toUpperCase() !== String(x.codigo_esperado || '').trim().toUpperCase(),
+                    lote: String(x.lote_fisico || x.lote_esperado || '').trim().toUpperCase() !== String(x.lote_esperado || '').trim().toUpperCase(),
+                    cantidad: Number(x.cantidad_fisica ?? x.cantidad_esperada) !== Number(x.cantidad_esperada)
+                } : { codigo: true, lote: true, cantidad: true };
+                const ro = campo => modoCorreccion && !discrepancias[campo] ? 'readonly disabled' : '';
+                return `
                 <tr data-detail-id="${x.id}">
                     <td class="p-2 min-w-56">
-                <div class="font-mono font-semibold">${escapeHtml(x.codigo_esperado || 'Adicional')}</div>
-                <div class="text-sm text-gray-700">${escapeHtml(x.descrip || '')}</div>
-                <div class="text-xs text-gray-500">${escapeHtml(x.descrip1 || '')}</div>
-                <div class="text-xs text-gray-600 mt-1">Lote: <span class="font-mono">${escapeHtml(x.lote_esperado || '—')}</span> · ${x.cantidad_esperada || 0} cajas</div>
-            </td>
+                        <div class="font-mono font-semibold">${escapeHtml(x.codigo_esperado || 'Adicional')}</div>
+                        <div class="text-sm text-gray-700">${escapeHtml(x.descrip || '')}</div>
+                        <div class="text-xs text-gray-500">${escapeHtml(x.descrip1 || '')}</div>
+                        <div class="text-xs text-gray-600 mt-1">Lote: <span class="font-mono">${escapeHtml(x.lote_esperado || '—')}</span> · ${x.cantidad_esperada || 0} cajas</div>
+                    </td>
                     <td class="p-2"><input class="field codigo-fisico" value="${escapeHtml(x.codigo_fisico || x.codigo_esperado || '')}" ${ro('codigo')} required></td>
                     <td class="p-2"><input class="field lote-fisico" value="${escapeHtml(x.lote_fisico || x.lote_esperado || '')}" ${ro('lote')}></td>
                     <td class="p-2"><input class="field cantidad-fisica" type="number" min="0" value="${x.cantidad_fisica ?? x.cantidad_esperada ?? 0}" ${ro('cantidad')} required></td>
                     <td class="p-2"><input class="field observacion-linea" value="${escapeHtml(x.observacion || '')}" ${modoCorreccion ? 'readonly disabled' : ''} placeholder="Opcional"></td>
-                </tr>`).join('');
+                </tr>`;
+            }).join('');
             $('#detalleVerificacion').html(html);
             $('#observacionGeneral').val('').prop('disabled', modoCorreccion);
+            $('#btnAgregarDetalle').toggleClass('hidden', modoCorreccion);
+            $('#btnVerificar').text(modoCorreccion ? 'Guardar corrección' : 'Guardar verificación del pallet');
         }
-        $('#btnAgregarDetalle').toggleClass('hidden', modoCorreccion);\n            $('#btnVerificar').text(modoCorreccion ? 'Guardar corrección' : 'Guardar verificación del pallet');\n            $('#btnAgregarDetalle').on('click',()=>$('#detalleVerificacion').append(`
+
+        $('#btnAgregarDetalle').off('click').on('click',()=>$('#detalleVerificacion').append(`
             <tr data-detail-id="">
                 <td class="p-2 text-amber-700 font-semibold">Producto adicional</td>
                 <td class="p-2"><input class="field codigo-fisico" placeholder="Código" required></td>
@@ -237,7 +248,7 @@
                 <td class="p-2"><input class="field cantidad-fisica" type="number" min="0" value="0" required></td>
                 <td class="p-2"><input class="field observacion-linea" placeholder="Motivo del adicional"></td>
             </tr>`));
-
+        
         async function actualizarFila(id,p) {
             const row=$(`tr[data-row="${id}"]`);
             row.find('.estado-row').text(p.estado.replaceAll('_',' ').toUpperCase())
