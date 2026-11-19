@@ -76,8 +76,16 @@ class WmsLiberacionProduccionController extends Controller
                         });
                 });
             })
-            ->when($scope === 'verificacion', fn ($q) => $q->whereIn('estado', ['PENDIENTE_VERIFICACION', 'EN_VERIFICACION', 'PENDIENTE_REVERIFICACION', 'VERIFICADA']))
-            ->when($estado !== '', fn ($q) => $q->where('estado', $estado))
+            ->when($scope === 'verificacion', function ($q) use ($estado) {
+                if ($estado === 'PENDIENTES') {
+                    $q->whereIn('estado', ['PENDIENTE_VERIFICACION', 'EN_VERIFICACION', 'PENDIENTE_REVERIFICACION']);
+                } elseif ($estado === 'VERIFICADAS') {
+                    $q->where('estado', 'VERIFICADA');
+                } elseif ($estado === 'TODAS') {
+                    $q->whereIn('estado', ['PENDIENTE_VERIFICACION', 'EN_VERIFICACION', 'PENDIENTE_REVERIFICACION', 'VERIFICADA']);
+                }
+            })
+            ->when($scope !== 'verificacion' && $estado !== '', fn ($q) => $q->where('estado', $estado))
             ->orderByDesc('id');
 
         $resultado = $query->paginate(15, ['*'], 'page', $page);
