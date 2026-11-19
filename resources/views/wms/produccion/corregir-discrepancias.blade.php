@@ -122,16 +122,19 @@
                                                 </div>
                                                 <div>
                                                     <label class="block text-xs font-semibold text-gray-600 mb-1">Cantidad física</label>
-                                                    <input name="detalles[{{ $detalle->id }}][cantidad]" type="number" min="0" step="1" required value="{{ old('detalles.'.$detalle->id.'.cantidad', $detalle->cantidad) }}" class="w-full border-gray-300 rounded-lg">
+                                                    <input name="detalles[{{ $detalle->id }}][cantidad]" type="number" min="0" step="1" required value="{{ old('detalles.'.$detalle->id.'.cantidad', $detalle->cantidad) }}" class="w-full border-gray-300 rounded-lg" @disabled(!$permiteCantidad)>
+                                                    @unless($permiteCantidad)<input type="hidden" name="detalles[{{ $detalle->id }}][cantidad]" value="{{ $detalle->cantidad }}">@endunless
                                                 </div>
                                                 <div class="grid grid-cols-2 gap-2">
                                                     <div>
                                                         <label class="block text-xs font-semibold text-gray-600 mb-1">Tono</label>
-                                                        <input name="detalles[{{ $detalle->id }}][tono]" type="number" min="0" max="999" value="{{ old('detalles.'.$detalle->id.'.tono', $tonoActual) }}" class="w-full border-gray-300 rounded-lg">
+                                                        <input name="detalles[{{ $detalle->id }}][tono]" type="number" min="0" max="999" value="{{ old('detalles.'.$detalle->id.'.tono', $tonoActual) }}" class="w-full border-gray-300 rounded-lg" @disabled(!$permiteTono)>
+                                                        @unless($permiteTono)<input type="hidden" name="detalles[{{ $detalle->id }}][tono]" value="{{ $tonoActual }}">@endunless
                                                     </div>
                                                     <div>
                                                         <label class="block text-xs font-semibold text-gray-600 mb-1">Calibre</label>
-                                                        <input name="detalles[{{ $detalle->id }}][calibre]" type="number" min="0" max="99" value="{{ old('detalles.'.$detalle->id.'.calibre', $calibreActual) }}" class="w-full border-gray-300 rounded-lg">
+                                                        <input name="detalles[{{ $detalle->id }}][calibre]" type="number" min="0" max="99" value="{{ old('detalles.'.$detalle->id.'.calibre', $calibreActual) }}" class="w-full border-gray-300 rounded-lg" @disabled(!$permiteCalibre)>
+                                                        @unless($permiteCalibre)<input type="hidden" name="detalles[{{ $detalle->id }}][calibre]" value="{{ $calibreActual }}">@endunless
                                                     </div>
                                                 </div>
                                             </div>
