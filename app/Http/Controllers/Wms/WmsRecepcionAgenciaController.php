@@ -324,6 +324,9 @@ class WmsRecepcionAgenciaController extends Controller
                 throw ValidationException::withMessages(['pallet' => 'Primero descarga el pallet en una ubicación temporal.']);
             }
             if ($p->estado === 'ingresado') throw ValidationException::withMessages(['pallet' => 'El pallet ya tiene ingreso definitivo.']);
+
+
+            $esperados = DB::table('wms_recepcion_agencia_detalles')->where('pallet_id', $p->id)->get()->keyBy('id');
             if ($p->estado === 'observado') {
                 foreach ($data['detalles'] as $item) {
                     if (empty($item['id'])) throw ValidationException::withMessages(['detalles' => 'No se pueden agregar productos durante la corrección de discrepancias.']);
@@ -337,8 +340,6 @@ class WmsRecepcionAgenciaController extends Controller
                     if (!$cantidadEditable && (int) $item['cantidad_fisica'] !== (int) ($actual->cantidad_fisica ?? $actual->cantidad_esperada)) throw ValidationException::withMessages(['detalles' => 'La cantidad no está habilitada para corrección.']);
                 }
             }
-
-            $esperados = DB::table('wms_recepcion_agencia_detalles')->where('pallet_id', $p->id)->get()->keyBy('id');
             $enviados = collect($data['detalles']);
             $ids = $enviados->pluck('id')->filter()->map(fn ($id) => (int) $id);
             if ($esperados->keys()->diff($ids)->isNotEmpty()) {
