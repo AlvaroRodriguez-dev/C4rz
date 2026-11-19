@@ -274,6 +274,36 @@ class WmsLiberacionProduccionController extends Controller
                 $hayCambio = false;
                 foreach ($data['detalles'] as $linea) {
                     $detalle = $hu->detalles->firstWhere('id', (int) $linea['id']);
+                    $incidenciasDetalle = $incidencias->filter(fn ($i) => (int) $i->hu_detalle_id === (int) $detalle->id);
+                    $permiteCodigoCalidad = $incidenciasDetalle->contains('tipo', 'CALIDAD_PRODUCTO');
+                    $permiteTono = $incidenciasDetalle->contains('tipo', 'TONO');
+                    $permiteCalibre = $incidenciasDetalle->contains('tipo', 'CALIBRE');
+                    $permiteCantidad = $incidencias->contains('tipo', 'CANTIDAD');
+
+                    $partesLote = explode('-', (string) $detalle->lote);
+                    $sufijoLote = (string) end($partesLote);
+                    $tonoOriginal = strlen($sufijoLote) >= 5 && $sufijoLote !== 'NNNNN' ? (int) substr($sufijoLote, 0, 3) : null;
+                    $calibreOriginal = strlen($sufijoLote) >= 5 && $sufijoLote !== 'NNNNN' ? (int) substr($sufijoLote, 3, 2) : null;
+
+                    $codigoRecibido = strtoupper(trim((string) ($linea['codigo'] ?? $detalle->codigo)));
+                    $calidadRecibida = strtoupper(trim((string) ($linea['calidad'] ?? $detalle->calidad)));
+                    $cantidadRecibida = (int) ($linea['cantidad'] ?? $detalle->cantidad);
+                    $tonoRecibido = isset($linea['tono']) && $linea['tono'] !== '' ? (int) $linea['tono'] : null;
+                    $calibreRecibido = isset($linea['calibre']) && $linea['calibre'] !== '' ? (int) $linea['calibre'] : null;
+
+                    if (!$permiteCodigoCalidad && ($codigoRecibido !== strtoupper((string) $detalle->codigo) || $calidadRecibida !== strtoupper((string) $detalle->calidad))) {
+                        throw new RuntimeException('No puede modificar el producto o la calidad del detalle #' . $detalle->id . '; no existe una discrepancia de producto/calidad pendiente.');
+                    }
+                    if (!$permiteCantidad && $cantidadRecibida !== (int) $detalle->cantidad) {
+                        throw new RuntimeException('No puede modificar la cantidad del detalle #' . $detalle->id . '; no existe una discrepancia de cantidad pendiente.');
+                    }
+                    if (!$permiteTono && $tonoRecibido !== $tonoOriginal) {
+                        throw new RuntimeException('No puede modificar el tono del detalle #' . $detalle->id . '; no existe una discrepancia de tono pendiente.');
+                    }
+                    if (!$permiteCalibre && $calibreRecibido !== $calibreOriginal) {
+                        throw new RuntimeException('No puede modificar el calibre del detalle #' . $detalle->id . '; no existe una discrepancia de calibre pendiente.');
+                    }
+
                     $codigo = strtoupper(trim($linea['codigo']));
                     $calidad = strtoupper(trim($linea['calidad']));
                     $producto = $this->catalogo->validar($almacen, $codigo, $hu->formato, $calidad);
