@@ -100,6 +100,20 @@
                     </a>
                 @endcan
 
+                <!-- Ingreso por Recepción: recepción de mercadería enviada a agencia -->
+                @can('wms.ingresos.create')
+                    <a href="{{ url('/wms/recepciones/crear') }}"
+                        class="bg-cyan-700 hover:bg-cyan-800 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <div class="flex justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M5 7v10h14V7M3 7l9 5 9-5M12 12v5m-3-3 3 3 3-3" />
+                            </svg>
+                        </div>
+                        <div class="mt-3 font-bold text-base leading-tight">Ingreso por Recepción</div>
+                        <div class="text-xs opacity-90">Recepción por Nota</div>
+                    </a>
+                @endcan
+
                 <!-- Registrar Ingreso -->
                 @can('wms.ingresos.create')
                     <a href="{{ route('wms.ingresos.create') }}"
