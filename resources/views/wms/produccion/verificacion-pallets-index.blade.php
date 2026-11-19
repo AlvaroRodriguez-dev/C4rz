@@ -11,7 +11,7 @@
             <p class="text-sm text-gray-600 mb-4">Seleccione una liberación para verificar físicamente sus pallets. Registre las diferencias encontradas; Producción/Calidad realizará la corrección.</p>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div><label for="search" class="block text-sm font-medium text-gray-700 mb-1">Buscar liberación</label><input id="search" type="search" placeholder="Documento, folio u origen..." class="w-full border-gray-300 rounded-lg"></div>
-                <div><label for="estado" class="block text-sm font-medium text-gray-700 mb-1">Estado</label><select id="estado" class="w-full border-gray-300 rounded-lg"><option value="">Pendientes de verificación</option><option value="PENDIENTE_VERIFICACION">Pendiente de verificación</option><option value="EN_VERIFICACION">En verificación</option><option value="PENDIENTE_REVERIFICACION">Pendiente de reverificación</option><option value="VERIFICADA">Verificada</option></select></div>
+                <div><label for="estado" class="block text-sm font-medium text-gray-700 mb-1">Estado</label><select id="estado" class="w-full border-gray-300 rounded-lg"><option value="PENDIENTES" selected>PENDIENTES POR VERIFICAR</option><option value="VERIFICADAS">VERIFICADAS</option><option value="TODAS">TODAS</option></select></div>
                 <div class="flex items-end"><button id="btnBuscar" class="w-full bg-violet-600 hover:bg-violet-700 text-white font-semibold py-2.5 rounded-lg">BUSCAR</button></div>
             </div>
         </div>
@@ -36,8 +36,7 @@
                 const res = await fetch(routeBuscar + '&' + params.toString(), {headers: {'Accept':'application/json'}, credentials:'same-origin'});
                 if (!res.ok) throw new Error('No fue posible cargar las liberaciones.');
                 const data = await res.json();
-                const filtro = document.getElementById('estado').value;
-                const filas = data.data.filter(x => ['PENDIENTE_VERIFICACION','EN_VERIFICACION','PENDIENTE_REVERIFICACION','VERIFICADA'].includes(x.estado) && Number(x.pallets)>0 && (!filtro || x.estado===filtro));
+                const filas = data.data.filter(x => Number(x.pallets)>0);
                 document.getElementById('tabla').innerHTML = filas.length ? filas.map(fila).join('') : '<tr><td colspan="7" class="p-6 text-center text-gray-500">No hay liberaciones que coincidan con el filtro.</td></tr>';
                 document.getElementById('paginacion').innerHTML = data.last_page>1 ? '<div class="flex justify-between items-center"><button class="px-3 py-2 border rounded-lg" '+(data.current_page<=1?'disabled':'')+' onclick="cargar('+(data.current_page-1)+')">Anterior</button><span class="text-sm text-gray-500">Página '+data.current_page+' de '+data.last_page+'</span><button class="px-3 py-2 border rounded-lg" '+(data.current_page>=data.last_page?'disabled':'')+' onclick="cargar('+(data.current_page+1)+')">Siguiente</button></div>' : '';
             } catch(e) { mostrarAlerta(e.message); }
