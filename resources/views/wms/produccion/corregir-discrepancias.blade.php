@@ -94,6 +94,11 @@
                                             $sufijoLoteActual = (string) end($partesLoteActual);
                                             $tonoActual = strlen($sufijoLoteActual) >= 5 && $sufijoLoteActual !== 'NNNNN' ? (int) substr($sufijoLoteActual, 0, 3) : $detalle->entregaDetalle?->tono;
                                             $calibreActual = strlen($sufijoLoteActual) >= 5 && $sufijoLoteActual !== 'NNNNN' ? (int) substr($sufijoLoteActual, 3, 2) : $detalle->entregaDetalle?->calibre;
+                                            $incidenciasDetalle = $incidencias->filter(fn ($i) => (int) $i->hu_detalle_id === (int) $detalle->id);
+                                            $permiteCodigoCalidad = $incidenciasDetalle->contains('tipo', 'CALIDAD_PRODUCTO');
+                                            $permiteTono = $incidenciasDetalle->contains('tipo', 'TONO');
+                                            $permiteCalibre = $incidenciasDetalle->contains('tipo', 'CALIBRE');
+                                            $permiteCantidad = $incidencias->contains('tipo', 'CANTIDAD');
                                         @endphp
                                         <div class="border rounded-xl p-3 sm:p-4">
                                             <input type="hidden" name="detalles[{{ $detalle->id }}][id]" value="{{ $detalle->id }}">
@@ -101,13 +106,13 @@
                                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                                                 <div class="lg:col-span-2">
                                                     <label class="block text-xs font-semibold text-gray-600 mb-1">Código de producto</label>
-                                                    <select name="detalles[{{ $detalle->id }}][codigo]" class="producto-correccion w-full border-gray-300 rounded-lg font-mono" data-calidad-select="calidad-{{ $detalle->id }}" data-formato="{{ $hu->formato }}" required>
+                                                    <select name="detalles[{{ $detalle->id }}][codigo]" class="producto-correccion w-full border-gray-300 rounded-lg font-mono" data-calidad-select="calidad-{{ $detalle->id }}" data-formato="{{ $hu->formato }}" @disabled(!$permiteCodigoCalidad) required>
                                                         <option value="{{ $detalle->codigo }}" selected>{{ $detalle->codigo }} · {{ $detalle->descripcion }}</option>
                                                     </select>
                                                 </div>
                                                 <div>
                                                     <label class="block text-xs font-semibold text-gray-600 mb-1">Calidad</label>
-                                                    <select id="calidad-{{ $detalle->id }}" name="detalles[{{ $detalle->id }}][calidad]" class="calidad-correccion w-full border-gray-300 rounded-lg" required>
+                                                    <select id="calidad-{{ $detalle->id }}" name="detalles[{{ $detalle->id }}][calidad]" class="calidad-correccion w-full border-gray-300 rounded-lg" @disabled(!$permiteCodigoCalidad) required>
                                                         @foreach (['EXTRA', 'COMERCIAL', 'ECONOMICO'] as $calidad)
                                                             <option value="{{ $calidad }}" @selected(old('detalles.'.$detalle->id.'.calidad', $detalle->calidad) === $calidad)>{{ $calidad }}</option>
                                                         @endforeach
