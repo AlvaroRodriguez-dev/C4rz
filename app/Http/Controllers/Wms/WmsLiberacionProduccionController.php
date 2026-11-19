@@ -282,8 +282,8 @@ class WmsLiberacionProduccionController extends Controller
 
                     $partesLote = explode('-', (string) $detalle->lote);
                     $sufijoLote = (string) end($partesLote);
-                    $tonoOriginal = strlen($sufijoLote) >= 5 && $sufijoLote !== 'NNNNN' ? (int) substr($sufijoLote, 0, 3) : null;
-                    $calibreOriginal = strlen($sufijoLote) >= 5 && $sufijoLote !== 'NNNNN' ? (int) substr($sufijoLote, 3, 2) : null;
+                    $tonoOriginal = strlen($sufijoLote) >= 5 && $sufijoLote !== 'NNNNN' ? (int) substr($sufijoLote, 0, 3) : $detalle->entregaDetalle?->tono;
+                    $calibreOriginal = strlen($sufijoLote) >= 5 && $sufijoLote !== 'NNNNN' ? (int) substr($sufijoLote, 3, 2) : $detalle->entregaDetalle?->calibre;
 
                     $codigoRecibido = strtoupper(trim((string) ($linea['codigo'] ?? $detalle->codigo)));
                     $calidadRecibida = strtoupper(trim((string) ($linea['calidad'] ?? $detalle->calidad)));
