@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 class WmsRecepcionAgenciaController extends Controller
 {
@@ -22,9 +23,9 @@ class WmsRecepcionAgenciaController extends Controller
 
     public function index()
     {
-        $almacen = $this->context->almacenPrincipal();
-
-        if (!$almacen) {
+        try {
+            $almacen = $this->context->almacen();
+        } catch (RuntimeException $e) {
             return view('wms.recepcion-agencias.index', [
                 'almacen' => null,
                 'recepciones' => collect(),
@@ -583,7 +584,7 @@ class WmsRecepcionAgenciaController extends Controller
 
     private function almacenPrincipalOrFail(): \App\Models\WmsAlmacen
     {
-        $almacen = $this->context->almacenPrincipal();
+        $almacen = $this->context->almacen();
 
         if (!$almacen) {
             abort(403, 'No tienes un almacén principal WMS activo asignado. Solicita al administrador que configure tu almacén principal antes de realizar registros.');
