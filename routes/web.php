@@ -42,6 +42,7 @@ use App\Http\Controllers\Wms\WmsProduccionVerificacionController;
 use App\Http\Controllers\Wms\WmsLiberacionProduccionController;
 use App\Http\Controllers\Wms\WmsPaletizacionController;
 use App\Http\Controllers\Wms\WmsVerificacionPalletController;
+use App\Http\Controllers\Wms\WmsRecepcionController;
 
 Route::get('/', [WelcomeController::class, 'index'])->name('welcome');
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
@@ -101,6 +102,14 @@ Route::middleware(['auth'])->prefix('biometricos')->name('biometricos.')->group(
 });
 
 Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
+    Route::middleware(['permission:wms.ingresos.create'])->prefix('recepciones')->name('recepciones.')->group(function () {
+        Route::get('/crear', [WmsRecepcionController::class, 'create'])->name('create');
+        Route::get('/discrepancias', [WmsRecepcionController::class, 'discrepancias'])->name('discrepancias');
+        Route::get('/buscar', [WmsRecepcionController::class, 'buscar'])->name('buscar');
+        Route::get('/{id}/detalle', [WmsRecepcionController::class, 'detalle'])->where('id', '[A-Za-z0-9_-]+')->name('detalle');
+        Route::post('/registrar', [WmsRecepcionController::class, 'store'])->name('store');
+    });
+
     Route::middleware(['role_or_permission:WMS-ADMIN|WMS-ALMACEN|WMS-MONTACARGA|SIS-ADMIN'])->group(function () {
         Route::get('/', fn () => view('wms.index'))->name('index');
     });
