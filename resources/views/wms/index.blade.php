@@ -102,7 +102,7 @@
 
                 <!-- Ingreso por Recepción: recepción de mercadería enviada a agencia -->
                 @can('wms.ingresos.create')
-                    <a href="{{ url('/wms/recepciones/crear') }}"
+                    <a href="{{ route('wms.recepciones.create') }}"
                         class="bg-cyan-700 hover:bg-cyan-800 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
                         <div class="flex justify-center">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
