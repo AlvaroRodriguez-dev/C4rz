@@ -114,6 +114,18 @@
                     </a>
                 @endcan
 
+                <!-- Recepción física de agencias -->
+                @can('wms.ingresos.create')
+                    <a href="{{ route('wms.recepcion-agencias.index') }}"
+                        class="bg-cyan-700 hover:bg-cyan-800 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M5 7v10h14V7M8 11h8M8 15h8m-4-12v4m-3-1 3 3 3-3" />
+                        </svg>
+                        <div class="mt-3 font-bold text-base leading-tight">RECEPCIÓN AGENCIAS</div>
+                        <div class="text-xs opacity-90">Descarga, verificación e ingreso por pallet</div>
+                    </a>
+                @endcan
+
                 <!-- Registrar Ingreso -->
                 @can('wms.ingresos.create')
                     <a href="{{ route('wms.ingresos.create') }}"
