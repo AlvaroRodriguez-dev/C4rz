@@ -32,6 +32,11 @@ class RolesAndPermissionsSeeder extends Seeder
             'wms.produccion.paletizar',
         ];
 
+        $wmsPermisosAutorizacionRecepcion = [
+            'wms.recepciones.autorizar_excesos',
+            'wms.recepciones.autorizar_discrepancia_lote',
+        ];
+
         // Permiso separado para ejecutar la verificación física.
         // No se asigna automáticamente a WMS-ALMACEN para permitir separar
         // al usuario que registra la liberación del usuario que verifica.
@@ -46,7 +51,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'rrhh.novedades',
         ];
 
-        foreach (array_merge($wmsPermisos, $wmsPermisosVerificacion, $rrhhPermisos) as $permiso) {
+        foreach (array_merge($wmsPermisos, $wmsPermisosVerificacion, $rrhhPermisos, $wmsPermisosAutorizacionRecepcion) as $permiso) {
             Permission::firstOrCreate(['name' => $permiso]);
         }
 
