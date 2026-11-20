@@ -7,6 +7,7 @@ use App\Models\WmsConfigPallet;
 use App\Models\WmsIngreso;
 use App\Services\AjusteCorrelativoService;
 use App\Services\PalletCorrelativoService;
+use App\Services\WmsContextService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -15,7 +16,8 @@ class WmsIngresoAjusteController extends Controller
 {
     public function __construct(
         private PalletCorrelativoService $palletService,
-        private AjusteCorrelativoService $ajusteService
+        private AjusteCorrelativoService $ajusteService,
+        private WmsContextService $context
     ) {}
 
     public function create()
@@ -183,12 +185,13 @@ class WmsIngresoAjusteController extends Controller
             ->get()
             ->keyBy('CODIGO');
 
+        $almacen = $this->context->almacen();
         $pallet = null;
         $codigoAjuste = null;
 
-        DB::transaction(function () use ($data, $stock, &$pallet, &$codigoAjuste) {
+        DB::transaction(function () use ($data, $stock, $almacen, &$pallet, &$codigoAjuste) {
             // El pallet se genera AQUÍ, recién cuando ya se validó todo y se va a guardar
-            $pallet = $this->palletService->generarSiguiente();
+            $pallet = $this->palletService->generarSiguiente($almacen);
             $codigoAjuste = $this->ajusteService->generarSiguiente();
 
             foreach ($data['items'] as $item) {
@@ -205,7 +208,7 @@ class WmsIngresoAjusteController extends Controller
                     'descrip' => $stockInfo->DESCRIP ?? null,
                     'descrip1' => $stockInfo->DESCRIP1 ?? null,
                     'cantidad' => $item['cantidad'],
-                    'almacen' => '110',
+                    'almacen' => $almacen->codigo,
                     'galpon' => $data['galpon'],
                     'ubicacion' => $data['ubicacion'],
                 ]);
