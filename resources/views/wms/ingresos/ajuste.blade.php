@@ -327,7 +327,7 @@
             $('#btnFinalizarMixto').toggleClass('hidden', itemsMixto.length === 0);
         }
 
-        function finalizarMixto() {
+        async function finalizarMixto() {
             const motivo = $('#motivo').val().trim();
             const resolved = await resolverUbicacion('mixto'); if (!resolved) return; const galpon=resolved.galpon; const ubicacion=resolved.ubicacion;
 
@@ -356,7 +356,7 @@
             renderItemsMixto();
         }
 
-        function finalizarCompleto() {
+        async function finalizarCompleto() {
             const motivo = $('#motivo').val().trim();
             const clote = $('#cloteCompleto').val().trim();
             const cantidad = parseInt($('#cantidadCompleto').val()) || 0;
