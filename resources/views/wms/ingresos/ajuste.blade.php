@@ -424,7 +424,7 @@
         }
 
 
- const routeResolverUbicacion=@json(route('wms.maestros.ubicaciones.resolver-numero')); const csrfToken=@json(csrf_token()); let ubicacionesResueltas={mixto:null,completo:null};
+ const routeResolverUbicacion=@json(route('wms.maestros.ubicaciones.resolver-numero')); let ubicacionesResueltas={mixto:null,completo:null};
  async function resolverUbicacion(modo){const input=modo==='mixto'?'#numeroUbicacionMixto':'#numeroUbicacionCompleto';const box=modo==='mixto'?'#confirmacionUbicacionMixto':'#confirmacionUbicacionCompleto';const numero=$(input).val().trim();if(!numero){mostrarAlerta('Ingresa el número de ubicación.','error');return null;}try{const res=await fetch(routeResolverUbicacion,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrfToken,'Accept':'application/json'},body:JSON.stringify({numero})});const data=await res.json();if(!res.ok){ubicacionesResueltas[modo]=null;$(box).removeClass('hidden bg-green-100 text-green-800').addClass('bg-red-100 text-red-800').text(data.errors?.ubicacion?.[0]||data.message||'Ubicación inválida.');return null;}ubicacionesResueltas[modo]=data;$(box).removeClass('hidden bg-red-100 text-red-800').addClass('bg-green-100 text-green-800').text('✓ Almacén '+data.almacen+' · Galpón '+data.galpon+' · Ubicación '+data.numero);return data;}catch(e){mostrarAlerta('No fue posible validar la ubicación.','error');return null;}}
  $('#numeroUbicacionMixto').on('change blur',()=>resolverUbicacion('mixto'));$('#numeroUbicacionCompleto').on('change blur',()=>resolverUbicacion('completo'));
 
