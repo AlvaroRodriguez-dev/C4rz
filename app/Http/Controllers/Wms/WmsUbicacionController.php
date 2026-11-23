@@ -123,6 +123,16 @@ class WmsUbicacionController extends Controller
         ]);
     }
 
+    public function resolverNumero(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $datos = $request->validate(['numero' => ['required', 'string', 'max:20']]);
+        $almacen = $this->context->almacen();
+        $ubicacion = $this->ubicacionService->resolverNumero((int) $almacen->id, $datos['numero']);
+        return response()->json(['almacen' => $almacen->codigo, 'ubicacion' => $ubicacion->codigo,
+            'numero' => $ubicacion->numero, 'galpon' => $ubicacion->galpon->codigo,
+            'galpon_nombre' => $ubicacion->galpon->nombre, 'ubicacion_id' => $ubicacion->id]);
+    }
+
     public function porGalpon(WmsGalpon $galpon): \Illuminate\Http\JsonResponse
     {
         $almacen = $this->context->almacen();
