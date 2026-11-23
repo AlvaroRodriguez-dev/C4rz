@@ -9,6 +9,7 @@ use App\Models\WmsHuDiscrepancia;
 use App\Models\WmsIngreso;
 use App\Models\WmsUbicacion;
 use App\Services\WmsContextService;
+use App\Services\WmsUbicacionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -16,7 +17,7 @@ use RuntimeException;
 
 class WmsIngresoPtLiberadoController extends Controller
 {
-    public function __construct(private WmsContextService $context) {}
+    public function __construct(private WmsContextService $context, private WmsUbicacionService $ubicacionService) {}
 
     public function index()
     {
@@ -72,7 +73,7 @@ class WmsIngresoPtLiberadoController extends Controller
     {
         $data = $request->validate([
             'hu_id' => ['required', 'integer'],
-            'ubicacion' => ['required', 'string', 'max:30'],
+            'numero_ubicacion' => ['required', 'string', 'max:20'],
         ]);
 
         try {
@@ -93,15 +94,7 @@ class WmsIngresoPtLiberadoController extends Controller
                     throw new RuntimeException('Este pallet ya tiene una ubicación registrada.');
                 }
 
-                $codigo = strtoupper(trim($data['ubicacion']));
-                $ubicacion = WmsUbicacion::query()->with('galpon')
-                    ->where('almacen_id', $almacen->id)->whereRaw('UPPER(codigo) = ?', [$codigo])
-                    ->where('tipo', 'NORMAL')->where('activo', true)
-                    ->whereHas('galpon', fn ($q) => $q->where('activo', true))->first();
-
-                if (!$ubicacion || !$ubicacion->galpon) {
-                    throw ValidationException::withMessages(['ubicacion' => 'La ubicación escaneada no existe, está inactiva o no es una ubicación NORMAL habilitada.']);
-                }
+                $ubicacion = $this->ubicacionService->resolverNumero((int) $almacen->id, $data['numero_ubicacion']);
                 if ($hu->detalles->isEmpty()) {
                     throw new RuntimeException('El pallet no tiene detalle de productos; no se puede generar el ingreso físico.');
                 }
