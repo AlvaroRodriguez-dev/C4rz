@@ -8,6 +8,7 @@ use App\Models\WmsIngreso;
 use App\Services\AjusteCorrelativoService;
 use App\Services\PalletCorrelativoService;
 use App\Services\WmsContextService;
+use App\Services\WmsUbicacionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -17,7 +18,8 @@ class WmsIngresoAjusteController extends Controller
     public function __construct(
         private PalletCorrelativoService $palletService,
         private AjusteCorrelativoService $ajusteService,
-        private WmsContextService $context
+        private WmsContextService $context,
+        private WmsUbicacionService $ubicacionService
     ) {}
 
     public function create()
@@ -135,6 +137,11 @@ class WmsIngresoAjusteController extends Controller
         }
 
         $data = $validator->validated();
+        $almacenContextual = $this->context->almacen();
+        try { $ubicacionValidada = $this->ubicacionService->resolverNumero((int) $almacenContextual->id, $data['ubicacion']); }
+        catch (\Illuminate\Validation\ValidationException $e) { return response()->json(['errors' => $e->errors()], 422); }
+        $data['galpon'] = $ubicacionValidada->galpon->codigo;
+        $data['ubicacion'] = $ubicacionValidada->codigo;
 
         if ($data['tipo_pallet'] === 'completo' && count($data['items']) > 1) {
             return response()->json(['errors' => ['general' => ['Un pallet completo solo admite un producto.']]], 422);
