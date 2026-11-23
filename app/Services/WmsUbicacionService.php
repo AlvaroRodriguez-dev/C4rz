@@ -34,6 +34,19 @@ class WmsUbicacionService
         return $query->get();
     }
 
+    /** Resuelve un número de ubicación dentro del almacén contextual. */
+    public function resolverNumero(int $almacenId, string $numero): WmsUbicacion
+    {
+        $numero = trim($numero);
+        $ubicacion = WmsUbicacion::query()->with('galpon')->where('almacen_id', $almacenId)
+            ->where('tipo', 'NORMAL')->where('activo', true)
+            ->where(function ($query) use ($numero) { $query->where('numero', $numero)->orWhere('codigo', $numero); })->first();
+        if (!$ubicacion || !$ubicacion->galpon || !$ubicacion->galpon->activo) {
+            throw ValidationException::withMessages(['ubicacion' => 'La ubicación ingresada no existe o está inactiva en el almacén operativo.']);
+        }
+        return $ubicacion;
+    }
+
     public function validarNormal(?int $almacenId, string $galponCodigo, string $ubicacionCodigo): WmsUbicacion
     {
         $galponCodigo = strtoupper(trim($galponCodigo));
