@@ -47,7 +47,7 @@
             <div id="registradosPanel" class="hidden rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-900"></div>
             <div class="grid md:grid-cols-2 gap-4">
                 <div><label for="pallet" class="block text-sm font-semibold mb-1">NRO DE PALLET</label><div class="flex gap-2"><select id="pallet" class="w-full" style="width:100%" disabled><option value="">Seleccione pallet</option></select><button id="scanPallet" type="button" class="rounded-xl bg-gray-800 text-white px-4" title="Escanear QR del pallet" disabled>📷</button></div></div>
-                <div><label for="ubicacion" class="block text-sm font-semibold mb-1">UBICACIÓN</label><div class="flex gap-2"><select id="ubicacion" class="w-full" style="width:100%" disabled><option value="">Seleccione ubicación</option></select><button id="scanUbicacion" type="button" class="rounded-xl bg-gray-800 text-white px-4" title="Escanear QR de la ubicación" disabled>📷</button></div><p id="ayudaUbicacion" class="text-xs text-gray-500 mt-1">Seleccione o escanee el código QR de ubicación.</p></div>
+                <div><label for="numeroUbicacion" class="block text-sm font-semibold mb-1">N.º DE UBICACIÓN</label><input id="numeroUbicacion" type="text" inputmode="numeric" autocomplete="off" class="w-full border-gray-300 rounded-xl p-3" disabled placeholder="Escribe o escanea el número"><p id="ayudaUbicacion" class="hidden text-sm rounded-lg p-2 mt-2"></p></div>
             </div><div id="qrReader" class="hidden rounded-xl overflow-hidden border bg-black"></div>
             <div id="detallePallet" class="hidden rounded-xl bg-gray-50 border p-3 text-sm"></div>
             <div class="flex flex-col sm:flex-row gap-3">
@@ -59,26 +59,41 @@
     <script>
     (() => {
         const base = @json(url('/wms/ingreso-pt-liberado'));
-        const urlUbicaciones = @json(route('wms.ingreso-pt-liberado.ubicaciones'));
+        const urlResolver = @json(route('wms.maestros.ubicaciones.resolver-numero'));
         const csrf = @json(csrf_token());
         const $ = id => document.getElementById(id);
-        let entregaId = null, pallets = [], ubicaciones = [], scanner = null, destinoEscaneo = null;
+        let entregaId = null, pallets = [], scanner = null, destinoEscaneo = null, ubicacionResuelta = null;
         const jq = window.jQuery;
         jq(document).ready(() => {
             jq('#pallet').select2({placeholder:'Seleccione o escriba un pallet',width:'100%'});
-            jq('#ubicacion').select2({placeholder:'Seleccione o escriba una ubicación',width:'100%'});
             jq('#pallet').on('change', mostrarDetallePallet);
-            jq('#ubicacion').on('change', () => { const codigo=String(jq('#ubicacion').val()||'').toUpperCase(); const u=ubicaciones.find(x=>x.codigo.toUpperCase()===codigo); $('ayudaUbicacion').textContent=u?'Ubicación válida: '+u.texto:'Seleccione una ubicación NORMAL activa.'; $('ayudaUbicacion').className='text-xs mt-1 '+(u?'text-green-700':'text-gray-500'); validar(); });
+            $('numeroUbicacion').addEventListener('input', () => { ubicacionResuelta=null; $('ayudaUbicacion').className='hidden'; validar(); });
+            $('numeroUbicacion').addEventListener('change', resolverUbicacion);
+            $('numeroUbicacion').addEventListener('keydown', e => { if(e.key==='Enter'){e.preventDefault();resolverUbicacion();} });
             $('scanPallet').addEventListener('click',()=>iniciarScanner('pallet'));
-            $('scanUbicacion').addEventListener('click',()=>iniciarScanner('ubicacion'));
         });
+        async function resolverUbicacion() {
+            const numero=$('numeroUbicacion').value.trim(), box=$('ayudaUbicacion');
+            ubicacionResuelta=null; validar();
+            if(!numero){box.className='hidden';return;}
+            box.className='text-sm rounded-lg p-2 mt-2 bg-blue-50 text-blue-700';box.textContent='Validando ubicación...';
+            try{
+                const r=await fetch(urlResolver,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':csrf},body:JSON.stringify({numero})});
+                const d=await r.json();
+                if(!r.ok){box.className='text-sm rounded-lg p-2 mt-2 bg-red-100 text-red-800';box.textContent=d.errors?.ubicacion?.[0]||d.message||'Ubicación inválida.';return;}
+                ubicacionResuelta=d;
+                box.className='text-sm rounded-lg p-2 mt-2 bg-green-100 text-green-800';
+                box.textContent='✓ Almacén '+d.almacen+' · Galpón '+d.galpon+' · Ubicación '+d.numero;
+                validar();
+            }catch(e){box.className='text-sm rounded-lg p-2 mt-2 bg-red-100 text-red-800';box.textContent='No fue posible validar la ubicación.';}
+        }
         function mensaje(texto, error = false) {
             $('mensaje').textContent = texto;
             $('mensaje').className = 'rounded-xl border p-3 ' + (error ? 'bg-red-50 border-red-200 text-red-800' : 'bg-green-50 border-green-200 text-green-800');
             $('mensaje').scrollIntoView({behavior:'smooth',block:'nearest'});
         }
         function limpiarMensaje() { $('mensaje').className = 'hidden'; $('mensaje').textContent = ''; }
-        function validar() { $('confirmar').disabled = !($('pallet').value && $('ubicacion').value.trim()); }
+        function validar() { $('confirmar').disabled = !( $('pallet').value && ubicacionResuelta ); }
         async function cargarPallets() {
             const r = await fetch(base + '/' + entregaId + '/pallets', {headers:{Accept:'application/json'}});
             const d = await r.json(); if (!r.ok) throw new Error(d.message || 'No se pudieron cargar los pallets.');
@@ -87,21 +102,16 @@
             pallets.filter(p=>!p.ubicado).forEach(p=>jq('#pallet').append(new Option(p.numero+' · '+(p.formato||'Sin formato')+' · '+p.cantidad+' cajas',String(p.id))));
             jq('#ubicacion').empty().append(new Option('Seleccione ubicación','',true,true));
             ubicaciones.forEach(u=>jq('#ubicacion').append(new Option(u.texto,u.codigo)));
-            jq('#pallet').val('').trigger('change.select2'); jq('#ubicacion').val('').trigger('change.select2');
-            $('pallet').disabled=false; $('ubicacion').disabled=false; $('scanPallet').disabled=false; $('scanUbicacion').disabled=false;
+            jq('#pallet').val('').trigger('change.select2'); $('numeroUbicacion').value=''; ubicacionResuelta=null;
+            $('pallet').disabled=false; $('numeroUbicacion').disabled=false; $('scanPallet').disabled=false;
             $('detallePallet').classList.add('hidden'); validar();
             const ya=pallets.filter(p=>p.ubicado); $('registradosPanel').classList.toggle('hidden',ya.length===0);
             $('registradosPanel').innerHTML='<div class="font-semibold mb-1">Pallets y ubicaciones ya registrados</div>'+ya.map(p=>'<div>• <strong>'+esc(p.numero)+'</strong> → '+esc(p.ubicacion_texto||'Ubicación no disponible')+'</div>').join('');
         }
-        async function cargarUbicaciones() {
-            const r = await fetch(urlUbicaciones, {headers:{Accept:'application/json'}});
-            const d = await r.json(); if (!r.ok) throw new Error(d.message || 'No se pudieron cargar las ubicaciones.');
-            ubicaciones = d.ubicaciones || [];
-        }
         document.querySelectorAll('.seleccionar').forEach(b => b.addEventListener('click', async () => {
             limpiarMensaje(); entregaId = b.dataset.entrega; $('liberacionSeleccionada').textContent = b.dataset.documento;
             $('panel').classList.remove('hidden'); $('pallet').disabled = true; $('ubicacion').disabled = true;
-            try { await cargarUbicaciones(); await cargarPallets(); $('panel').scrollIntoView({behavior:'smooth'}); jq('#pallet').select2('open'); }
+            try { ubicacionResuelta=null; $('numeroUbicacion').value=''; $('ayudaUbicacion').className='hidden'; await cargarPallets(); $('panel').scrollIntoView({behavior:'smooth'}); jq('#pallet').select2('open'); }
             catch(e) { mensaje(e.message, true); }
         }));
         function mostrarDetallePallet() {
@@ -115,8 +125,7 @@
             if(scanner){await detenerScanner();return;} destinoEscaneo=destino; $('qrReader').classList.remove('hidden'); scanner=new Html5Qrcode('qrReader');
             try{await scanner.start({facingMode:'environment'},{fps:10,qrbox:{width:250,height:250}},async decoded=>{
                 const codigo=decoded.trim();await detenerScanner();
-                if(destinoEscaneo==='pallet'){const p=pallets.find(x=>String(x.numero).toUpperCase()===codigo.toUpperCase());if(!p||p.ubicado){mensaje('El QR no corresponde a un pallet pendiente de esta liberación.',true);return;}jq('#pallet').val(String(p.id)).trigger('change');}
-                else{const u=ubicaciones.find(x=>x.codigo.toUpperCase()===codigo.toUpperCase());if(!u){mensaje('El QR no corresponde a una ubicación NORMAL activa del almacén.',true);return;}jq('#ubicacion').val(u.codigo).trigger('change');}
+                const p=pallets.find(x=>String(x.numero).toUpperCase()===codigo.toUpperCase());if(!p||p.ubicado){mensaje('El QR no corresponde a un pallet pendiente de esta liberación.',true);return;}jq('#pallet').val(String(p.id)).trigger('change');
                 validar();
             });}catch(e){await detenerScanner();mensaje('No fue posible acceder a la cámara. Verifique los permisos del navegador.',true);}
         }
@@ -127,7 +136,7 @@
             try {
                 const r = await fetch(base + '/' + entregaId + '/confirmar', {
                     method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':csrf},
-                    body:JSON.stringify({hu_id:jq('#pallet').val(),ubicacion:jq('#ubicacion').val()})
+                    body:JSON.stringify({hu_id:jq('#pallet').val(),numero_ubicacion:$('numeroUbicacion').value.trim()})
                 });
                 const d = await r.json(); if (!r.ok) throw new Error(d.message || Object.values(d.errors || {}).flat().join(' ') || 'No se pudo confirmar.');
                 mensaje(d.message || 'Ubicación confirmada.');
