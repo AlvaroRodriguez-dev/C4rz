@@ -69,20 +69,7 @@
                 {{-- <p id="palletReservadoMixtoTxt"
                     class="hidden text-sm font-bold text-white bg-blue-700 rounded-lg px-3 py-2 text-center"></p>
                 - --}}
-                <div id="mixtoUbicacion" class="hidden bg-white shadow rounded-xl p-4 grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block text-[11px] font-medium text-gray-500 mb-1">Galpón</label>
-                        <input type="text" id="galponMixto" class="row-input w-full border-gray-300 rounded-lg p-2.5"
-                            placeholder="Galpón">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-medium text-gray-500 mb-1">Ubicación</label>
-                        <input type="text" id="ubicacionMixto"
-                            class="row-input w-full border-gray-300 rounded-lg p-2.5" placeholder="Ubicación">
-                    </div>
-                </div>
-
-                <div id="mixtoAgregar" class="hidden bg-white shadow rounded-xl p-4 space-y-3">
+                <div id="mixtoUbicacion" class="hidden bg-white shadow rounded-xl p-4 space-y-2"><label class="block text-sm font-medium text-gray-700">N.º DE UBICACIÓN</label><input type="text" id="numeroUbicacionMixto" inputmode="numeric" autocomplete="off" class="row-input w-full border-gray-300 rounded-lg p-3" placeholder="Escribe o escanea el número"><p id="confirmacionUbicacionMixto" class="hidden text-sm rounded-lg p-2"></p></div><div id="mixtoAgregar" class="hidden bg-white shadow rounded-xl p-4 space-y-3">
                     <label class="block text-sm font-medium text-gray-700">Agregar Producto</label>
                     <select id="selectProductoMixto" class="w-full" style="width:100%"></select>
                     <div class="grid grid-cols-2 gap-2">
@@ -129,13 +116,7 @@
                         <input type="number" id="cantidadCompleto" min="1"
                             class="row-input border-gray-300 rounded-lg p-2.5" placeholder="Cantidad">
                     </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <input type="text" id="galponCompleto" class="row-input border-gray-300 rounded-lg p-2.5"
-                            placeholder="Galpón">
-                        <input type="text" id="ubicacionCompleto" class="row-input border-gray-300 rounded-lg p-2.5"
-                            placeholder="Ubicación">
-                    </div>
-                </div>
+                    <div class="space-y-2"><label class="block text-sm font-medium text-gray-700">N.º DE UBICACIÓN</label><input type="text" id="numeroUbicacionCompleto" inputmode="numeric" autocomplete="off" class="row-input w-full border-gray-300 rounded-lg p-3" placeholder="Escribe o escanea el número"><p id="confirmacionUbicacionCompleto" class="hidden text-sm rounded-lg p-2"></p></div>
 
                 <button id="btnFinalizarCompleto"
                     class="hidden w-full bg-blue-600 text-white font-semibold py-4 rounded-xl shadow text-lg">FINALIZAR
@@ -348,8 +329,7 @@
 
         function finalizarMixto() {
             const motivo = $('#motivo').val().trim();
-            const galpon = $('#galponMixto').val().trim();
-            const ubicacion = $('#ubicacionMixto').val().trim();
+            const resolved = await resolverUbicacion('mixto'); if (!resolved) return; const galpon=resolved.galpon; const ubicacion=resolved.ubicacion;
 
             if (!motivo) return mostrarAlerta('El motivo del ajuste es obligatorio.', 'error');
             if (!galpon || !ubicacion) return mostrarAlerta('Ingresa Galpón y Ubicación.', 'error');
@@ -372,7 +352,7 @@
             $('#selectFormato').val(null).trigger('change');
             $('#limiteFormatoTxt, #palletReservadoMixtoTxt, #mixtoUbicacion, #mixtoAgregar, #mixtoResumen, #btnFinalizarMixto')
                 .addClass('hidden');
-            $('#galponMixto, #ubicacionMixto, #cloteMixto, #cantidadMixto').val('');
+            $('#numeroUbicacionMixto, #cloteMixto, #cantidadMixto').val(''); ubicacionesResueltas.mixto=null; $('#confirmacionUbicacionMixto').addClass('hidden');
             renderItemsMixto();
         }
 
@@ -380,8 +360,7 @@
             const motivo = $('#motivo').val().trim();
             const clote = $('#cloteCompleto').val().trim();
             const cantidad = parseInt($('#cantidadCompleto').val()) || 0;
-            const galpon = $('#galponCompleto').val().trim();
-            const ubicacion = $('#ubicacionCompleto').val().trim();
+            const resolved = await resolverUbicacion('completo'); if (!resolved) return; const galpon=resolved.galpon; const ubicacion=resolved.ubicacion;
 
             if (!motivo) return mostrarAlerta('El motivo del ajuste es obligatorio.', 'error');
             if (!productoCompletoSel || limiteCompleto === null) return mostrarAlerta('Selecciona un producto válido.',
@@ -410,7 +389,7 @@
             palletReservadoCompleto = null;
             $('#selectProductoCompleto').val(null).trigger('change');
             $('#limiteCompletoTxt, #palletReservadoCompletoTxt, #completoDatos, #btnFinalizarCompleto').addClass('hidden');
-            $('#cloteCompleto, #cantidadCompleto, #galponCompleto, #ubicacionCompleto').val('');
+            $('#cloteCompleto, #cantidadCompleto, #numeroUbicacionCompleto').val(''); ubicacionesResueltas.completo=null; $('#confirmacionUbicacionCompleto').addClass('hidden');
         }
 
         function enviarPallet(payload, onSuccess) {
@@ -444,7 +423,12 @@
             });
         }
 
-        function mostrarAlerta(msg, tipo) {
+
+ const routeResolverUbicacion=@json(route('wms.maestros.ubicaciones.resolver-numero')); const csrfToken=@json(csrf_token()); let ubicacionesResueltas={mixto:null,completo:null};
+ async function resolverUbicacion(modo){const input=modo==='mixto'?'#numeroUbicacionMixto':'#numeroUbicacionCompleto';const box=modo==='mixto'?'#confirmacionUbicacionMixto':'#confirmacionUbicacionCompleto';const numero=$(input).val().trim();if(!numero){mostrarAlerta('Ingresa el número de ubicación.','error');return null;}try{const res=await fetch(routeResolverUbicacion,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrfToken,'Accept':'application/json'},body:JSON.stringify({numero})});const data=await res.json();if(!res.ok){ubicacionesResueltas[modo]=null;$(box).removeClass('hidden bg-green-100 text-green-800').addClass('bg-red-100 text-red-800').text(data.errors?.ubicacion?.[0]||data.message||'Ubicación inválida.');return null;}ubicacionesResueltas[modo]=data;$(box).removeClass('hidden bg-red-100 text-red-800').addClass('bg-green-100 text-green-800').text('✓ Almacén '+data.almacen+' · Galpón '+data.galpon+' · Ubicación '+data.numero);return data;}catch(e){mostrarAlerta('No fue posible validar la ubicación.','error');return null;}}
+ $('#numeroUbicacionMixto').on('change blur',()=>resolverUbicacion('mixto'));$('#numeroUbicacionCompleto').on('change blur',()=>resolverUbicacion('completo'));
+
+ function mostrarAlerta(msg, tipo) {
             const box = $('#alertBox');
             box.removeClass('hidden bg-green-100 text-green-800 bg-red-100 text-red-800');
             box.addClass(tipo === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800');
