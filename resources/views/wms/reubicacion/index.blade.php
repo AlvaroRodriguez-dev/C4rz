@@ -28,11 +28,7 @@
                 <div id="contenidoOrigenCompleto" class="hidden bg-white border border-gray-200 rounded-xl p-4 space-y-2"></div>
                 <div class="bg-white shadow rounded-xl p-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Nueva Ubicación (destino)</label>
-                    <div class="grid grid-cols-2 gap-2 mb-2">
-                        <input type="text" id="galponDestinoCompleto" class="border-gray-300 rounded-lg p-2.5 text-base" placeholder="Galpón">
-                        <input type="text" id="ubicacionDestinoCompleto" class="border-gray-300 rounded-lg p-2.5 text-base" placeholder="Ubicación">
-                    </div>
-                    <button type="button" data-ubic-target="galponDestinoCompleto|ubicacionDestinoCompleto" class="btn-scan-ubic w-full bg-gray-800 text-white rounded-lg py-2.5">📷 Escanear QR de ubicación</button>
+                    <div class="flex gap-2"><input type="text" id="numeroUbicacionCompleto" class="flex-1 border-gray-300 rounded-lg p-2.5 text-base" placeholder="N.º de ubicación"><button type="button" id="scanUbicacionCompleto" class="bg-gray-800 text-white rounded-lg px-4">📷</button></div><p id="confirmacionUbicacionCompleto" class="hidden text-xs font-medium text-blue-700 bg-blue-50 rounded-lg px-3 py-2 mt-2"></p>
                 </div>
                 <button id="btnGuardarCompleto" class="w-full bg-blue-600 text-white font-semibold py-4 rounded-xl shadow text-lg">GUARDAR RE-UBICACIÓN</button>
             </div>
@@ -60,15 +56,12 @@
                         <button type="button" data-target="palletDestinoParcial" class="btn-scan bg-gray-800 text-white rounded-lg px-4">📷</button>
                     </div>
                     <p id="ubicacionDestinoInfo" class="text-xs text-gray-500"></p>
-                    <div id="ubicacionManualDestino" class="hidden grid grid-cols-2 gap-2">
-                        <input type="text" id="galponDestinoParcial" class="border-gray-300 rounded-lg p-2.5 text-base" placeholder="Galpón (pallet nuevo)">
-                        <input type="text" id="ubicacionDestinoParcial" class="border-gray-300 rounded-lg p-2.5 text-base" placeholder="Ubicación (pallet nuevo)">
-                    </div>
+                    <div id="ubicacionManualDestino" class="hidden space-y-2"><div class="flex gap-2"><input type="text" id="numeroUbicacionParcial" class="flex-1 border-gray-300 rounded-lg p-2.5 text-base" placeholder="N.º de ubicación"><button type="button" id="scanUbicacionParcial" class="bg-gray-800 text-white rounded-lg px-4">📷</button></div><p id="confirmacionUbicacionParcial" class="hidden text-xs font-medium text-blue-700 bg-blue-50 rounded-lg px-3 py-2 mt-2"></p></div>
                     <button id="btnGuardarParcial" class="w-full bg-blue-600 text-white font-semibold py-4 rounded-xl shadow text-lg">GUARDAR RE-UBICACIÓN</button>
                 </div>
             </div>
 
-            <div id="qrReader" class="hidden mt-4 rounded-xl overflow-hidden border border-gray-200"></div>
+            <div id="qrReader" class="hidden mt-4 rounded-xl overflow-hidden border border-gray-200"></div><div id="modalScannerUbicacion" class="hidden fixed inset-0 z-50 bg-black bg-opacity-60 flex items-center justify-center p-4"><div class="bg-white rounded-xl p-4 w-full max-w-md"><div class="flex justify-between items-center mb-3"><h3 class="font-semibold">Escanear ubicación</h3><button type="button" id="cerrarScannerUbicacion" class="text-gray-600 text-xl">✕</button></div><div id="lectorScannerUbicacion" class="rounded-lg overflow-hidden"></div><p class="text-xs text-gray-500 mt-2">Apunta la cámara al código QR de la ubicación.</p></div></div>
             <div id="qrZoomControl" class="hidden mt-2 bg-white border border-gray-200 rounded-xl px-4 py-3">
                 <div class="flex items-center gap-3">
                     <span class="text-sm text-gray-600 shrink-0">🔍 Zoom</span>
@@ -86,6 +79,8 @@
         const routeGuardarCompleto = "{{ route('wms.reubicacion.pallet-completo') }}";
         const routeGuardarParcial = "{{ route('wms.reubicacion.completar-pallet') }}";
         const csrfToken = "{{ csrf_token() }}";
+        const routeResolverUbicacion = "{{ route('wms.maestros.ubicaciones.resolver-numero') }}";
+        let scannerUbicacion = null, ubicacionResueltaCompleto = null, ubicacionResueltaParcial = null;
         let html5QrCode = null;
         let itemSeleccionado = null;
         let itemsOrigenCache = [];
@@ -189,7 +184,8 @@
         });
 
         document.getElementById('btnGuardarCompleto').addEventListener('click', () => {
-            const body = { pallet_origen: document.getElementById('palletOrigenCompleto').value.trim(), galpon_destino: document.getElementById('galponDestinoCompleto').value.trim(), ubicacion_destino: document.getElementById('ubicacionDestinoCompleto').value.trim() };
+            if (!ubicacionResueltaCompleto) { mostrarAlerta('Primero valida la ubicación destino.', 'error'); return; }
+            const body = { pallet_origen: document.getElementById('palletOrigenCompleto').value.trim(), galpon_destino: ubicacionResueltaCompleto.galpon, ubicacion_destino: ubicacionResueltaCompleto.ubicacion };
             fetch(routeGuardarCompleto, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken }, body: JSON.stringify(body) }).then(async res => {
                 const data = await res.json();
                 if (!res.ok) { mostrarAlerta(Object.values(data.errors ?? {}).flat().join(' '), 'error'); return; }
@@ -222,6 +218,9 @@
             document.getElementById('cantidadMover').value = '';
             document.getElementById('ubicacionDestinoInfo').textContent = '';
             document.getElementById('ubicacionManualDestino').classList.add('hidden');
+            document.getElementById('numeroUbicacionParcial').value = '';
+            document.getElementById('confirmacionUbicacionParcial').classList.add('hidden');
+            ubicacionResueltaParcial = null;
             document.getElementById('palletDestinoParcial').value = '';
             document.getElementById('formCantidad').classList.remove('hidden');
         }
@@ -243,10 +242,10 @@
         document.getElementById('btnGuardarParcial').addEventListener('click', () => {
             const cantidad = parseInt(document.getElementById('cantidadMover').value) || 0;
             const palletDestino = document.getElementById('palletDestinoParcial').value.trim();
-            const galponManual = document.getElementById('galponDestinoParcial').value.trim();
-            const ubicacionManual = document.getElementById('ubicacionDestinoParcial').value.trim();
+            
             fetch(routeUbicacionPallet(palletDestino)).then(res => res.json()).then(data => {
-                const destinoUbicacion = data.ubicacion ?? { almacen: itemSeleccionado.almacen, galpon: galponManual, ubicacion: ubicacionManual };
+                if (!data.ubicacion && !ubicacionResueltaParcial) { mostrarAlerta('Primero valida la ubicación para el pallet nuevo.', 'error'); return; }
+                const destinoUbicacion = data.ubicacion ?? { almacen: itemSeleccionado.almacen, galpon: ubicacionResueltaParcial.galpon, ubicacion: ubicacionResueltaParcial.ubicacion };
                 const body = { codigo: itemSeleccionado.codigo, clote: itemSeleccionado.clote, descrip: itemSeleccionado.descrip, descrip1: itemSeleccionado.descrip1, cantidad, pallet_origen: itemSeleccionado.pallet, almacen_origen: itemSeleccionado.almacen, galpon_origen: itemSeleccionado.galpon, ubicacion_origen: itemSeleccionado.ubicacion, pallet_destino: palletDestino, almacen_destino: destinoUbicacion.almacen, galpon_destino: destinoUbicacion.galpon, ubicacion_destino: destinoUbicacion.ubicacion };
                 fetch(routeGuardarParcial, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken }, body: JSON.stringify(body) }).then(async res => {
                     const resData = await res.json();
@@ -256,6 +255,15 @@
                 });
             });
         });
+
+        function abrirScannerUbicacion(modo) { document.getElementById('modalScannerUbicacion').classList.remove('hidden'); scannerUbicacion = new Html5Qrcode('lectorScannerUbicacion'); scannerUbicacion.start({facingMode:'environment'},{fps:10,qrbox:250},texto=>{document.getElementById(modo==='completo'?'numeroUbicacionCompleto':'numeroUbicacionParcial').value=texto.trim(); detenerScannerUbicacion(); resolverNumeroUbicacion(modo);}).catch(err=>mostrarAlerta('No fue posible iniciar la cámara: '+err,'error')); }
+        function detenerScannerUbicacion(){ if(scannerUbicacion){scannerUbicacion.stop().catch(()=>{}).finally(()=>scannerUbicacion.clear().catch(()=>{}));scannerUbicacion=null;} document.getElementById('modalScannerUbicacion').classList.add('hidden'); }
+        async function resolverNumeroUbicacion(modo){const campo=modo==='completo'?'numeroUbicacionCompleto':'numeroUbicacionParcial';const confirmacion=modo==='completo'?'confirmacionUbicacionCompleto':'confirmacionUbicacionParcial';const numero=document.getElementById(campo).value.trim();if(!numero)return;try{const response=await fetch(routeResolverUbicacion,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrfToken},body:JSON.stringify({numero})});const data=await response.json();if(!response.ok){mostrarAlerta(Object.values(data.errors??{}).flat().join(' '),'error');return;}const info={almacen:data.almacen,galpon:data.galpon,ubicacion:data.ubicacion};if(modo==='completo')ubicacionResueltaCompleto=info;else ubicacionResueltaParcial=info;const el=document.getElementById(confirmacion);el.textContent='✓ Almacén '+data.almacen+' · Galpón '+data.galpon+' · Ubicación '+data.ubicacion;el.classList.remove('hidden');document.getElementById('alertBox').classList.add('hidden');}catch(e){mostrarAlerta('Error al validar la ubicación.','error');}}
+        document.getElementById('scanUbicacionCompleto').addEventListener('click',()=>abrirScannerUbicacion('completo'));
+        document.getElementById('scanUbicacionParcial').addEventListener('click',()=>abrirScannerUbicacion('parcial'));
+        document.getElementById('numeroUbicacionCompleto').addEventListener('change',()=>resolverNumeroUbicacion('completo'));
+        document.getElementById('numeroUbicacionParcial').addEventListener('change',()=>resolverNumeroUbicacion('parcial'));
+        document.getElementById('cerrarScannerUbicacion').addEventListener('click',detenerScannerUbicacion);
 
         function mostrarAlerta(msg, tipo) {
             const box = document.getElementById('alertBox');
