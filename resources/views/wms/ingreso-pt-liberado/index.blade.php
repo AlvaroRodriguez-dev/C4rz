@@ -70,7 +70,8 @@
             $('numeroUbicacion').addEventListener('input', () => { ubicacionResuelta=null; $('ayudaUbicacion').className='hidden'; validar(); });
             $('numeroUbicacion').addEventListener('change', resolverUbicacion);
             $('numeroUbicacion').addEventListener('keydown', e => { if(e.key==='Enter'){e.preventDefault();resolverUbicacion();} });
-            $('scanPallet').addEventListener('click',()=>iniciarScanner('pallet'));\n            $('scanUbicacion').addEventListener('click',()=>iniciarScanner('ubicacion'));
+            $('scanPallet').addEventListener('click',()=>iniciarScanner('pallet'));
+            $('scanUbicacion').addEventListener('click',()=>iniciarScanner('ubicacion'));
         });
         async function resolverUbicacion() {
             const numero=$('numeroUbicacion').value.trim(), box=$('ayudaUbicacion');
