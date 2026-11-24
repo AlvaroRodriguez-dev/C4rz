@@ -126,12 +126,7 @@
         }
 
         document.querySelectorAll('.btn-scan').forEach(btn => {
-            btn.addEventListener('click', () => iniciarScanner((texto) => {
-                const inputId = btn.dataset.target;
-                document.getElementById(inputId).value = texto.trim();
-                if (inputId === 'palletOrigenCompleto') mostrarUbicacionActual(texto.trim(), 'ubicacionActualCompleto');
-                else if (inputId === 'palletOrigenParcial') mostrarUbicacionActual(texto.trim(), 'ubicacionActualParcial');
-            }));
+            btn.addEventListener('click', () => abrirScannerPallet(btn.dataset.target));
         });
 
         document.querySelectorAll('.btn-scan-ubic').forEach(btn => {
@@ -256,6 +251,17 @@
             });
         });
 
+        function abrirScannerPallet(inputId) {
+            document.getElementById('modalScannerUbicacion').classList.remove('hidden');
+            scannerUbicacion = new Html5Qrcode('lectorScannerUbicacion');
+            scannerUbicacion.start({facingMode:'environment'}, {fps:10,qrbox:250}, texto => {
+                document.getElementById(inputId).value = texto.trim();
+                detenerScannerUbicacion();
+                if (inputId === 'palletOrigenCompleto') mostrarUbicacionActual(texto.trim(), 'ubicacionActualCompleto');
+                else if (inputId === 'palletOrigenParcial') mostrarUbicacionActual(texto.trim(), 'ubicacionActualParcial');
+                else if (inputId === 'palletDestinoParcial') document.getElementById(inputId).dispatchEvent(new Event('change'));
+            }).catch(err => mostrarAlerta('No fue posible iniciar la cámara: ' + err, 'error'));
+        }
         function abrirScannerUbicacion(modo) { document.getElementById('modalScannerUbicacion').classList.remove('hidden'); scannerUbicacion = new Html5Qrcode('lectorScannerUbicacion'); scannerUbicacion.start({facingMode:'environment'},{fps:10,qrbox:250},texto=>{document.getElementById(modo==='completo'?'numeroUbicacionCompleto':'numeroUbicacionParcial').value=texto.trim(); detenerScannerUbicacion(); resolverNumeroUbicacion(modo);}).catch(err=>mostrarAlerta('No fue posible iniciar la cámara: '+err,'error')); }
         function detenerScannerUbicacion(){ if(scannerUbicacion){scannerUbicacion.stop().catch(()=>{}).finally(()=>scannerUbicacion.clear().catch(()=>{}));scannerUbicacion=null;} document.getElementById('modalScannerUbicacion').classList.add('hidden'); }
         async function resolverNumeroUbicacion(modo){const campo=modo==='completo'?'numeroUbicacionCompleto':'numeroUbicacionParcial';const confirmacion=modo==='completo'?'confirmacionUbicacionCompleto':'confirmacionUbicacionParcial';const numero=document.getElementById(campo).value.trim();if(!numero)return;try{const response=await fetch(routeResolverUbicacion,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrfToken},body:JSON.stringify({numero})});const data=await response.json();if(!response.ok){mostrarAlerta(Object.values(data.errors??{}).flat().join(' '),'error');return;}const info={almacen:data.almacen,galpon:data.galpon,ubicacion:data.ubicacion};if(modo==='completo')ubicacionResueltaCompleto=info;else ubicacionResueltaParcial=info;const el=document.getElementById(confirmacion);el.textContent='✓ Almacén '+data.almacen+' · Galpón '+data.galpon+' · Ubicación '+data.ubicacion;el.classList.remove('hidden');document.getElementById('alertBox').classList.add('hidden');}catch(e){mostrarAlerta('Error al validar la ubicación.','error');}}
