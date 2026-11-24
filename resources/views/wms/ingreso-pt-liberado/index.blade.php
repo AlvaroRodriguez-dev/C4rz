@@ -124,6 +124,7 @@
             if(scanner){await detenerScanner();return;} destinoEscaneo=destino; $('qrReader').classList.remove('hidden'); scanner=new Html5Qrcode('qrReader');
             try{await scanner.start({facingMode:'environment'},{fps:10,qrbox:{width:250,height:250}},async decoded=>{
                 const codigo=decoded.trim();await detenerScanner();
+                if(destinoEscaneo==='ubicacion'){ $('numeroUbicacion').value=codigo; await resolverUbicacion(); return; }
                 const p=pallets.find(x=>String(x.numero).toUpperCase()===codigo.toUpperCase());if(!p||p.ubicado){mensaje('El QR no corresponde a un pallet pendiente de esta liberación.',true);return;}jq('#pallet').val(String(p.id)).trigger('change');
                 validar();
             });}catch(e){await detenerScanner();mensaje('No fue posible acceder a la cámara. Verifique los permisos del navegador.',true);}
