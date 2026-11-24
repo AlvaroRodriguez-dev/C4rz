@@ -47,7 +47,7 @@
             <div id="registradosPanel" class="hidden rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-900"></div>
             <div class="grid md:grid-cols-2 gap-4">
                 <div><label for="pallet" class="block text-sm font-semibold mb-1">NRO DE PALLET</label><div class="flex gap-2"><select id="pallet" class="w-full" style="width:100%" disabled><option value="">Seleccione pallet</option></select><button id="scanPallet" type="button" class="rounded-xl bg-gray-800 text-white px-4" title="Escanear QR del pallet" disabled>📷</button></div></div>
-                <div><label for="numeroUbicacion" class="block text-sm font-semibold mb-1">N.º DE UBICACIÓN</label><input id="numeroUbicacion" type="text" inputmode="numeric" autocomplete="off" class="w-full border-gray-300 rounded-xl p-3" disabled placeholder="Escribe o escanea el número"><p id="ayudaUbicacion" class="hidden text-sm rounded-lg p-2 mt-2"></p></div>
+                <div><label for="numeroUbicacion" class="block text-sm font-semibold mb-1">N.º DE UBICACIÓN</label><div class="flex gap-2"><input id="numeroUbicacion" type="text" inputmode="numeric" autocomplete="off" class="w-full border-gray-300 rounded-xl p-3" disabled placeholder="Escribe o escanea el número"><button id="scanUbicacion" type="button" class="rounded-xl bg-gray-800 text-white px-4" title="Escanear QR de ubicación" disabled>📷</button></div><p id="ayudaUbicacion" class="hidden text-sm rounded-lg p-2 mt-2"></p></div>
             </div><div id="qrReader" class="hidden rounded-xl overflow-hidden border bg-black"></div>
             <div id="detallePallet" class="hidden rounded-xl bg-gray-50 border p-3 text-sm"></div>
             <div class="flex flex-col sm:flex-row gap-3">
@@ -70,7 +70,7 @@
             $('numeroUbicacion').addEventListener('input', () => { ubicacionResuelta=null; $('ayudaUbicacion').className='hidden'; validar(); });
             $('numeroUbicacion').addEventListener('change', resolverUbicacion);
             $('numeroUbicacion').addEventListener('keydown', e => { if(e.key==='Enter'){e.preventDefault();resolverUbicacion();} });
-            $('scanPallet').addEventListener('click',()=>iniciarScanner('pallet'));
+            $('scanPallet').addEventListener('click',()=>iniciarScanner('pallet'));\n            $('scanUbicacion').addEventListener('click',()=>iniciarScanner('ubicacion'));
         });
         async function resolverUbicacion() {
             const numero=$('numeroUbicacion').value.trim(), box=$('ayudaUbicacion');
@@ -101,7 +101,7 @@
             jq('#pallet').empty().append(new Option('Seleccione pallet','',true,true));
             pallets.filter(p=>!p.ubicado).forEach(p=>jq('#pallet').append(new Option(p.numero+' · '+(p.formato||'Sin formato')+' · '+p.cantidad+' cajas',String(p.id))));
             jq('#pallet').val('').trigger('change.select2'); $('numeroUbicacion').value=''; ubicacionResuelta=null;
-            $('pallet').disabled=false; $('numeroUbicacion').disabled=false; $('scanPallet').disabled=false;
+            $('pallet').disabled=false; $('numeroUbicacion').disabled=false; $('scanPallet').disabled=false; $('scanUbicacion').disabled=false;
             $('detallePallet').classList.add('hidden'); validar();
             const ya=pallets.filter(p=>p.ubicado); $('registradosPanel').classList.toggle('hidden',ya.length===0);
             $('registradosPanel').innerHTML='<div class="font-semibold mb-1">Pallets y ubicaciones ya registrados</div>'+ya.map(p=>'<div>• <strong>'+esc(p.numero)+'</strong> → '+esc(p.ubicacion_texto||'Ubicación no disponible')+'</div>').join('');
