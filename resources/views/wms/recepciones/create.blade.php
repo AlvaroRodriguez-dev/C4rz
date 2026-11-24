@@ -558,19 +558,6 @@
         }
 
 
-            const pallet = {
-                id: estado.siguientePallet++,
-                galponId: '',
-                galpon: '',
-                ubicacion: '',
-                items: []
-            };
-
-            estado.pallets.push(pallet);
-            renderizarPallets();
-            actualizarResumen();
-        }
-
         function eliminarPallet(id) {
             estado.pallets = estado.pallets.filter(p => p.id !== id);
             renderizarPallets();
