@@ -6,6 +6,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/css/select2.min.css" rel="stylesheet" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/js/select2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
     <style>
         .select2-container .select2-selection--single { height: 48px !important; display: flex; align-items: center; border-radius: 0.75rem !important; border-color: #d1d5db !important; }
@@ -47,12 +48,9 @@
         const routeBuscarNotas = "{{ route('wms.ingresos.notas.buscar') }}";
         const routeDetalleNota = "{{ url('wms/ingresos/notas') }}";
         const routeStore = "{{ route('wms.ingresos.store') }}";
-        const routeOpcionesUbicacion = "{{ route('wms.maestros.ubicaciones.opciones') }}";
-        const routeUbicacionesGalpon = "{{ url('wms/maestros/ubicaciones/galpon') }}";
+        const routeResolverUbicacion = @json(route('wms.maestros.ubicaciones.resolver-numero'));
         const csrfToken = "{{ csrf_token() }}";
 
-        let galponesWms = [];
-        const ubicacionesWms = {};
 
         let notaSeleccionada = null;
         let grupos = []; // [{ id, items: [...], galpon, ubicacion }]
@@ -75,38 +73,8 @@
             });
 
             $('#btnGuardar').on('click', guardarIngreso);
-            cargarMaestroUbicaciones();
+
         });
-
-        function cargarMaestroUbicaciones() {
-            fetch(routeOpcionesUbicacion).then(res => res.json()).then(data => {
-                galponesWms = data.galpones ?? [];
-                renderGrupos();
-            }).catch(() => mostrarAlerta('No fue posible cargar las posiciones WMS disponibles.', 'error'));
-        }
-
-        function cargarUbicacionesGalpon(galponId) {
-            if (!galponId || ubicacionesWms[galponId]) return Promise.resolve();
-            return fetch(routeUbicacionesGalpon + '/' + encodeURIComponent(galponId))
-                .then(res => { if (!res.ok) throw new Error(); return res.json(); })
-                .then(data => { ubicacionesWms[galponId] = data.ubicaciones ?? []; });
-        }
-
-        function opcionesGalpon(galponSeleccionado) {
-            return '<option value="">Selecciona galpón...</option>' + galponesWms.map(g =>
-                '<option value="' + g.codigo + '" ' + (g.codigo === galponSeleccionado ? 'selected' : '') + '>' +
-                g.codigo + ' · ' + g.nombre + '</option>'
-            ).join('');
-        }
-
-        function opcionesUbicacion(galponCodigo, ubicacionSeleccionada) {
-            const galpon = galponesWms.find(g => g.codigo === galponCodigo);
-            const ubicaciones = galpon ? (ubicacionesWms[galpon.id] ?? []) : [];
-            return '<option value="">Selecciona ubicación...</option>' + ubicaciones.map(u =>
-                '<option value="' + u.codigo + '" ' + (String(u.codigo) === String(ubicacionSeleccionada) ? 'selected' : '') + '>' +
-                u.codigo + '</option>'
-            ).join('');
-        }
 
         function cargarDetalle(rdocum) {
             $('#tablaDetalle').empty();
@@ -134,7 +102,7 @@
                         `);
                     }
 
-                    grupos = data.rows.map(row => ({ id: row.id, items: [row], galpon: '', ubicacion: '' }));
+                    grupos = data.rows.map(row => ({ id: row.id, items: [row], galpon: '', ubicacion: '', numeroUbicacion: '' }));
 
                     renderGrupos();
                     $('#detalleWrapper').removeClass('hidden');
@@ -250,22 +218,13 @@
 
                         ${opcionesFusion}
 
-                        <div class="grid grid-cols-2 gap-2 mt-3">
-                            <div>
-                                <label class="block text-[11px] font-medium text-gray-500 mb-1">Galpón</label>
-                                <select data-grupo="${idx}" data-field="galpon"
-                                        class="grupo-input w-full border-gray-300 rounded-lg p-2.5">
-                                    ${opcionesGalpon(grupo.galpon)}
-                                </select>
+                        <div class="mt-3 space-y-2">
+                            <label class="block text-sm font-medium text-gray-700">N.º DE UBICACIÓN</label>
+                            <div class="flex gap-2">
+                                <input type="text" inputmode="numeric" autocomplete="off" data-grupo="${idx}" class="numero-ubicacion flex-1 border-gray-300 rounded-lg p-3" placeholder="Escribe o escanea el número" value="${grupo.numeroUbicacion || ''}">
+                                <button type="button" data-grupo="${idx}" class="btnScanUbicacion bg-gray-800 text-white rounded-lg px-4">📷</button>
                             </div>
-                            <div>
-                                <label class="block text-[11px] font-medium text-gray-500 mb-1">Ubicación</label>
-                                <select data-grupo="${idx}" data-field="ubicacion"
-                                        class="grupo-input w-full border-gray-300 rounded-lg p-2.5"
-                                        ${grupo.galpon ? '' : 'disabled'}>
-                                    ${opcionesUbicacion(grupo.galpon, grupo.ubicacion)}
-                                </select>
-                            </div>
+                            <p data-info-ubicacion="${idx}" class="text-xs rounded-lg p-2 ${grupo.galpon && grupo.ubicacion ? 'bg-green-100 text-green-800' : 'hidden'}">${grupo.galpon && grupo.ubicacion ? '✓ Galpón '+grupo.galpon+' · Ubicación '+grupo.ubicacion : ''}</p>
                         </div>
 
                         ${opcionesCopiar}
@@ -273,30 +232,9 @@
                 `);
             });
 
-            $('.grupo-input').on('change', async function () {
-                const idx = Number($(this).data('grupo'));
-                const field = $(this).data('field');
-                const value = $(this).val() ?? '';
-
-                if (field === 'galpon') {
-                    grupos[idx].galpon = value;
-                    grupos[idx].ubicacion = '';
-
-                    const galpon = galponesWms.find(g => g.codigo === value);
-                    if (galpon) {
-                        try {
-                            await cargarUbicacionesGalpon(galpon.id);
-                        } catch (error) {
-                            mostrarAlerta('No fue posible cargar las ubicaciones del galpón seleccionado.', 'error');
-                        }
-                    }
-
-                    renderGrupos();
-                    return;
-                }
-
-                grupos[idx].ubicacion = value;
-            });
+            $('.numero-ubicacion').on('change blur', function () { resolverUbicacionGrupo(Number($(this).data('grupo')), this.value); });
+            $('.numero-ubicacion').on('keydown', function(ev) { if(ev.key==='Enter'){ev.preventDefault();resolverUbicacionGrupo(Number($(this).data('grupo')),this.value);} });
+            $('.btnScanUbicacion').on('click', function() { iniciarScannerUbicacion(Number($(this).data('grupo'))); });
 
             $('.btnFusionar').on('click', function () {
                 const origenIdx = parseInt($(this).data('origen'));
@@ -307,7 +245,7 @@
 
                 grupos[destinoIdx].items = grupos[destinoIdx].items.concat(grupos[origenIdx].items);
                 if (!grupos[destinoIdx].galpon) grupos[destinoIdx].galpon = grupos[origenIdx].galpon;
-                if (!grupos[destinoIdx].ubicacion) grupos[destinoIdx].ubicacion = grupos[origenIdx].ubicacion;
+                if (!grupos[destinoIdx].ubicacion) { grupos[destinoIdx].ubicacion = grupos[origenIdx].ubicacion; grupos[destinoIdx].numeroUbicacion = grupos[origenIdx].numeroUbicacion; }
 
                 grupos.splice(origenIdx, 1);
                 renderGrupos();
@@ -339,7 +277,7 @@
                 const galponOrigen = grupos[origen].galpon;
                 const ubicacionOrigen = grupos[origen].ubicacion;
 
-                if (!galponOrigen || !ubicacionOrigen) {
+                if (!galponOrigen || !ubicacionOrigen || !grupos[origen].numeroUbicacion) {
                     mostrarAlerta('Completa Galpón y Ubicación en este pallet antes de copiarlo.', 'error');
                     return;
                 }
@@ -347,6 +285,7 @@
                 seleccionados.forEach(destinoIdx => {
                     grupos[destinoIdx].galpon = galponOrigen;
                     grupos[destinoIdx].ubicacion = ubicacionOrigen;
+                    grupos[destinoIdx].numeroUbicacion = grupos[origen].numeroUbicacion;
                 });
 
                 renderGrupos();
@@ -356,9 +295,9 @@
 
         function guardarIngreso() {
             let error = false;
-            grupos.forEach(g => { if (!g.galpon || !g.ubicacion) error = true; });
+            grupos.forEach(g => { if (!g.galpon || !g.ubicacion || !g.numeroUbicacion) error = true; });
 
-            if (error) return mostrarAlerta('Completa Galpón y Ubicación en todos los pallets.', 'error');
+            if (error) return mostrarAlerta('Valida la ubicación de todos los pallets antes de guardar.', 'error');
 
             const payload = {
                 rdocum: notaSeleccionada.rdocum,
@@ -390,6 +329,35 @@
             });
         }
 
+        async function resolverUbicacionGrupo(idx, numero) {
+            const grupo=grupos[idx]; if(!grupo)return false;
+            grupo.numeroUbicacion=String(numero||'').trim();grupo.galpon='';grupo.ubicacion='';
+            const info=document.querySelector('[data-info-ubicacion="'+idx+'"]');
+            if(info){info.className='text-xs rounded-lg p-2 mt-2 bg-blue-50 text-blue-700';info.textContent='Validando ubicación...';}
+            if(!grupo.numeroUbicacion){if(info)info.className='hidden';return false;}
+            try{
+                const res=await fetch(routeResolverUbicacion,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':csrfToken},body:JSON.stringify({numero:grupo.numeroUbicacion})});
+                const data=await res.json();if(!res.ok)throw new Error(data.errors?.ubicacion?.[0]||data.message||'Ubicación inválida.');
+                grupo.galpon=data.galpon;grupo.ubicacion=data.codigo||data.ubicacion||data.numero;
+                if(info){info.className='text-xs rounded-lg p-2 mt-2 bg-green-100 text-green-800';info.textContent='✓ Almacén '+data.almacen+' · Galpón '+data.galpon+' · Ubicación '+data.numero;}
+                return true;
+            }catch(e){grupo.galpon='';grupo.ubicacion='';if(info){info.className='text-xs rounded-lg p-2 mt-2 bg-red-100 text-red-800';info.textContent=e.message;}return false;}
+        }
+        let scannerUbicacionIngreso=null, scannerGrupoIngreso=null;
+        function iniciarScannerUbicacion(idx){
+            scannerGrupoIngreso=idx;document.getElementById('modalScannerUbicacionIngreso').classList.remove('hidden');
+            scannerUbicacionIngreso=new Html5Qrcode('lectorUbicacionIngreso');
+            scannerUbicacionIngreso.start({facingMode:'environment'},{fps:10,qrbox:{width:250,height:250}},async decoded=>{
+                const input=document.querySelector('.numero-ubicacion[data-grupo="'+scannerGrupoIngreso+'"]');if(input)input.value=decoded.trim();
+                await detenerScannerUbicacionIngreso();await resolverUbicacionGrupo(scannerGrupoIngreso,decoded.trim());
+            }).catch(err=>mostrarAlerta('No se pudo iniciar la cámara: '+err,'error'));
+        }
+        async function detenerScannerUbicacionIngreso(){
+            if(scannerUbicacionIngreso){try{await scannerUbicacionIngreso.stop();}catch(e){}try{scannerUbicacionIngreso.clear();}catch(e){}scannerUbicacionIngreso=null;}
+            document.getElementById('modalScannerUbicacionIngreso').classList.add('hidden');
+        }
+        window.detenerScannerUbicacionIngreso=detenerScannerUbicacionIngreso;
+
         function mostrarResumenPallets(pallets) {
             const filas = pallets.map(p => `
                 <div class="flex justify-between text-sm py-1 border-t border-green-100 first:border-0">
@@ -412,4 +380,5 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     </script>
+    <div id="modalScannerUbicacionIngreso" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"><div class="bg-white rounded-xl p-4 w-full max-w-md"><div class="flex justify-between items-center mb-3"><strong>Escanear ubicación</strong><button type="button" onclick="detenerScannerUbicacionIngreso()" class="text-gray-700 text-xl">×</button></div><div id="lectorUbicacionIngreso"></div></div></div>
 </x-app-layout>
