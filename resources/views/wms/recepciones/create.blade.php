@@ -177,7 +177,7 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/js/select2.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/js/select2.min.js"></script>\n    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
     <script>
         const URL_BUSCAR = @json(route('wms.recepciones.buscar'));
@@ -516,121 +516,48 @@
             }
         }
 
-        async function cargarGalpones() {
-            const response = await fetch(URL_OPCIONES, {
-                headers: { 'Accept': 'application/json' }
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || 'No fue posible cargar los galpones.');
-            }
-
-            estado.galpones = Array.isArray(data.galpones) ? data.galpones : [];
-        }
-
-        async function cargarUbicaciones(pallet, selectUbicacion) {
-            const galponId = pallet.galponId;
-
-            selectUbicacion.replaceChildren(
-                new Option('Cargando ubicaciones...', '')
-            );
-
-            if (!galponId) {
-                selectUbicacion.replaceChildren(
-                    new Option('Seleccione primero un galpón', '')
-                );
-                return;
-            }
-
+        const URL_RESOLVER = @json(route('wms.maestros.ubicaciones.resolver-numero'));
+        let scannerRecepcion = null, palletScannerTarget = null;
+        async function resolverUbicacionPallet(pallet, numero, input, info) {
+            pallet.numeroUbicacion = numero.trim(); pallet.ubicacion = ''; pallet.galpon = ''; pallet.galponId = '';
+            info.textContent = 'Validando ubicación...'; info.className='text-xs text-gray-500 mt-2';
+            if (!numero.trim()) { info.textContent=''; return false; }
             try {
-                const response = await fetch(
-                    `${URL_GALPON}/${encodeURIComponent(galponId)}`,
-                    { headers: { 'Accept': 'application/json' } }
-                );
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(
-                        data.message || 'No fue posible cargar ubicaciones.'
-                    );
-                }
-
-                // Ignorar respuestas correspondientes a un galpón anterior.
-                if (String(pallet.galponId) !== String(galponId)) return;
-
-                selectUbicacion.replaceChildren(
-                    new Option('Seleccione ubicación', '')
-                );
-
-                (data.ubicaciones || []).forEach(ubicacion => {
-                    selectUbicacion.appendChild(
-                        new Option(
-                            ubicacion.codigo,
-                            ubicacion.codigo
-                        )
-                    );
-                });
-
-                // Mantener la ubicación previamente seleccionada al redibujar.
-                selectUbicacion.value = pallet.ubicacion;
-
-            } catch (error) {
-                // No mostrar errores de una petición que ya quedó obsoleta.
-                if (String(pallet.galponId) !== String(galponId)) return;
-
-                selectUbicacion.replaceChildren(
-                    new Option('Error al cargar ubicaciones', '')
-                );
-
-                mensaje(error.message, 'error');
-            }
+                const response=await fetch(URL_RESOLVER,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify({numero:numero.trim()})});
+                const data=await response.json();
+                if(!response.ok) throw new Error(data.errors?.ubicacion?.[0]||data.message||'Ubicación inválida.');
+                pallet.galpon=data.galpon; pallet.ubicacion=data.codigo ?? data.ubicacion ?? data.numero; pallet.galponId=data.galpon_id||'';
+                pallet.numeroUbicacion=numero.trim(); info.textContent='✓ Almacén '+data.almacen+' · Galpón '+data.galpon+' · Ubicación '+(data.numero||numero.trim());
+                info.className='text-xs text-green-700 bg-green-50 rounded-lg p-2 mt-2'; return true;
+            } catch(e){pallet.galpon='';pallet.ubicacion='';info.textContent=e.message;info.className='text-xs text-red-700 bg-red-50 rounded-lg p-2 mt-2';return false;}
         }
-
-        function crearSelectGalpon(pallet) {
-            const select = elemento('select', '', 'campo');
-
-            select.appendChild(new Option('Seleccione galpón', ''));
-
-            estado.galpones.forEach(galpon => {
-                select.appendChild(
-                    new Option(`${galpon.codigo} · ${galpon.nombre}`, galpon.id)
-                );
-            });
-
-            select.addEventListener('change', async () => {
-                pallet.galponId = select.value;
-
-                const galpon = estado.galpones.find(
-                    item => String(item.id) === String(select.value)
-                );
-
-                pallet.galpon = galpon ? galpon.codigo : '';
-
-                const ubicacionSelect = select.closest('[data-pallet]')
-                    .querySelector('[data-ubicacion]');
-
-                await cargarUbicaciones(pallet, ubicacionSelect);
-            });
-
-            return select;
+        async function escanearUbicacionRecepcion(palletId) {
+            palletScannerTarget=palletId; $('qrReaderRecepcion').classList.remove('hidden');
+            if(!scannerRecepcion) scannerRecepcion=new Html5Qrcode('qrReaderRecepcionInner');
+            try { await scannerRecepcion.start({facingMode:'environment'},{fps:10,qrbox:240},async decoded=>{
+                const pallet=estado.pallets.find(p=>String(p.id)===String(palletScannerTarget)); if(!pallet)return;
+                await scannerRecepcion.stop(); $('qrReaderRecepcion').classList.add('hidden');
+                const input=$('ubicacionInput_'+pallet.id),info=$('ubicacionInfo_'+pallet.id);
+                input.value=decoded.trim(); await resolverUbicacionPallet(pallet,decoded,input,info);renderizarPallets();actualizarResumen();
+            }); } catch(e){mensaje('No fue posible iniciar la cámara: '+e,'error');}
         }
-
-        function crearSelectUbicacion(pallet) {
-            const select = elemento('select', '', 'campo');
-            select.dataset.ubicacion = '1';
-            select.appendChild(new Option('Seleccione primero un galpón', ''));
-
-            select.addEventListener('change', () => {
-                pallet.ubicacion = select.value;
-            });
-
-            return select;
-        }
-
+        async function detenerScannerRecepcion(){if(scannerRecepcion&&scannerRecepcion.isScanning){await scannerRecepcion.stop();} $('qrReaderRecepcion').classList.add('hidden');} window.detenerScannerRecepcion=detenerScannerRecepcion;
         function agregarPallet() {
+            const pallet = {
+                id: estado.siguientePallet++,
+                galponId: '',
+                galpon: '',
+                ubicacion: '',
+                numeroUbicacion: '',
+                items: []
+            };
+
+            estado.pallets.push(pallet);
+            renderizarPallets();
+            actualizarResumen();
+        }
+
+
             const pallet = {
                 id: estado.siguientePallet++,
                 galponId: '',
@@ -849,24 +776,17 @@
                     }
                 }
 
-                const ubicaciones = elemento('div', '', 'grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3');
-                const campoGalpon = elemento('div');
-                campoGalpon.appendChild(elemento('label', 'Galpón', 'block text-xs font-medium text-gray-500 mb-1'));
-                campoGalpon.appendChild(crearSelectGalpon(pallet));
-                const campoUbicacion = elemento('div');
-                campoUbicacion.appendChild(elemento('label', 'Ubicación', 'block text-xs font-medium text-gray-500 mb-1'));
-                campoUbicacion.appendChild(crearSelectUbicacion(pallet));
-                ubicaciones.append(campoGalpon, campoUbicacion);
-
-                const galponSelect = campoGalpon.querySelector('select');
-                galponSelect.value = pallet.galponId;
-                if (pallet.galponId) {
-                    const ubicacionSelect = campoUbicacion.querySelector('select');
-                    cargarUbicaciones(pallet, ubicacionSelect).then(() => {
-                        ubicacionSelect.value = pallet.ubicacion;
-                    });
-                }
-                card.appendChild(ubicaciones);
+                const ubicaciones = elemento('div', '', 'mt-3 space-y-2');
+                const labelUb = elemento('label','N.º DE UBICACIÓN','block text-xs font-medium text-gray-500 mb-1');
+                const rowUb=elemento('div','','flex gap-2');
+                const inputUb=elemento('input','','campo flex-1');
+                inputUb.id='ubicacionInput_'+pallet.id; inputUb.placeholder='Escribe o escanea el número';inputUb.inputMode='numeric';inputUb.value=pallet.numeroUbicacion||'';
+                const btnScan=elemento('button','📷','','');btnScan.type='button';btnScan.className='btn bg-gray-800 text-white';btnScan.addEventListener('click',()=>escanearUbicacionRecepcion(pallet.id));
+                const infoUb=elemento('p','','text-xs mt-2');infoUb.id='ubicacionInfo_'+pallet.id;
+                if(pallet.galpon&&pallet.ubicacion){infoUb.textContent='✓ Galpón '+pallet.galpon+' · Ubicación '+pallet.ubicacion;infoUb.className='text-xs text-green-700 bg-green-50 rounded-lg p-2 mt-2';}
+                inputUb.addEventListener('change',async()=>{await resolverUbicacionPallet(pallet,inputUb.value,inputUb,infoUb);actualizarResumen();});
+                inputUb.addEventListener('keydown',async ev=>{if(ev.key==='Enter'){ev.preventDefault();await resolverUbicacionPallet(pallet,inputUb.value,inputUb,infoUb);actualizarResumen();}});
+                rowUb.append(inputUb,btnScan);ubicaciones.append(labelUb,rowUb,infoUb);card.appendChild(ubicaciones);
 
                 if (estado.pallets.length > 1) {
                     const copiar = elemento('div', '', 'mt-3 pt-2 border-t border-gray-100');
@@ -894,13 +814,13 @@
                     aplicar.addEventListener('click', () => {
                         const destinos = checks.filter(check => check.checked).map(check => check.value);
                         if (!destinos.length) return mensaje('Selecciona al menos un pallet destino.', 'error');
-                        if (!pallet.galponId || !pallet.ubicacion) return mensaje('Completa Galpón y Ubicación en este pallet antes de copiar.', 'error');
+                        if (!pallet.galpon || !pallet.ubicacion || !pallet.numeroUbicacion) return mensaje('Valida la ubicación de este pallet antes de copiar.', 'error');
                         destinos.forEach(id => {
                             const destino = estado.pallets.find(p => String(p.id) === String(id));
                             if (destino) {
-                                destino.galponId = pallet.galponId;
+                                destino.galponId = pallet.galponId; destino.numeroUbicacion=pallet.numeroUbicacion;
                                 destino.galpon = pallet.galpon;
-                                destino.ubicacion = pallet.ubicacion;
+                                destino.ubicacion = pallet.ubicacion; destino.numeroUbicacion=pallet.numeroUbicacion;
                             }
                         });
                         renderizarPallets();
@@ -971,8 +891,8 @@
             }
 
             destino.items.push(...origen.items);
-            if (!destino.galponId && origen.galponId) {
-                destino.galponId = origen.galponId;
+            if (!destino.galpon && origen.galpon) {
+                destino.galponId = origen.galponId; destino.numeroUbicacion=origen.numeroUbicacion;
                 destino.galpon = origen.galpon;
                 destino.ubicacion = origen.ubicacion;
             }
@@ -1007,7 +927,7 @@
             }
 
             for (const [index, pallet] of pallets.entries()) {
-                if (!pallet.galpon || !pallet.ubicacion) {
+                if (!pallet.galpon || !pallet.ubicacion || !pallet.numeroUbicacion) {
                     throw new Error(`Debe seleccionar galpón y ubicación para el pallet ${index + 1}.`);
                 }
 
