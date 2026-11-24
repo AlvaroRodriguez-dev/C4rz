@@ -140,7 +140,8 @@
         }
         async function detenerScanner(){if(scanner){try{if(scanner.isScanning) await scanner.stop()}catch(e){}try{scanner.clear()}catch(e){}scanner=null}$('qrModal').classList.add('hidden')}
         function esc(value){return String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;')}
-        $('cerrarScanner').addEventListener('click', detenerScanner);\n        $('confirmar').addEventListener('click', async () => {
+        $('cerrarScanner').addEventListener('click', detenerScanner);
+        $('confirmar').addEventListener('click', async () => {
             limpiarMensaje(); $('confirmar').disabled = true; $('confirmar').textContent = 'GUARDANDO...';
             try {
                 const r = await fetch(base + '/' + entregaId + '/confirmar', {
