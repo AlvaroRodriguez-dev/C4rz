@@ -432,7 +432,7 @@
  let scannerAjuste=null, modoScannerAjuste=null;
  $('#scanUbicacionMixto').on('click',()=>iniciarScannerAjuste('mixto'));
  $('#scanUbicacionCompleto').on('click',()=>iniciarScannerAjuste('completo'));
- $('#cerrarScannerAjuste').on('click',detenerScannerAjuste);
+ $(document).on('click','#cerrarScannerAjuste',detenerScannerAjuste);
  function iniciarScannerAjuste(modo){
    if(typeof Html5Qrcode==='undefined'){mostrarAlerta('No se pudo cargar el lector QR.','error');return;}
    modoScannerAjuste=modo;$('#modalScannerAjuste').removeClass('hidden');
