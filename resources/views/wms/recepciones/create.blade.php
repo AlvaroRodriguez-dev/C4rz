@@ -498,8 +498,6 @@
                 $('panelDetalle').classList.remove('hidden');
 
                 if (estado.items.length > 0) {
-                    await cargarGalpones();
-
                     if (consecutivo !== estado.consulta) return;
 
                     $('panelPreparacion').classList.remove('hidden');
