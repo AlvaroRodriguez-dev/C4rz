@@ -6,6 +6,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/css/select2.min.css" rel="stylesheet" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/js/select2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
     <style>
         .select2-container .select2-selection--single {
@@ -69,7 +70,7 @@
                 {{-- <p id="palletReservadoMixtoTxt"
                     class="hidden text-sm font-bold text-white bg-blue-700 rounded-lg px-3 py-2 text-center"></p>
                 - --}}
-                <div id="mixtoUbicacion" class="hidden bg-white shadow rounded-xl p-4 space-y-2"><label class="block text-sm font-medium text-gray-700">N.º DE UBICACIÓN</label><input type="text" id="numeroUbicacionMixto" inputmode="numeric" autocomplete="off" class="row-input w-full border-gray-300 rounded-lg p-3" placeholder="Escribe o escanea el número"><p id="confirmacionUbicacionMixto" class="hidden text-sm rounded-lg p-2"></p></div><div id="mixtoAgregar" class="hidden bg-white shadow rounded-xl p-4 space-y-3">
+                <div id="mixtoUbicacion" class="hidden bg-white shadow rounded-xl p-4 space-y-2"><label class="block text-sm font-medium text-gray-700">N.º DE UBICACIÓN</label><div class="flex gap-2"><input type="text" id="numeroUbicacionMixto" inputmode="numeric" autocomplete="off" class="row-input flex-1 border-gray-300 rounded-lg p-3" placeholder="Escribe o escanea el número"><button type="button" id="scanUbicacionMixto" class="bg-gray-800 text-white rounded-lg px-4" title="Escanear QR">📷</button></div><p id="confirmacionUbicacionMixto" class="hidden text-sm rounded-lg p-2"></p></div><div id="mixtoAgregar" class="hidden bg-white shadow rounded-xl p-4 space-y-3">
                     <label class="block text-sm font-medium text-gray-700">Agregar Producto</label>
                     <select id="selectProductoMixto" class="w-full" style="width:100%"></select>
                     <div class="grid grid-cols-2 gap-2">
@@ -116,7 +117,7 @@
                         <input type="number" id="cantidadCompleto" min="1"
                             class="row-input border-gray-300 rounded-lg p-2.5" placeholder="Cantidad">
                     </div>
-                    <div class="space-y-2"><label class="block text-sm font-medium text-gray-700">N.º DE UBICACIÓN</label><input type="text" id="numeroUbicacionCompleto" inputmode="numeric" autocomplete="off" class="row-input w-full border-gray-300 rounded-lg p-3" placeholder="Escribe o escanea el número"><p id="confirmacionUbicacionCompleto" class="hidden text-sm rounded-lg p-2"></p></div>
+                    <div class="space-y-2"><label class="block text-sm font-medium text-gray-700">N.º DE UBICACIÓN</label><div class="flex gap-2"><input type="text" id="numeroUbicacionCompleto" inputmode="numeric" autocomplete="off" class="row-input flex-1 border-gray-300 rounded-lg p-3" placeholder="Escribe o escanea el número"><button type="button" id="scanUbicacionCompleto" class="bg-gray-800 text-white rounded-lg px-4" title="Escanear QR">📷</button></div><p id="confirmacionUbicacionCompleto" class="hidden text-sm rounded-lg p-2"></p></div>
 
                 <button id="btnFinalizarCompleto"
                     class="hidden w-full bg-blue-600 text-white font-semibold py-4 rounded-xl shadow text-lg">FINALIZAR
@@ -428,6 +429,21 @@
  async function resolverUbicacion(modo){const input=modo==='mixto'?'#numeroUbicacionMixto':'#numeroUbicacionCompleto';const box=modo==='mixto'?'#confirmacionUbicacionMixto':'#confirmacionUbicacionCompleto';const numero=$(input).val().trim();if(!numero){mostrarAlerta('Ingresa el número de ubicación.','error');return null;}try{const res=await fetch(routeResolverUbicacion,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrfToken,'Accept':'application/json'},body:JSON.stringify({numero})});const data=await res.json();if(!res.ok){ubicacionesResueltas[modo]=null;$(box).removeClass('hidden bg-green-100 text-green-800').addClass('bg-red-100 text-red-800').text(data.errors?.ubicacion?.[0]||data.message||'Ubicación inválida.');return null;}ubicacionesResueltas[modo]=data;$(box).removeClass('hidden bg-red-100 text-red-800').addClass('bg-green-100 text-green-800').text('✓ Almacén '+data.almacen+' · Galpón '+data.galpon+' · Ubicación '+data.numero);return data;}catch(e){mostrarAlerta('No fue posible validar la ubicación.','error');return null;}}
  $('#numeroUbicacionMixto').on('change blur',()=>resolverUbicacion('mixto'));$('#numeroUbicacionCompleto').on('change blur',()=>resolverUbicacion('completo'));
 
+ let scannerAjuste=null, modoScannerAjuste=null;
+ $('#scanUbicacionMixto').on('click',()=>iniciarScannerAjuste('mixto'));
+ $('#scanUbicacionCompleto').on('click',()=>iniciarScannerAjuste('completo'));
+ $('#cerrarScannerAjuste').on('click',detenerScannerAjuste);
+ function iniciarScannerAjuste(modo){
+   if(typeof Html5Qrcode==='undefined'){mostrarAlerta('No se pudo cargar el lector QR.','error');return;}
+   modoScannerAjuste=modo;$('#modalScannerAjuste').removeClass('hidden');
+   scannerAjuste=new Html5Qrcode('lectorScannerAjuste');
+   scannerAjuste.start({facingMode:'environment'},{fps:10,qrbox:{width:250,height:250}},async decoded=>{
+     const input=modo==='mixto'?'#numeroUbicacionMixto':'#numeroUbicacionCompleto';$(input).val(decoded.trim());
+     await detenerScannerAjuste();await resolverUbicacion(modo);
+   }).catch(err=>{mostrarAlerta('No se pudo iniciar la cámara: '+err,'error');detenerScannerAjuste();});
+ }
+ async function detenerScannerAjuste(){if(scannerAjuste){try{await scannerAjuste.stop();}catch(e){}try{scannerAjuste.clear();}catch(e){}scannerAjuste=null;}$("#modalScannerAjuste").addClass("hidden");}
+
  function mostrarAlerta(msg, tipo) {
             const box = $('#alertBox');
             box.removeClass('hidden bg-green-100 text-green-800 bg-red-100 text-red-800');
@@ -439,4 +455,5 @@
             });
         }
     </script>
+<div id="modalScannerAjuste" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"><div class="bg-white rounded-xl p-4 w-full max-w-md shadow-xl"><div class="flex justify-between items-center mb-3"><strong>Escanear ubicación</strong><button type="button" id="cerrarScannerAjuste" class="text-gray-700 text-xl px-2">×</button></div><p class="text-sm text-gray-600 mb-3">Enfoca el código QR de la ubicación.</p><div id="lectorScannerAjuste" class="rounded-lg overflow-hidden border bg-black"></div></div></div>
 </x-app-layout>
