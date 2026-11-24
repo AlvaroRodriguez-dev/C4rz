@@ -100,8 +100,6 @@
             pallets = d.pallets || [];
             jq('#pallet').empty().append(new Option('Seleccione pallet','',true,true));
             pallets.filter(p=>!p.ubicado).forEach(p=>jq('#pallet').append(new Option(p.numero+' · '+(p.formato||'Sin formato')+' · '+p.cantidad+' cajas',String(p.id))));
-            jq('#ubicacion').empty().append(new Option('Seleccione ubicación','',true,true));
-            ubicaciones.forEach(u=>jq('#ubicacion').append(new Option(u.texto,u.codigo)));
             jq('#pallet').val('').trigger('change.select2'); $('numeroUbicacion').value=''; ubicacionResuelta=null;
             $('pallet').disabled=false; $('numeroUbicacion').disabled=false; $('scanPallet').disabled=false;
             $('detallePallet').classList.add('hidden'); validar();
@@ -110,7 +108,7 @@
         }
         document.querySelectorAll('.seleccionar').forEach(b => b.addEventListener('click', async () => {
             limpiarMensaje(); entregaId = b.dataset.entrega; $('liberacionSeleccionada').textContent = b.dataset.documento;
-            $('panel').classList.remove('hidden'); $('pallet').disabled = true; $('ubicacion').disabled = true;
+            $('panel').classList.remove('hidden'); $('pallet').disabled = true;
             try { ubicacionResuelta=null; $('numeroUbicacion').value=''; $('ayudaUbicacion').className='hidden'; await cargarPallets(); $('panel').scrollIntoView({behavior:'smooth'}); jq('#pallet').select2('open'); }
             catch(e) { mensaje(e.message, true); }
         }));
