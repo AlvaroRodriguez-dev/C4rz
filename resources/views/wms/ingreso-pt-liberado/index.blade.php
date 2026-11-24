@@ -48,7 +48,16 @@
             <div class="grid md:grid-cols-2 gap-4">
                 <div><label for="pallet" class="block text-sm font-semibold mb-1">NRO DE PALLET</label><div class="flex gap-2"><select id="pallet" class="w-full" style="width:100%" disabled><option value="">Seleccione pallet</option></select><button id="scanPallet" type="button" class="rounded-xl bg-gray-800 text-white px-4" title="Escanear QR del pallet" disabled>📷</button></div></div>
                 <div><label for="numeroUbicacion" class="block text-sm font-semibold mb-1">N.º DE UBICACIÓN</label><div class="flex gap-2"><input id="numeroUbicacion" type="text" inputmode="numeric" autocomplete="off" class="w-full border-gray-300 rounded-xl p-3" disabled placeholder="Escribe o escanea el número"><button id="scanUbicacion" type="button" class="rounded-xl bg-gray-800 text-white px-4" title="Escanear QR de ubicación" disabled>📷</button></div><p id="ayudaUbicacion" class="hidden text-sm rounded-lg p-2 mt-2"></p></div>
-            </div><div id="qrReader" class="hidden rounded-xl overflow-hidden border bg-black"></div>
+            </div><div id="qrModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+                <div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+                    <div class="flex items-center justify-between gap-3 mb-3">
+                        <h3 class="font-bold text-lg">Escanear código</h3>
+                        <button type="button" id="cerrarScanner" class="rounded-xl border px-4 py-2">Cerrar</button>
+                    </div>
+                    <p id="scannerTexto" class="text-sm text-gray-600 mb-3">Enfoca el código QR.</p>
+                    <div id="qrReader" class="rounded-xl overflow-hidden border bg-black"></div>
+                </div>
+            </div>
             <div id="detallePallet" class="hidden rounded-xl bg-gray-50 border p-3 text-sm"></div>
             <div class="flex flex-col sm:flex-row gap-3">
                 <button id="confirmar" type="button" disabled class="rounded-xl bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white font-bold px-5 py-3">CONFIRMAR UBICACIÓN</button>
@@ -121,7 +130,7 @@
             $('detallePallet').classList.remove('hidden');validar();
         }
         async function iniciarScanner(destino){
-            if(scanner){await detenerScanner();return;} destinoEscaneo=destino; $('qrReader').classList.remove('hidden'); scanner=new Html5Qrcode('qrReader');
+            if(scanner){await detenerScanner();return;} destinoEscaneo=destino; $('qrModal').classList.remove('hidden'); $('scannerTexto').textContent=destino==='ubicacion'?'Enfoca el código QR de la ubicación.':'Enfoca el código QR del pallet.'; scanner=new Html5Qrcode('qrReader');
             try{await scanner.start({facingMode:'environment'},{fps:10,qrbox:{width:250,height:250}},async decoded=>{
                 const codigo=decoded.trim();await detenerScanner();
                 if(destinoEscaneo==='ubicacion'){ $('numeroUbicacion').value=codigo; await resolverUbicacion(); return; }
@@ -129,9 +138,9 @@
                 validar();
             });}catch(e){await detenerScanner();mensaje('No fue posible acceder a la cámara. Verifique los permisos del navegador.',true);}
         }
-        async function detenerScanner(){if(scanner){try{await scanner.stop()}catch(e){}try{scanner.clear()}catch(e){}scanner=null}$('qrReader').classList.add('hidden')}
+        async function detenerScanner(){if(scanner){try{if(scanner.isScanning) await scanner.stop()}catch(e){}try{scanner.clear()}catch(e){}scanner=null}$('qrModal').classList.add('hidden')}
         function esc(value){return String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;')}
-        $('confirmar').addEventListener('click', async () => {
+        $('cerrarScanner').addEventListener('click', detenerScanner);\n        $('confirmar').addEventListener('click', async () => {
             limpiarMensaje(); $('confirmar').disabled = true; $('confirmar').textContent = 'GUARDANDO...';
             try {
                 const r = await fetch(base + '/' + entregaId + '/confirmar', {
