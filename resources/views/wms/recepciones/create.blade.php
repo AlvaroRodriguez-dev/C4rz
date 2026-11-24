@@ -176,6 +176,18 @@
         </div>
     </div>
 
+    {{-- Modal QR para resolver ubicación física --}}
+    <div id="qrReaderRecepcion" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+        <div class="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
+            <div class="flex items-center justify-between gap-3 mb-3">
+                <h3 class="font-semibold text-lg">Escanear ubicación</h3>
+                <button type="button" onclick="detenerScannerRecepcion()" class="btn bg-gray-200 hover:bg-gray-300 text-gray-800">Cerrar</button>
+            </div>
+            <p class="text-sm text-gray-600 mb-3">Enfoca el código QR de la ubicación.</p>
+            <div id="qrReaderRecepcionInner" class="w-full"></div>
+        </div>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/js/select2.min.js"></script>\n    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
