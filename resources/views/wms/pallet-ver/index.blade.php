@@ -13,12 +13,14 @@
             <div class="bg-white shadow rounded-xl p-4 sm:p-5 mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Número de Pallet</label>
                 <div class="flex gap-2">
-                    <input type="text" id="numeroPallet" class="flex-1 border-gray-300 rounded-xl p-3 text-base" placeholder="Escribe o escanea el número de pallet">\n                    <button id="btnBuscarPallet" type="button" class="bg-blue-600 text-white rounded-xl px-4 font-semibold">BUSCAR</button>
+                    <input type="text" id="numeroPallet" class="flex-1 border-gray-300 rounded-xl p-3 text-base" placeholder="Escribe o escanea el número de pallet">
+                    <button id="btnBuscarPallet" type="button" class="bg-blue-600 text-white rounded-xl px-4 font-semibold">BUSCAR</button>
                     <button id="btnEscanear" type="button" class="shrink-0 bg-gray-800 text-white rounded-xl px-4 flex items-center justify-center">📷</button>
                 </div>
             </div>
 
-            <div id="alertPallet" class="hidden mb-3 p-3 rounded-lg text-sm bg-red-100 text-red-800"></div>\n            <div id="modalScannerPallet" class="hidden fixed inset-0 z-50 bg-black bg-opacity-60 flex items-center justify-center p-4"><div class="bg-white rounded-xl p-4 w-full max-w-md"><div class="flex justify-between items-center mb-3"><h3 class="font-semibold">Escanear pallet</h3><button type="button" id="cerrarScannerPallet" class="text-gray-600 text-xl">✕</button></div><div id="lectorScannerPallet" class="rounded-lg overflow-hidden"></div><p class="text-xs text-gray-500 mt-2">Apunta la cámara al código QR del pallet.</p></div></div>
+            <div id="alertPallet" class="hidden mb-3 p-3 rounded-lg text-sm bg-red-100 text-red-800"></div>
+            <div id="modalScannerPallet" class="hidden fixed inset-0 z-50 bg-black bg-opacity-60 flex items-center justify-center p-4"><div class="bg-white rounded-xl p-4 w-full max-w-md"><div class="flex justify-between items-center mb-3"><h3 class="font-semibold">Escanear pallet</h3><button type="button" id="cerrarScannerPallet" class="text-gray-600 text-xl">✕</button></div><div id="lectorScannerPallet" class="rounded-lg overflow-hidden"></div><p class="text-xs text-gray-500 mt-2">Apunta la cámara al código QR del pallet.</p></div></div>
 
             <div id="qrZoomControl" class="hidden mb-3 bg-white border border-gray-200 rounded-xl px-4 py-3">
                 <div class="flex items-center gap-3">
