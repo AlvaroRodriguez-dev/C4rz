@@ -3,15 +3,8 @@
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">WMS - Ver Pallet</h2>
     </x-slot>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/css/select2.min.css" rel="stylesheet" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/js/select2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
-    <style>
-        .select2-container .select2-selection--single { height: 48px !important; display: flex; align-items: center; border-radius: 0.75rem !important; border-color: #d1d5db !important; }
-        .select2-container--default .select2-selection--single .select2-selection__rendered { line-height: 48px !important; font-size: 16px; padding-left: 12px !important; }
-    </style>
 
     <div class="py-4 px-3 sm:py-6 sm:px-4">
         <div class="max-w-3xl mx-auto">
@@ -20,12 +13,12 @@
             <div class="bg-white shadow rounded-xl p-4 sm:p-5 mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Número de Pallet</label>
                 <div class="flex gap-2">
-                    <select id="selectPallet" class="flex-1" style="width:100%"></select>
+                    <input type="text" id="numeroPallet" class="flex-1 border-gray-300 rounded-xl p-3 text-base" placeholder="Escribe o escanea el número de pallet">\n                    <button id="btnBuscarPallet" type="button" class="bg-blue-600 text-white rounded-xl px-4 font-semibold">BUSCAR</button>
                     <button id="btnEscanear" type="button" class="shrink-0 bg-gray-800 text-white rounded-xl px-4 flex items-center justify-center">📷</button>
                 </div>
             </div>
 
-            <div id="qrReader" class="hidden mb-2 rounded-xl overflow-hidden border border-gray-200"></div>
+            <div id="alertPallet" class="hidden mb-3 p-3 rounded-lg text-sm bg-red-100 text-red-800"></div>\n            <div id="modalScannerPallet" class="hidden fixed inset-0 z-50 bg-black bg-opacity-60 flex items-center justify-center p-4"><div class="bg-white rounded-xl p-4 w-full max-w-md"><div class="flex justify-between items-center mb-3"><h3 class="font-semibold">Escanear pallet</h3><button type="button" id="cerrarScannerPallet" class="text-gray-600 text-xl">✕</button></div><div id="lectorScannerPallet" class="rounded-lg overflow-hidden"></div><p class="text-xs text-gray-500 mt-2">Apunta la cámara al código QR del pallet.</p></div></div>
 
             <div id="qrZoomControl" class="hidden mb-3 bg-white border border-gray-200 rounded-xl px-4 py-3">
                 <div class="flex items-center gap-3">
@@ -49,135 +42,20 @@
     </div>
 
     <script>
-        const routeBuscar = "{{ route('wms.pallet.ver.pallets.buscar') }}";
         const routeContenido = "{{ url('wms/pallet-ver/pallet') }}";
-        let html5QrCode = null;
-
-        $(document).ready(function () {
-            $('#selectPallet').select2({
-                placeholder: 'Selecciona o escribe un pallet...', minimumInputLength: 1, width: '100%',
-                ajax: {
-                    url: routeBuscar, dataType: 'json', delay: 300,
-                    data: params => ({ q: params.term }),
-                    processResults: data => ({ results: data.results })
-                }
-            });
-            $('#selectPallet').on('select2:select', e => cargarPallet(e.params.data.id));
-            $('#btnEscanear').on('click', toggleScanner);
-            $('#qrZoom').on('input', function () { aplicarZoom(Number(this.value)); });
-            $('#btnCopiarDiagnostico').on('click', copiarDiagnostico);
-        });
-
-        function ocultarZoom() { $('#qrZoomControl').addClass('hidden'); }
-
-        function configurarZoom() {
-            try {
-                const capabilities = html5QrCode.getRunningTrackCapabilities();
-                const zoom = capabilities.zoom;
-                const slider = document.getElementById('qrZoom');
-                const settings = html5QrCode.getRunningTrackSettings();
-
-                if (zoom && zoom.max > zoom.min) {
-                    slider.min = zoom.min;
-                    slider.max = zoom.max;
-                    slider.step = zoom.step || 0.1;
-                    slider.value = settings.zoom ?? zoom.min;
-                    actualizarTextoZoom(slider.value);
-                    $('#qrZoomControl').removeClass('hidden');
-                } else {
-                    ocultarZoom();
-                }
-
-                mostrarDiagnostico(recopilarDiagnostico());
-            } catch (error) {
-                console.warn('No fue posible obtener las capacidades de la cámara.', error);
-                mostrarDiagnostico({
-                    browser: navigator.userAgent,
-                    platform: navigator.platform || 'no disponible',
-                    cameraLabel: 'ERROR',
-                    width: 'no disponible',
-                    height: 'no disponible',
-                    frameRate: 'no disponible',
-                    zoomSupported: false,
-                    zoomMin: 'no disponible',
-                    zoomMax: 'no disponible',
-                    zoomCurrent: 'no disponible',
-                    focusMode: 'no disponible',
-                    focusDistance: 'no disponible',
-                    capabilities: { error: String(error) }
-                });
-            }
-        }
-
-        function aplicarZoom(valor) {
-            if (!html5QrCode) return;
-            html5QrCode.applyVideoConstraints({ advanced: [{ zoom: valor }] })
-                .then(() => {
-                    actualizarTextoZoom(valor);
-                    try { mostrarDiagnostico(recopilarDiagnostico()); } catch (e) {}
-                })
-                .catch(error => console.warn('No fue posible aplicar el zoom.', error));
-        }
-
-        function actualizarTextoZoom(valor) { document.getElementById('qrZoomValue').textContent = `${Number(valor).toFixed(1)}×`; }
-
-        function toggleScanner() {
-            const reader = document.getElementById('qrReader');
-            if (!reader.classList.contains('hidden')) {
-                html5QrCode?.stop();
-                ocultarZoom();
-                $('#qrDiagnostics').addClass('hidden');
-                reader.classList.add('hidden');
-                return;
-            }
-            reader.classList.remove('hidden');
-            html5QrCode = new Html5Qrcode("qrReader");
-            html5QrCode.start(
-                { facingMode: "environment" },
-                {
-                    fps: 10,
-                    qrbox: 250,
-                    videoConstraints: {
-                        facingMode: { ideal: "environment" },
-                        width: { ideal: 1920, min: 1280 },
-                        height: { ideal: 2560, min: 720 },
-                        frameRate: { ideal: 30, min: 15 }
-                    }
-                },
-                (decodedText) => {
-                    html5QrCode.stop();
-                    ocultarZoom();
-                    $('#qrDiagnostics').addClass('hidden');
-                    reader.classList.add('hidden');
-                    cargarPallet(decodedText.trim());
-                }
-            ).then(() => configurarZoom()).catch(error => console.error('No fue posible iniciar la cámara.', error));
-        }
-
-        function cargarPallet(pallet) {
-            $('#resultado').addClass('hidden');
-            $('#sinDatos').addClass('hidden');
-            $('#detalle').empty();
-            fetch(`${routeContenido}/${encodeURIComponent(pallet)}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.total <= 0) { $('#sinDatos').removeClass('hidden'); return; }
-                    $('#palletTitulo').text(`PALLET ${data.pallet}`);
-                    $('#totalPallet').text(data.total);
-                    $('#fechaLectura').text(data.fecha_lectura);
-                    data.items.forEach(item => {
-                        $('#detalle').append(`
-                            <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-                                <div class="flex justify-between items-start"><div>
-                                    <p class="font-mono font-semibold text-gray-800 text-sm">${item.codigo}</p>
-                                    <p class="text-sm text-gray-600">${item.descrip} ${item.descrip1 ?? ''}</p>
-                                    <p class="text-xs text-gray-400 mt-0.5">Lote: ${item.clote ?? 'S/L'}</p>
-                                </div><p class="text-xl font-bold text-blue-700">${item.saldo}</p></div>
-                                <p class="text-xs text-gray-500 mt-2 border-t border-gray-100 pt-2">Galpón ${item.galpon} · Ubic. ${item.ubicacion}</p>
-                            </div>`);
-                    });
-                    $('#resultado').removeClass('hidden');
-                });
-        }
+        let scannerPallet = null;
+        document.getElementById('btnBuscarPallet').addEventListener('click', () => buscarPallet());
+        document.getElementById('numeroPallet').addEventListener('keydown', e => { if(e.key==='Enter'){e.preventDefault();buscarPallet();} });
+        document.getElementById('btnEscanear').addEventListener('click', abrirScanner);
+        document.getElementById('cerrarScannerPallet').addEventListener('click', detenerScanner);
+        document.getElementById('qrZoom').addEventListener('input',e=>aplicarZoom(Number(e.target.value)));
+        function buscarPallet(valor=document.getElementById('numeroPallet').value.trim()){if(!valor)return;document.getElementById('numeroPallet').value=valor;cargarPallet(valor);}
+        function ocultarZoom(){document.getElementById('qrZoomControl').classList.add('hidden');}
+        function configurarZoom(){try{const z=scannerPallet.getRunningTrackCapabilities().zoom;if(!z||z.max<=z.min){ocultarZoom();return;}const s=document.getElementById('qrZoom');s.min=z.min;s.max=z.max;s.step=z.step||0.1;s.value=scannerPallet.getRunningTrackSettings().zoom??z.min;document.getElementById('qrZoomValue').textContent=Number(s.value).toFixed(1)+'×';document.getElementById('qrZoomControl').classList.remove('hidden');}catch(e){ocultarZoom();}}
+        function aplicarZoom(v){if(!scannerPallet)return;scannerPallet.applyVideoConstraints({advanced:[{zoom:v}]}).then(()=>document.getElementById('qrZoomValue').textContent=Number(v).toFixed(1)+'×').catch(e=>console.warn('No fue posible aplicar zoom.',e));}
+        function abrirScanner(){document.getElementById('modalScannerPallet').classList.remove('hidden');scannerPallet=new Html5Qrcode('lectorScannerPallet');scannerPallet.start({facingMode:'environment'},{fps:10,qrbox:250},texto=>{document.getElementById('numeroPallet').value=texto.trim();detenerScanner();buscarPallet(texto.trim());}).then(configurarZoom).catch(err=>mostrarAlertaPallet('No fue posible iniciar la cámara: '+err));}
+        function detenerScanner(){const lector=scannerPallet;scannerPallet=null;document.getElementById('modalScannerPallet').classList.add('hidden');ocultarZoom();if(lector)Promise.resolve(lector.stop()).catch(()=>{}).then(()=>{try{lector.clear();}catch(e){}});}
+        function mostrarAlertaPallet(msg){const box=document.getElementById('alertPallet');box.textContent=msg;box.classList.remove('hidden');}
+        function cargarPallet(pallet){document.getElementById('alertPallet').classList.add('hidden');document.getElementById('resultado').classList.add('hidden');document.getElementById('sinDatos').classList.add('hidden');document.getElementById('detalle').innerHTML='';fetch(`${routeContenido}/${encodeURIComponent(pallet)}`).then(res=>res.json()).then(data=>{if(data.total<=0){document.getElementById('sinDatos').classList.remove('hidden');return;}document.getElementById('palletTitulo').textContent='PALLET '+data.pallet;document.getElementById('totalPallet').textContent=data.total;document.getElementById('fechaLectura').textContent=data.fecha_lectura;data.items.forEach(item=>{const card=document.createElement('div');card.className='bg-white border border-gray-200 rounded-xl p-4 shadow-sm';card.innerHTML='<div class="flex justify-between items-start"><div><p class="font-mono font-semibold text-gray-800 text-sm"></p><p class="text-sm text-gray-600"></p><p class="text-xs text-gray-400 mt-0.5"></p></div><p class="text-xl font-bold text-blue-700"></p></div><p class="text-xs text-gray-500 mt-2 border-t border-gray-100 pt-2"></p>';const ps=card.querySelectorAll('p');ps[0].textContent=item.codigo;ps[1].textContent=(item.descrip||'')+' '+(item.descrip1||'');ps[2].textContent='Lote: '+(item.clote??'S/L');ps[3].textContent=item.saldo;ps[4].textContent='Galpón '+item.galpon+' · Ubic. '+item.ubicacion;document.getElementById('detalle').appendChild(card);});document.getElementById('resultado').classList.remove('hidden');}).catch(()=>mostrarAlertaPallet('No fue posible consultar el pallet. Verifica el número e intenta nuevamente.'));}
     </script>
 </x-app-layout>
