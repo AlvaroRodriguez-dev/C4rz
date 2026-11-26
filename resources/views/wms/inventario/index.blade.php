@@ -112,36 +112,105 @@
 
     <script>
         const routeConsultaInventario = "{{ route('wms.inventario.consulta') }}";
-        const routeBuscarProductosInventario = "{{ route('wms.inventario.productos.buscar') }}";\n        const routePdfInventario = "{{ route('wms.inventario.pdf') }}";
+        const routeBuscarProductosInventario = "{{ route('wms.inventario.productos.buscar') }}";
+        const routePdfInventario = "{{ route('wms.inventario.pdf') }}";
+
         let detalleInventarioCompleto = [];
-        $(document).ready(function(){
+
+        $(document).ready(function () {
             $('#selectProductoInventario').select2({
-                placeholder:'Buscar por código o descripción...',
-                minimumInputLength:1, width:'100%', allowClear:true,
-                ajax:{url:routeBuscarProductosInventario,dataType:'json',delay:300,data:params=>({q:params.term}),processResults:data=>({results:data.results})}
-            }).on('select2:select',e=>$('#fCodigo').val(e.params.data.id))
-              .on('select2:clear',()=>$('#fCodigo').val(''));
-            $('#textoFiltrarResultados').on('input',function(){renderTablaInventario($(this).val());});
-        });
-        function escapeHtml(v){return $('<div>').text(v??'').html();}
-        function renderTablaInventario(texto=''){
-            const term=(texto||'').trim().toLowerCase();
-            const filtrado=detalleInventarioCompleto.filter(x=>!term||[x.almacen,x.galpon,x.ubicacion,x.pallet,x.codigo,x.descrip,x.lote,x.saldo].join(' ').toLowerCase().includes(term));
-            $('#tablaInventario').html(filtrado.map(x=>'<tr class="border-b"><td class="p-2">'+escapeHtml(x.almacen)+'</td><td class="p-2">'+escapeHtml(x.galpon)+'</td><td class="p-2">'+escapeHtml(x.ubicacion)+'</td><td class="p-2">'+escapeHtml(x.pallet)+'</td><td class="p-2">'+escapeHtml(x.codigo)+' · '+escapeHtml(x.descrip)+'</td><td class="p-2">'+escapeHtml(x.lote)+'</td><td class="p-2 text-right font-semibold">'+escapeHtml(x.saldo)+'</td></tr>').join(''));
-            $('#contadorDetalle').text('Mostrando '+filtrado.length+' de '+detalleInventarioCompleto.length+' registros');
-        }
-        function construirParametrosInventario(){\n            const params = construirParametrosInventario();\n            return params;\n        }\n        $('#btnImprimirInventario').on('click', function(){ window.open(routePdfInventario+'?'+construirParametrosInventario().toString(),'_blank'); });\n        $('#btnConsultarInventario').on('click', function() {
-            const params = new URLSearchParams({ almacen: $('#almacenInventario').val() || '' });
-            [['codigo','#fCodigo'],['pallet','#fPallet'],['galpon','#fGalpon'],['ubicacion','#fUbicacion'],['lote','#fLote']].forEach(([k,s]) => { const v=$(s).val().trim(); if(v) params.set(k,v); });
-            $('#mensajeInventario').text('Consultando…'); $('#inventarioConsulta').addClass('hidden');
-            fetch(routeConsultaInventario+'?'+params.toString()).then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.message||'Error de consulta');return d;})
-            .then(d=>{
-                $('#metricCajas').text(d.total_cajas);$('#metricPallets').text(d.total_pallets);$('#metricUbicaciones').text(d.total_ubicaciones);
-                $('#resumenPorAlmacen').html((d.resumen_almacenes||[]).map(a=>'<div class="border rounded-xl p-3 bg-white shadow-sm"><div class="font-semibold mb-2">'+escapeHtml(a.almacen)+'</div><div class="grid grid-cols-3 gap-2 text-sm"><div><div class="text-gray-500">Cajas</div><div class="font-bold">'+a.cajas+'</div></div><div><div class="text-gray-500">Pallets</div><div class="font-bold">'+a.pallets+'</div></div><div><div class="text-gray-500">Ubicaciones</div><div class="font-bold">'+a.ubicaciones+'</div></div></div></div>').join(''));
-                detalleInventarioCompleto=d.detalle||[]; renderTablaInventario($('#textoFiltrarResultados').val());
-                $('#mensajeInventario').text(detalleInventarioCompleto.length+' registro(s)');$('#inventarioConsulta').removeClass('hidden');
-            }).catch(e=>$('#mensajeInventario').text(e.message));
+                placeholder: 'Buscar por código o descripción...',
+                minimumInputLength: 1,
+                width: '100%',
+                allowClear: true,
+                ajax: {
+                    url: routeBuscarProductosInventario,
+                    dataType: 'json',
+                    delay: 300,
+                    data: params => ({ q: params.term }),
+                    processResults: data => ({ results: data.results })
+                }
+            })
+            .on('select2:select', e => $('#fCodigo').val(e.params.data.id))
+            .on('select2:clear', () => $('#fCodigo').val(''));
+
+            $('#textoFiltrarResultados').on('input', function () {
+                renderTablaInventario($(this).val());
+            });
         });
 
+        function escapeHtml(v) {
+            return $('<div>').text(v ?? '').html();
+        }
+
+        function renderTablaInventario(texto = '') {
+            const term = (texto || '').trim().toLowerCase();
+            const filtrado = detalleInventarioCompleto.filter(x =>
+                !term || [x.almacen, x.galpon, x.ubicacion, x.pallet, x.codigo, x.descrip, x.lote, x.saldo]
+                    .join(' ').toLowerCase().includes(term)
+            );
+
+            $('#tablaInventario').html(filtrado.map(x =>
+                '<tr class="border-b">' +
+                    '<td class="p-2">' + escapeHtml(x.almacen) + '</td>' +
+                    '<td class="p-2">' + escapeHtml(x.galpon) + '</td>' +
+                    '<td class="p-2">' + escapeHtml(x.ubicacion) + '</td>' +
+                    '<td class="p-2">' + escapeHtml(x.pallet) + '</td>' +
+                    '<td class="p-2">' + escapeHtml(x.codigo) + ' · ' + escapeHtml(x.descrip) + '</td>' +
+                    '<td class="p-2">' + escapeHtml(x.lote) + '</td>' +
+                    '<td class="p-2 text-right font-semibold">' + escapeHtml(x.saldo) + '</td>' +
+                '</tr>'
+            ).join(''));
+
+            $('#contadorDetalle').text('Mostrando ' + filtrado.length + ' de ' + detalleInventarioCompleto.length + ' registros');
+        }
+
+        function construirParametrosInventario() {
+            const params = new URLSearchParams({ almacen: $('#almacenInventario').val() || '' });
+            [['codigo', '#fCodigo'], ['pallet', '#fPallet'], ['galpon', '#fGalpon'], ['ubicacion', '#fUbicacion'], ['lote', '#fLote']]
+                .forEach(([k, s]) => {
+                    const v = ($(s).val() || '').trim();
+                    if (v) params.set(k, v);
+                });
+            return params;
+        }
+
+        $('#btnImprimirInventario').on('click', function () {
+            window.open(routePdfInventario + '?' + construirParametrosInventario().toString(), '_blank');
+        });
+
+        $('#btnConsultarInventario').on('click', function () {
+            const params = construirParametrosInventario();
+            $('#mensajeInventario').text('Consultando…');
+            $('#inventarioConsulta').addClass('hidden');
+
+            fetch(routeConsultaInventario + '?' + params.toString())
+                .then(async r => {
+                    const d = await r.json();
+                    if (!r.ok) throw new Error(d.message || 'Error de consulta');
+                    return d;
+                })
+                .then(d => {
+                    $('#metricCajas').text(d.total_cajas);
+                    $('#metricPallets').text(d.total_pallets);
+                    $('#metricUbicaciones').text(d.total_ubicaciones);
+
+                    $('#resumenPorAlmacen').html((d.resumen_almacenes || []).map(a =>
+                        '<div class="border rounded-xl p-3 bg-white shadow-sm">' +
+                            '<div class="font-semibold mb-2">' + escapeHtml(a.almacen) + '</div>' +
+                            '<div class="grid grid-cols-3 gap-2 text-sm">' +
+                                '<div><div class="text-gray-500">Cajas</div><div class="font-bold">' + a.cajas + '</div></div>' +
+                                '<div><div class="text-gray-500">Pallets</div><div class="font-bold">' + a.pallets + '</div></div>' +
+                                '<div><div class="text-gray-500">Ubicaciones</div><div class="font-bold">' + a.ubicaciones + '</div></div>' +
+                            '</div></div>'
+                    ).join(''));
+
+                    detalleInventarioCompleto = d.detalle || [];
+                    renderTablaInventario($('#textoFiltrarResultados').val());
+                    $('#mensajeInventario').text(detalleInventarioCompleto.length + ' registro(s)');
+                    $('#inventarioConsulta').removeClass('hidden');
+                })
+                .catch(e => $('#mensajeInventario').text(e.message));
+        });
     </script>
 </x-app-layout>
