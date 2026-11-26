@@ -12,10 +12,12 @@
             <div class="bg-white shadow rounded-xl p-4 sm:p-5 mb-4">
                 <label for="almacenSelect" class="block text-sm font-medium text-gray-700 mb-2">Almacén</label>
                 <select id="almacenSelect" class="w-full border-gray-300 rounded-xl p-3 mb-3">
+                    @if($almacenes->count() !== 1)
                     <option value="">Seleccionar almacén...</option>
-                    @foreach($almacenes as $almacen)
-                        <option value="{{ $almacen->id }}">{{ $almacen->codigo }} · {{ $almacen->nombre }}</option>
-                    @endforeach
+                @endif
+                @foreach($almacenes as $almacen)
+                    <option value="{{ $almacen->id }}" {{ $almacenes->count() === 1 ? 'selected' : '' }}>{{ $almacen->codigo }} · {{ $almacen->nombre }}</option>
+                @endforeach
                 </select>
                 <label for="numeroUbicacion" class="block text-sm font-medium text-gray-700 mb-2">Número de Ubicación</label>
                 <div class="flex gap-2">
@@ -23,7 +25,7 @@
                     <button id="btnBuscarUbicacion" type="button" class="bg-blue-600 text-white rounded-xl px-4 font-semibold">BUSCAR</button>
                     <button id="btnEscanear" type="button" class="shrink-0 bg-gray-800 text-white rounded-xl px-4 flex items-center justify-center">📷</button>
                 </div>
-                <p class="text-xs text-gray-500 mt-2">Selecciona el almacén e ingresa o escanea el número de ubicación.</p>
+                <p class="text-xs text-gray-500 mt-2">@if($almacenes->count() === 1) Ingresa o escanea el número de ubicación. @else Selecciona el almacén e ingresa o escanea el número de ubicación. @endif</p>
             </div>
 
             <div id="alertUbicacion" class="hidden mb-3 p-3 rounded-lg text-sm bg-red-100 text-red-800"></div>
@@ -68,7 +70,7 @@
         const routeContenido = "{{ url('wms/ubicacion-ver/almacen') }}";
         let scannerUbicacionVer = null;
 
-        document.getElementById('btnBuscarUbicacion').addEventListener('click', buscarUbicacion);
+        document.getElementById('btnBuscarUbicacion').addEventListener('click', () => buscarUbicacion());
         document.getElementById('numeroUbicacion').addEventListener('keydown', e => {
             if (e.key === 'Enter') { e.preventDefault(); buscarUbicacion(); }
         });
