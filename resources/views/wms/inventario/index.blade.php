@@ -75,20 +75,18 @@
                         @if($almacenes->count()>1)<option value="all">Inventario consolidado de almacenes asignados</option>@endif
                         @foreach($almacenes as $almacen)<option value="{{ $almacen->id }}">{{ $almacen->codigo }} · {{ $almacen->nombre }}</option>@endforeach
                     </select>
+                    <label class="block text-sm font-medium mb-1">Buscar producto (opcional)</label>
+                    <select id="selectProductoInventario" class="w-full mb-3" style="width:100%"></select>
                     <details class="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
                         <summary class="cursor-pointer select-none font-semibold text-sm text-slate-700 flex items-center justify-between">
-                            <span>Opciones avanzadas</span><span class="text-xs font-normal text-slate-500">Filtros opcionales</span>
+                            <span>Opciones avanzadas</span><span class="text-xs font-normal text-slate-500">Filtros adicionales</span>
                         </summary>
-                        <div class="pt-3">
-                            <label class="block text-sm font-medium mb-1">Buscar producto (opcional)</label>
-                            <select id="selectProductoInventario" class="w-full mb-3" style="width:100%"></select>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <input id="fCodigo" class="border rounded-lg p-2" placeholder="Código de producto" readonly>
-                                <input id="fPallet" class="border rounded-lg p-2" placeholder="Pallet">
-                                <input id="fGalpon" class="border rounded-lg p-2" placeholder="Galpón">
-                                <input id="fUbicacion" class="border rounded-lg p-2" placeholder="Ubicación">
-                                <input id="fLote" class="border rounded-lg p-2" placeholder="Lote">
-                            </div>
+                        <div class="pt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <input id="fCodigo" class="border rounded-lg p-2" placeholder="Código de producto" readonly>
+                            <input id="fPallet" class="border rounded-lg p-2" placeholder="Pallet">
+                            <input id="fGalpon" class="border rounded-lg p-2" placeholder="Galpón">
+                            <input id="fUbicacion" class="border rounded-lg p-2" placeholder="Ubicación">
+                            <input id="fLote" class="border rounded-lg p-2" placeholder="Lote">
                         </div>
                     </details>
                     <button type="button" id="btnConsultarInventario" class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-3 w-full">Consultar inventario</button>
