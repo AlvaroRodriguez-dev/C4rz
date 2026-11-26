@@ -128,7 +128,8 @@ class WmsInventarioController extends Controller
         $datos['generado'] = now()->format('d/m/Y H:i');
         return Pdf::loadView('wms.inventario.pdf', $datos)->setPaper('a4', 'landscape')->stream('inventario-wms.pdf');
     }
-\n    public function saldos(Request $request, string $codigo)
+
+    public function saldos(Request $request, string $codigo)
     {
         $almacenes=$this->almacenesAutorizados();
         if($almacenes->isEmpty()) return response()->json(['message'=>'No tiene almacenes asignados.'],403);
