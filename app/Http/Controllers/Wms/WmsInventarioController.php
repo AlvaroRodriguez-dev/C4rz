@@ -93,13 +93,25 @@ class WmsInventarioController extends Controller
                     'productos'=>$items->map(fn($s)=>['codigo'=>$s['codigo'],'descrip'=>$s['descrip'],'descrip1'=>$s['descrip1'],'clote'=>$s['clote'] ?: 'S/L','saldo'=>$s['saldo']])->values()];
             })->values();
 
-        $total = $saldos->sum('saldo');
+        $detalle = $saldos->map(fn($s)=>['almacen'=>$s['almacen'],'galpon'=>$s['galpon'],'ubicacion'=>$s['ubicacion'],'pallet'=>$s['pallet'],'codigo'=>$s['codigo'],'descrip'=>trim(($s['descrip']??'').' '.($s['descrip1']??'')),'lote'=>$s['clote'] ?: 'S/L','saldo'=>$s['saldo']])
+            ->sortBy(fn($s)=>strtoupper($s['almacen'].'|'.$s['galpon'].'|'.$s['ubicacion'].'|'.$s['pallet'].'|'.$s['codigo'].'|'.$s['lote']))
+            ->values();
+
+        $resumenAlmacenes = $saldos->groupBy('almacen')->map(function($items, $almacen) {
+            return [
+                'almacen'=>$almacen,
+                'cajas'=>$items->sum('saldo'),
+                'pallets'=>$items->map(fn($s)=>$s['pallet'])->unique()->count(),
+                'ubicaciones'=>$items->map(fn($s)=>implode('|',[$s['galpon'],$s['ubicacion']]))->unique()->count(),
+            ];
+        })->values();
+
         return response()->json([
-            'total_cajas'=>$total,
+            'total_cajas'=>$saldos->sum('saldo'),
             'total_pallets'=>$saldos->map(fn($s)=>$s['almacen'].'|'.$s['pallet'])->unique()->count(),
-            'total_productos'=>$saldos->pluck('codigo')->unique()->count(),
             'total_ubicaciones'=>$saldos->map(fn($s)=>implode('|',[$s['almacen'],$s['galpon'],$s['ubicacion']]))->unique()->count(),
-            'detalle'=>$saldos->map(fn($s)=>['almacen'=>$s['almacen'],'galpon'=>$s['galpon'],'ubicacion'=>$s['ubicacion'],'pallet'=>$s['pallet'],'codigo'=>$s['codigo'],'descrip'=>trim(($s['descrip']??'').' '.($s['descrip1']??'')),'lote'=>$s['clote'] ?: 'S/L','saldo'=>$s['saldo']])->values(),
+            'detalle'=>$detalle,
+            'resumen_almacenes'=>$resumenAlmacenes,
             'por_pallet'=>$porPallet,
         ]);
     }
