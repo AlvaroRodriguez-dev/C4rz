@@ -262,6 +262,7 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
         Route::get('/', [WmsPalletVerController::class, 'indexUbicacion'])->name('index');
         Route::get('/ubicaciones/buscar', [WmsPalletVerController::class, 'buscarUbicaciones'])->name('ubicaciones.buscar');
         Route::get('/almacen/{almacen}/ubicacion/{numero}', [WmsPalletVerController::class, 'contenidoUbicacionAlmacen'])->whereNumber('almacen')->name('ubicacion.almacen.contenido');
+        Route::get('/almacen/{almacen}/ubicacion/{numero}', [WmsPalletVerController::class, 'contenidoUbicacionAlmacen'])->whereNumber('almacen')->name('ubicacion.almacen.contenido');
     });
     Route::middleware(['permission:wms.kardex'])->prefix('kardex')->name('kardex.')->group(function () {
         Route::get('/', [WmsKardexController::class, 'index'])->name('index');
