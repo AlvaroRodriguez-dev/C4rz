@@ -117,7 +117,18 @@ class WmsInventarioController extends Controller
         ]);
     }
 
-    public function pdf(Request $request)\n    {\n        $response = $this->inventario($request);\n        if ($response->getStatusCode() !== 200) return $response;\n        $datos = json_decode($response->getContent(), true);\n        $datos['filtros'] = $request->only(['codigo','pallet','galpon','ubicacion','lote']);\n        $datos['almacenSeleccionado'] = $request->input('almacen');\n        $datos['usuario'] = auth()->user()->name;\n        $datos['generado'] = now()->format('d/m/Y H:i');\n        return Pdf::loadView('wms.inventario.pdf', $datos)->setPaper('a4', 'landscape')->stream('inventario-wms.pdf');\n    }\n\n    public function saldos(Request $request, string $codigo)
+    public function pdf(Request $request)
+    {
+        $response = $this->inventario($request);
+        if ($response->getStatusCode() !== 200) return $response;
+        $datos = json_decode($response->getContent(), true);
+        $datos['filtros'] = $request->only(['codigo','pallet','galpon','ubicacion','lote']);
+        $datos['almacenSeleccionado'] = $request->input('almacen');
+        $datos['usuario'] = auth()->user()->name;
+        $datos['generado'] = now()->format('d/m/Y H:i');
+        return Pdf::loadView('wms.inventario.pdf', $datos)->setPaper('a4', 'landscape')->stream('inventario-wms.pdf');
+    }
+\n    public function saldos(Request $request, string $codigo)
     {
         $almacenes=$this->almacenesAutorizados();
         if($almacenes->isEmpty()) return response()->json(['message'=>'No tiene almacenes asignados.'],403);
