@@ -31,10 +31,36 @@
         .select2-dropdown {
             border-radius: 0.75rem !important;
         }
+    
+        /* WMS Inventory - SAP Fiori inspired visual layer */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        .wms-inventory-shell { font-family: Inter,system-ui,sans-serif; }
+        .wms-inventory-shell input:not([readonly]), .wms-inventory-shell select:not(.select2-hidden-accessible) {
+          border:1px solid #cbd5e1; border-radius:8px; background:#fff; transition:border-color .15s,box-shadow .15s;
+        }
+        .wms-inventory-shell input:focus, .wms-inventory-shell select:focus {
+          border-color:#0070F2; box-shadow:0 0 0 3px rgba(0,112,242,.12); outline:none;
+        }
+        .wms-inventory-shell section, .wms-inventory-shell #resultado > div, .wms-inventory-shell #resultado > section {
+          border:1px solid #e2e8f0; border-radius:12px;
+        }
+        .wms-inventory-shell h3 { color:#1e293b; letter-spacing:-.02em; }
+        .wms-inventory-shell table { border-collapse:separate; border-spacing:0; width:100%; }
+        .wms-inventory-shell table thead { background:#f1f5f9; color:#475569; text-transform:uppercase; font-size:11px; letter-spacing:.06em; }
+        .wms-inventory-shell table th { padding:12px 10px; }
+        .wms-inventory-shell table tbody tr:nth-child(even) { background:#f8fafc; }
+        .wms-inventory-shell table tbody tr:hover { background:#eff6ff; }
+        .wms-inventory-shell table td { padding:10px; border-bottom:1px solid #e2e8f0; }
+        .wms-inventory-shell .select2-container .select2-selection--single { border-color:#cbd5e1!important; background:#fff!important; }
+        .wms-inventory-shell #inventarioConsulta .rounded-lg.bg-blue-50 { border:1px solid #bfdbfe; background:#eff6ff; }
+        .wms-inventory-shell #resumenPorAlmacen > div { border:1px solid #e2e8f0; border-radius:12px; }
+        .wms-inventory-shell #detallePallet > div, .wms-inventory-shell #detalleUbicacion > div { border-radius:12px; }
+        @media(max-width:640px){ .wms-inventory-shell table { min-width:900px; } }
+
     </style>
 
-    <div class="py-4 px-3 sm:py-6 sm:px-4">
-        <div class="max-w-3xl mx-auto">
+    <div class="wms-inventory-shell py-4 px-3 sm:py-6 sm:px-4" style="background:#F8FAFC;">
+        <div class="max-w-7xl mx-auto">
 
             <a href="{{ route('wms.index') }}" class="text-sm text-gray-600 mb-3 inline-flex items-center gap-1">&larr;
                 Volver</a>
