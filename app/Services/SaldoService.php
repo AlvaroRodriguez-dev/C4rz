@@ -108,7 +108,8 @@ class SaldoService
             ->when($filtros['codigo'] ?? null, fn($q, $v) => $q->where('codigo', $v))
             ->when($filtros['pallet'] ?? null, fn($q, $v) => $q->where('pallet', $v))
             ->when($filtros['galpon'] ?? null, fn($q, $v) => $q->where('galpon', $v))
-            ->when($filtros['ubicacion'] ?? null, fn($q, $v) => $q->where('ubicacion', $v));
+            ->when($filtros['ubicacion'] ?? null, fn($q, $v) => $q->where('ubicacion', $v))
+            ->when($filtros['almacen'] ?? null, fn($q, $v) => $q->where('almacen', $v));
     }
 
     private function queryReubicaciones(array $filtros, string $lado)
@@ -121,7 +122,8 @@ class SaldoService
             ->when($filtros['codigo'] ?? null, fn($q, $v) => $q->where('codigo', $v))
             ->when($filtros['pallet'] ?? null, fn($q, $v) => $q->where($palletCol, $v))
             ->when($filtros['galpon'] ?? null, fn($q, $v) => $q->where($galponCol, $v))
-            ->when($filtros['ubicacion'] ?? null, fn($q, $v) => $q->where($ubicacionCol, $v));
+            ->when($filtros['ubicacion'] ?? null, fn($q, $v) => $q->where($ubicacionCol, $v))
+            ->when($filtros['almacen'] ?? null, fn($q, $v) => $q->where('almacen_'.$lado, $v));
     }
 
     /**
