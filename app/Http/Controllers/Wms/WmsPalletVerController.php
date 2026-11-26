@@ -155,11 +155,13 @@ class WmsPalletVerController extends Controller
 
     public function contenidoUbicacionAlmacen(Request $request, int $almacen, string $numero)
     {
-        $autorizado = WmsUsuarioAlmacen::query()->where('user_id', auth()->id())
-            ->where('almacen_id', $almacen)->where('activo', true)->exists();
-        if (!$autorizado) return response()->json(['message' => 'Almacén no autorizado.'], 403);
+        $almacenModel = WmsAlmacen::query()->where('id', $almacen)
+            ->where('tipo', 'PRINCIPAL')->where('activo', true)
+            ->whereHas('usuarios', fn($q) => $q->where('user_id', auth()->id())->where('activo', true))
+            ->first();
+        if (!$almacenModel) return response()->json(['message' => 'Almacén no autorizado o inactivo.'], 403);
 
-        $ubicacion = WmsUbicacion::query()->with('galpon')
+        $ubicacion = WmsUbicacion::query()->with(['galpon', 'almacen'])
             ->where('almacen_id', $almacen)->where('numero', $numero)
             ->where('activo', true)->where('tipo', 'NORMAL')->first();
 
@@ -168,7 +170,7 @@ class WmsPalletVerController extends Controller
         }
 
         $items = $this->saldoService->calcular([
-            'almacen' => (string) $almacen,
+            'almacen' => (string) $almacenModel->codigo,
             'galpon' => (string) $ubicacion->galpon->codigo,
             'ubicacion' => (string) $ubicacion->codigo,
         ]);
