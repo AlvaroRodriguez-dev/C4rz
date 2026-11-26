@@ -49,8 +49,10 @@
                         @if($almacenes->count()>1)<option value="all">Inventario consolidado de almacenes asignados</option>@endif
                         @foreach($almacenes as $almacen)<option value="{{ $almacen->id }}">{{ $almacen->codigo }} · {{ $almacen->nombre }}</option>@endforeach
                     </select>
+                    <label class="block text-sm font-medium mb-1">Buscar producto (opcional)</label>
+                    <select id="selectProductoInventario" class="w-full mb-3" style="width:100%"></select>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
-                        <input id="fCodigo" class="border rounded-lg p-2" placeholder="Código de producto">
+                        <input id="fCodigo" class="border rounded-lg p-2" placeholder="Código de producto" readonly>
                         <input id="fPallet" class="border rounded-lg p-2" placeholder="Pallet">
                         <input id="fGalpon" class="border rounded-lg p-2" placeholder="Galpón">
                         <input id="fUbicacion" class="border rounded-lg p-2" placeholder="Ubicación">
@@ -59,11 +61,15 @@
                     <button type="button" id="btnConsultarInventario" class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-3 w-full">Consultar inventario</button>
                     <p id="mensajeInventario" class="text-sm text-gray-500 mt-2"></p>
                     <div id="inventarioConsulta" class="hidden mt-4">
-                        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-                            <div class="rounded-lg bg-blue-50 p-3"><div class="text-xs">CAJAS</div><div id="metricCajas" class="text-2xl font-bold">0</div></div>
-                            <div class="rounded-lg bg-slate-50 p-3"><div class="text-xs">PALLETS</div><div id="metricPallets" class="text-2xl font-bold">0</div></div>
-                            <div class="rounded-lg bg-slate-50 p-3"><div class="text-xs">PRODUCTOS</div><div id="metricProductos" class="text-2xl font-bold">0</div></div>
-                            <div class="rounded-lg bg-slate-50 p-3"><div class="text-xs">UBICACIONES</div><div id="metricUbicaciones" class="text-2xl font-bold">0</div></div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                            <div class="rounded-lg bg-blue-50 p-3"><div class="text-xs font-semibold">TOTAL DE CAJAS</div><div id="metricCajas" class="text-2xl font-bold">0</div></div>
+                            <div class="rounded-lg bg-slate-50 p-3"><div class="text-xs font-semibold">TOTAL DE PALLET</div><div id="metricPallets" class="text-2xl font-bold">0</div></div>
+                            <div class="rounded-lg bg-slate-50 p-3"><div class="text-xs font-semibold">TOTAL DE UBICACIONES</div><div id="metricUbicaciones" class="text-2xl font-bold">0</div></div>
+                        </div>
+                        <div id="resumenPorAlmacen" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4"></div>
+                        <div class="bg-white border rounded-lg p-3 mb-3">
+                            <input id="textoFiltrarResultados" class="w-full border-gray-300 rounded-lg p-3" placeholder="Buscar en resultados: almacén, galpón, ubicación, pallet, producto o lote...">
+                            <p id="contadorDetalle" class="text-xs text-gray-500 mt-2"></p>
                         </div>
                         <div class="overflow-x-auto"><table class="min-w-full text-sm">
                             <thead class="bg-gray-100"><tr><th class="p-2 text-left">Almacén</th><th class="p-2 text-left">Galpón</th><th class="p-2 text-left">Ubicación</th><th class="p-2 text-left">Pallet</th><th class="p-2 text-left">Código / Producto</th><th class="p-2 text-left">Lote</th><th class="p-2 text-right">Saldo</th></tr></thead>
@@ -144,16 +150,34 @@
 
     <script>
         const routeConsultaInventario = "{{ route('wms.inventario.consulta') }}";
+        const routeBuscarProductosInventario = "{{ route('wms.inventario.productos.buscar') }}";
+        let detalleInventarioCompleto = [];
+        $(document).ready(function(){
+            $('#selectProductoInventario').select2({
+                placeholder:'Buscar por código o descripción...',
+                minimumInputLength:1, width:'100%', allowClear:true,
+                ajax:{url:routeBuscarProductosInventario,dataType:'json',delay:300,data:params=>({q:params.term}),processResults:data=>({results:data.results})}
+            }).on('select2:select',e=>$('#fCodigo').val(e.params.data.id))
+              .on('select2:clear',()=>$('#fCodigo').val(''));
+            $('#textoFiltrarResultados').on('input',function(){renderTablaInventario($(this).val());});
+        });
+        function escapeHtml(v){return $('<div>').text(v??'').html();}
+        function renderTablaInventario(texto=''){
+            const term=(texto||'').trim().toLowerCase();
+            const filtrado=detalleInventarioCompleto.filter(x=>!term||[x.almacen,x.galpon,x.ubicacion,x.pallet,x.codigo,x.descrip,x.lote,x.saldo].join(' ').toLowerCase().includes(term));
+            $('#tablaInventario').html(filtrado.map(x=>'<tr class="border-b"><td class="p-2">'+escapeHtml(x.almacen)+'</td><td class="p-2">'+escapeHtml(x.galpon)+'</td><td class="p-2">'+escapeHtml(x.ubicacion)+'</td><td class="p-2">'+escapeHtml(x.pallet)+'</td><td class="p-2">'+escapeHtml(x.codigo)+' · '+escapeHtml(x.descrip)+'</td><td class="p-2">'+escapeHtml(x.lote)+'</td><td class="p-2 text-right font-semibold">'+escapeHtml(x.saldo)+'</td></tr>').join(''));
+            $('#contadorDetalle').text('Mostrando '+filtrado.length+' de '+detalleInventarioCompleto.length+' registros');
+        }
         $('#btnConsultarInventario').on('click', function() {
             const params = new URLSearchParams({ almacen: $('#almacenInventario').val() || '' });
             [['codigo','#fCodigo'],['pallet','#fPallet'],['galpon','#fGalpon'],['ubicacion','#fUbicacion'],['lote','#fLote']].forEach(([k,s]) => { const v=$(s).val().trim(); if(v) params.set(k,v); });
-            $('#mensajeInventario').text('Consultando…');
-            $('#inventarioConsulta').addClass('hidden');
+            $('#mensajeInventario').text('Consultando…'); $('#inventarioConsulta').addClass('hidden');
             fetch(routeConsultaInventario+'?'+params.toString()).then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.message||'Error de consulta');return d;})
             .then(d=>{
-                $('#metricCajas').text(d.total_cajas);$('#metricPallets').text(d.total_pallets);$('#metricProductos').text(d.total_productos);$('#metricUbicaciones').text(d.total_ubicaciones);
-                $('#tablaInventario').html(d.detalle.map(x=>'<tr class="border-b"><td class="p-2">'+x.almacen+'</td><td class="p-2">'+x.galpon+'</td><td class="p-2">'+x.ubicacion+'</td><td class="p-2">'+x.pallet+'</td><td class="p-2">'+x.codigo+' · '+x.descrip+'</td><td class="p-2">'+x.lote+'</td><td class="p-2 text-right font-semibold">'+x.saldo+'</td></tr>').join(''));
-                $('#mensajeInventario').text(d.detalle.length+' registro(s)');$('#inventarioConsulta').removeClass('hidden');
+                $('#metricCajas').text(d.total_cajas);$('#metricPallets').text(d.total_pallets);$('#metricUbicaciones').text(d.total_ubicaciones);
+                $('#resumenPorAlmacen').html((d.resumen_almacenes||[]).map(a=>'<div class="border rounded-xl p-3 bg-white shadow-sm"><div class="font-semibold mb-2">'+escapeHtml(a.almacen)+'</div><div class="grid grid-cols-3 gap-2 text-sm"><div><div class="text-gray-500">Cajas</div><div class="font-bold">'+a.cajas+'</div></div><div><div class="text-gray-500">Pallets</div><div class="font-bold">'+a.pallets+'</div></div><div><div class="text-gray-500">Ubicaciones</div><div class="font-bold">'+a.ubicaciones+'</div></div></div></div>').join(''));
+                detalleInventarioCompleto=d.detalle||[]; renderTablaInventario($('#textoFiltrarResultados').val());
+                $('#mensajeInventario').text(detalleInventarioCompleto.length+' registro(s)');$('#inventarioConsulta').removeClass('hidden');
             }).catch(e=>$('#mensajeInventario').text(e.message));
         });
 
