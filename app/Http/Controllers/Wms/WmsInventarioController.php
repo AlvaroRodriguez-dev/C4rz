@@ -114,6 +114,8 @@ class WmsInventarioController extends Controller
         $saldos=collect();
         foreach($codes as $code) $saldos=$saldos->concat($this->saldoService->calcular(['codigo'=>$codigo,'almacen'=>$code]));
         $saldos=$saldos->values();
-        return response()->json(['total_general'=>$saldos->sum('saldo'),'total_pallets'=>$saldos->pluck('pallet')->unique()->count(),'detalle'=>$saldos->values()]);
+        $porPallet=$saldos->groupBy('pallet')->map(function($items,$pallet){$f=$items->first();return ['pallet'=>$pallet,'galpon'=>$f['galpon'],'ubicacion'=>$f['ubicacion'],'total_pallet'=>$items->sum('saldo'),'lotes'=>$items->groupBy('clote')->map(fn($g,$l)=>['clote'=>$l?:'S/L','total'=>$g->sum('saldo')])->values()];})->values();
+        $porUbicacion=$saldos->groupBy(fn($s)=>$s['almacen'].'|'.$s['galpon'].'|'.$s['ubicacion'])->map(function($items){$f=$items->first();return ['almacen'=>$f['almacen'],'galpon'=>$f['galpon'],'ubicacion'=>$f['ubicacion'],'total_ubicacion'=>$items->sum('saldo'),'lotes'=>$items->groupBy('clote')->map(fn($g,$l)=>['clote'=>$l?:'S/L','total'=>$g->sum('saldo')])->values()];})->values();
+        return response()->json(['total_general'=>$saldos->sum('saldo'),'total_pallets'=>$saldos->pluck('pallet')->unique()->count(),'por_pallet'=>$porPallet,'por_ubicacion'=>$porUbicacion]);
     }
 }
