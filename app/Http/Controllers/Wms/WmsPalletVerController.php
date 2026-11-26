@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Wms;
 
 use App\Http\Controllers\Controller;
 use App\Models\WmsHu;
+use App\Models\WmsUbicacion;
+use App\Models\WmsAlmacen;
+use App\Models\WmsUsuarioAlmacen;
 use App\Models\WmsIngreso;
 use App\Services\SaldoService;
 use Illuminate\Http\Request;
@@ -141,6 +144,43 @@ class WmsPalletVerController extends Controller
 
     public function indexUbicacion()
     {
-        return view('wms.ubicacion-ver.index');
+        $almacenes = WmsAlmacen::query()
+            ->where('tipo', 'PRINCIPAL')->where('activo', true)
+            ->whereIn('id', WmsUsuarioAlmacen::query()
+                ->where('user_id', auth()->id())->where('activo', true)->select('almacen_id'))
+            ->orderBy('codigo')->get(['id', 'codigo', 'nombre']);
+
+        return view('wms.ubicacion-ver.index', compact('almacenes'));
+    }
+
+    public function contenidoUbicacionAlmacen(Request $request, int $almacen, string $numero)
+    {
+        $autorizado = WmsUsuarioAlmacen::query()->where('user_id', auth()->id())
+            ->where('almacen_id', $almacen)->where('activo', true)->exists();
+        if (!$autorizado) return response()->json(['message' => 'Almacén no autorizado.'], 403);
+
+        $ubicacion = WmsUbicacion::query()->with('galpon')
+            ->where('almacen_id', $almacen)->where('numero', $numero)
+            ->where('activo', true)->where('tipo', 'NORMAL')->first();
+
+        if (!$ubicacion || !$ubicacion->galpon) {
+            return response()->json(['message' => 'No se encontró una ubicación normal activa con ese número en el almacén seleccionado.'], 404);
+        }
+
+        $items = $this->saldoService->calcular([
+            'almacen' => (string) $almacen,
+            'galpon' => (string) $ubicacion->galpon->codigo,
+            'ubicacion' => (string) $ubicacion->codigo,
+        ]);
+
+        return response()->json([
+            'almacen' => $almacen,
+            'galpon' => $ubicacion->galpon->codigo,
+            'ubicacion' => $ubicacion->codigo,
+            'fecha_lectura' => now()->format('d/m/Y H:i:s'),
+            'items' => $items->values(),
+            'total' => $items->sum('saldo'),
+            'total_pallets' => $items->pluck('pallet')->unique()->count(),
+        ]);
     }
 }
