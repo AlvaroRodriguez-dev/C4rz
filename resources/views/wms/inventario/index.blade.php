@@ -89,7 +89,7 @@
                             <input id="fLote" class="border rounded-lg p-2" placeholder="Lote">
                         </div>
                     </details>
-                    <button type="button" id="btnConsultarInventario" class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-3 w-full">Consultar inventario</button>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2"><button type="button" id="btnConsultarInventario" class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-3 w-full">Consultar inventario</button><button type="button" id="btnImprimirInventario" class="bg-slate-700 hover:bg-slate-800 text-white rounded-lg px-4 py-3 w-full">Imprimir / PDF</button></div>
                     <p id="mensajeInventario" class="text-sm text-gray-500 mt-2"></p>
                     <div id="inventarioConsulta" class="hidden mt-4">
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
@@ -112,7 +112,7 @@
 
     <script>
         const routeConsultaInventario = "{{ route('wms.inventario.consulta') }}";
-        const routeBuscarProductosInventario = "{{ route('wms.inventario.productos.buscar') }}";
+        const routeBuscarProductosInventario = "{{ route('wms.inventario.productos.buscar') }}";\n        const routePdfInventario = "{{ route('wms.inventario.pdf') }}";
         let detalleInventarioCompleto = [];
         $(document).ready(function(){
             $('#selectProductoInventario').select2({
@@ -130,7 +130,7 @@
             $('#tablaInventario').html(filtrado.map(x=>'<tr class="border-b"><td class="p-2">'+escapeHtml(x.almacen)+'</td><td class="p-2">'+escapeHtml(x.galpon)+'</td><td class="p-2">'+escapeHtml(x.ubicacion)+'</td><td class="p-2">'+escapeHtml(x.pallet)+'</td><td class="p-2">'+escapeHtml(x.codigo)+' · '+escapeHtml(x.descrip)+'</td><td class="p-2">'+escapeHtml(x.lote)+'</td><td class="p-2 text-right font-semibold">'+escapeHtml(x.saldo)+'</td></tr>').join(''));
             $('#contadorDetalle').text('Mostrando '+filtrado.length+' de '+detalleInventarioCompleto.length+' registros');
         }
-        $('#btnConsultarInventario').on('click', function() {
+        function construirParametrosInventario(){\n            const params = construirParametrosInventario();\n            return params;\n        }\n        $('#btnImprimirInventario').on('click', function(){ window.open(routePdfInventario+'?'+construirParametrosInventario().toString(),'_blank'); });\n        $('#btnConsultarInventario').on('click', function() {
             const params = new URLSearchParams({ almacen: $('#almacenInventario').val() || '' });
             [['codigo','#fCodigo'],['pallet','#fPallet'],['galpon','#fGalpon'],['ubicacion','#fUbicacion'],['lote','#fLote']].forEach(([k,s]) => { const v=$(s).val().trim(); if(v) params.set(k,v); });
             $('#mensajeInventario').text('Consultando…'); $('#inventarioConsulta').addClass('hidden');
