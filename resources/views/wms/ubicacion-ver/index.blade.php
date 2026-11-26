@@ -10,13 +10,20 @@
             <a href="{{ route('wms.index') }}" class="text-sm text-gray-600 mb-3 inline-flex items-center gap-1">&larr; Volver</a>
 
             <div class="bg-white shadow rounded-xl p-4 sm:p-5 mb-4">
-                <label for="numeroUbicacion" class="block text-sm font-medium text-gray-700 mb-2">Galpón / Ubicación</label>
+                <label for="almacenSelect" class="block text-sm font-medium text-gray-700 mb-2">Almacén</label>
+                <select id="almacenSelect" class="w-full border-gray-300 rounded-xl p-3 mb-3">
+                    <option value="">Seleccionar almacén...</option>
+                    @foreach($almacenes as $almacen)
+                        <option value="{{ $almacen->id }}">{{ $almacen->codigo }} · {{ $almacen->nombre }}</option>
+                    @endforeach
+                </select>
+                <label for="numeroUbicacion" class="block text-sm font-medium text-gray-700 mb-2">Número de Ubicación</label>
                 <div class="flex gap-2">
-                    <input type="text" id="numeroUbicacion" class="flex-1 min-w-0 border-gray-300 rounded-xl p-3 text-base" placeholder="Galpón|Ubicación (ej. 110|01)">
+                    <input type="text" id="numeroUbicacion" class="flex-1 min-w-0 border-gray-300 rounded-xl p-3 text-base" placeholder="Ej. 01">
                     <button id="btnBuscarUbicacion" type="button" class="bg-blue-600 text-white rounded-xl px-4 font-semibold">BUSCAR</button>
                     <button id="btnEscanear" type="button" class="shrink-0 bg-gray-800 text-white rounded-xl px-4 flex items-center justify-center">📷</button>
                 </div>
-                <p class="text-xs text-gray-500 mt-2">Escribe el código Galpón|Ubicación o escanea el QR de la ubicación.</p>
+                <p class="text-xs text-gray-500 mt-2">Selecciona el almacén e ingresa o escanea el número de ubicación.</p>
             </div>
 
             <div id="alertUbicacion" class="hidden mb-3 p-3 rounded-lg text-sm bg-red-100 text-red-800"></div>
@@ -58,7 +65,7 @@
     </div>
 
     <script>
-        const routeContenido = "{{ url('wms/pallet-ver/ubicacion') }}";
+        const routeContenido = "{{ url('wms/ubicacion-ver/almacen') }}";
         let scannerUbicacionVer = null;
 
         document.getElementById('btnBuscarUbicacion').addEventListener('click', buscarUbicacion);
@@ -70,14 +77,11 @@
         document.getElementById('qrZoom').addEventListener('input', e => aplicarZoom(Number(e.target.value)));
 
         function buscarUbicacion(valor = document.getElementById('numeroUbicacion').value.trim()) {
-            if (!valor) return;
-            const partes = valor.split('|').map(p => p.trim());
-            if (partes.length !== 2 || !partes[0] || !partes[1]) {
-                mostrarAlerta('Ingresa el código en formato Galpón|Ubicación, por ejemplo 110|01.');
-                return;
-            }
+            const almacen = document.getElementById('almacenSelect').value;
+            if (!almacen) { mostrarAlerta('Selecciona un almacén.'); return; }
+            if (!valor) { mostrarAlerta('Ingresa el número de ubicación.'); return; }
             document.getElementById('numeroUbicacion').value = valor;
-            cargarUbicacion(partes[0], partes[1]);
+            cargarUbicacion(almacen, valor);
         }
 
         function ocultarZoom() { document.getElementById('qrZoomControl').classList.add('hidden'); }
@@ -125,12 +129,12 @@
             box.textContent = msg; box.classList.remove('hidden');
         }
 
-        function cargarUbicacion(galpon, ubicacion) {
+        function cargarUbicacion(almacen, ubicacion) {
             document.getElementById('alertUbicacion').classList.add('hidden');
             document.getElementById('resultado').classList.add('hidden');
             document.getElementById('sinDatos').classList.add('hidden');
             document.getElementById('detallePorPallet').innerHTML = '';
-            fetch(`${routeContenido}/${encodeURIComponent(galpon)}/${encodeURIComponent(ubicacion)}`)
+            fetch(`${routeContenido}/${encodeURIComponent(almacen)}/ubicacion/${encodeURIComponent(ubicacion)}`)
                 .then(res => { if(!res.ok) throw new Error('Consulta fallida'); return res.json(); })
                 .then(data => {
                     if (data.total <= 0) { document.getElementById('sinDatos').classList.remove('hidden'); return; }
