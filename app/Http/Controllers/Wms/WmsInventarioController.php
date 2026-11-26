@@ -6,7 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\WmsIngreso;
 use App\Models\WmsUsuarioAlmacen;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;\nuse Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class WmsInventarioController extends Controller
 {
