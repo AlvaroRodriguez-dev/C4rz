@@ -235,6 +235,7 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
     Route::middleware(['permission:wms.inventario'])->prefix('inventario')->name('inventario.')->group(function () {
         Route::get('/', [WmsInventarioController::class, 'index'])->name('index');
         Route::get('/productos/buscar', [WmsInventarioController::class, 'buscarProductos'])->name('productos.buscar');
+        Route::get('/consulta', [WmsInventarioController::class, 'inventario'])->name('consulta');
         Route::get('/{codigo}/saldos', [WmsInventarioController::class, 'saldos'])->name('saldos');
     });
     Route::middleware(['permission:wms.ingresos.ver'])->prefix('ingresos-ver')->name('ingresos.ver.')->group(function () {
