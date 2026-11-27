@@ -109,7 +109,7 @@ class WmsKardexController extends Controller
         $data['usuario'] = auth()->user()->name ?? 'N/D';
         $data['generado'] = now()->format('d/m/Y H:i');
 
-        $pdf = \\Barryvdh\\DomPDF\\Facade\\Pdf::loadView('wms.kardex.pdf', $data)->setPaper('a4', 'landscape');
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('wms.kardex.pdf', $data)->setPaper('a4', 'landscape');
         $pdf->render();
 
         $font = $pdf->getFontMetrics()->getFont('DejaVu Sans', 'normal');
