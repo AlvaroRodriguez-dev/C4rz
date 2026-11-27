@@ -128,10 +128,8 @@ class WmsInventarioController extends Controller
         $datos['generado'] = now()->format('d/m/Y H:i');
         $pdf = Pdf::loadView('wms.inventario.pdf', $datos)->setPaper('a4', 'landscape');
         $pdf->render();
-        $pdf->getCanvas()->page_script(function ($pageNumber, $pageCount, $canvas, $fontMetrics) {
-            $font = $fontMetrics->getFont('DejaVu Sans', 'normal');
-            $canvas->text(770, 570, $pageNumber . ' de ' . $pageCount, $font, 8, [0.35, 0.40, 0.45]);
-        });
+        $font = $pdf->getFontMetrics()->getFont('DejaVu Sans', 'normal');
+        $pdf->getCanvas()->page_text(770, 570, '{PAGE_NUM} de {PAGE_COUNT}', $font, 8, [0.35, 0.40, 0.45]);
         return $pdf->stream('inventario-wms.pdf');
     }
 
