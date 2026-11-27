@@ -290,7 +290,7 @@
 
                 <!-- xPallets -->
                 @can('wms.pallet.ver')
-                    <a href="{{ route('wms.pallet.ver.index') }}"
+                    <a href="{{ route('wms.pallet.ver.index', ['modo' => 'historico']) }}"
                         class="bg-blue-600 hover:bg-blue-700 active:scale-95 rounded-2xl shadow-md text-white p-6 transition flex flex-col items-center justify-center text-center">
                         <div class="flex justify-center">
                             <!-- Ícono: Estructura de Pallet / Cajas acumuladas -->
