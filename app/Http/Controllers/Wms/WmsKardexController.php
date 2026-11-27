@@ -94,7 +94,7 @@ class WmsKardexController extends Controller
         $delPeriodo=$movimientos->filter(fn($m)=>$m['fecha']->between($desde,$hasta))->sortBy('fecha')->values();
         $saldo=$saldoInicial;$filas=[['fecha'=>$desde->format('d/m/Y'),'tipo'=>'SALDO INICIAL','documento'=>'—','detalle_ubicacion'=>'—','clote'=>'—','usuario'=>'—','entrada'=>null,'salida'=>null,'saldo'=>$saldoInicial]];
         foreach($delPeriodo as $m){$saldo+=$m['cantidad'];$filas[]=['fecha'=>$m['fecha']->format('d/m/Y H:i'),'tipo'=>$m['tipo'],'documento'=>$m['documento'],'detalle_ubicacion'=>$m['detalle_ubicacion'],'clote'=>$m['clote']?:'S/L','usuario'=>$m['usuario'],'entrada'=>$m['cantidad']>0?$m['cantidad']:null,'salida'=>$m['cantidad']<0?abs($m['cantidad']):null,'saldo'=>$saldo];}
-        return ['filas'=>$filas,'saldo_final'=>$saldo,'codigo'=>$codigo,'nombre_almacen'=>$this->almacenesAutorizados()->firstWhere('codigo',$almacen)?->nombre??$almacen,'desde'=>$desde->format('d/m/Y'),'hasta'=>$hasta->format('d/m/Y')];
+        return ['filas'=>$filas,'saldo_final'=>$saldo,'codigo'=>$codigo,'nombre_producto'=>WmsIngreso::where('codigo',$codigo)->where('almacen',$almacen)->value('descrip') ?? WmsIngreso::where('codigo',$codigo)->where('almacen',$almacen)->value('descrip1') ?? '', 'codigo_almacen'=>$almacen,'nombre_almacen'=>$this->almacenesAutorizados()->firstWhere('codigo',$almacen)?->nombre??$almacen,'desde'=>$desde->format('d/m/Y'),'hasta'=>$hasta->format('d/m/Y')];
     }
 
     public function exportarExcel(Request $request)
@@ -109,7 +109,7 @@ class WmsKardexController extends Controller
         $data['usuario'] = auth()->user()->name ?? 'N/D';
         $data['generado'] = now()->format('d/m/Y H:i');
 
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('wms.kardex.pdf', $data)->setPaper('a4', 'landscape');
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('wms.kardex.pdf', $data)->setPaper('a4', 'portrait');
         $pdf->render();
 
         $font = $pdf->getFontMetrics()->getFont('DejaVu Sans', 'normal');
