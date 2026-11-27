@@ -7,7 +7,7 @@
 body { font-family: DejaVu Sans, sans-serif; color:#1f2937; font-size:8.5pt; }
 h1 { font-size:18px; margin:0 0 4px; }
 .sub { color:#64748b; font-size:9px; margin-bottom:12px; }
-.meta { margin-bottom:12px; font-size:9pt; }
+.meta { margin-bottom:12px; font-size:9pt; line-height:1.5; }\n.meta-period { display:block; margin-top:2px; }
 table { width:100%; border-collapse:collapse; margin-top:10px; }
 th { background:#e5e7eb; text-align:center; padding:6px; border:1px solid #cbd5e1; }
 td { padding:5px; border:1px solid #d1d5db; }
@@ -23,7 +23,7 @@ tr { page-break-inside:avoid; }
 <td style="width:150px;border:0;vertical-align:top"><img src="{{ public_path('images/faboce2.png') }}" style="width:125px"></td>
 <td style="border:0;vertical-align:top"><h1>Kardex de inventario WMS</h1><div class="sub">FABOCE · Generado: {{ $generado ?? '' }} · Usuario: {{ $usuario ?? '' }}</div></td>
 </tr></table>
-<div class="meta"><strong>Almacén:</strong> {{ $codigo_almacen }} {{ $nombre_almacen }} &nbsp; <strong>Producto:</strong> {{ $codigo }} {{ $nombre_producto }} &nbsp; <strong>Periodo:</strong> {{ $desde }} al {{ $hasta }}</div>
+<div class="meta"><div><strong>Almacén:</strong> {{ $codigo_almacen }} {{ $nombre_almacen }} &nbsp; <strong>Producto:</strong> {{ $codigo }} {{ $nombre_producto }}</div><div class="meta-period"><strong>Periodo:</strong> {{ $desde }} al {{ $hasta }}</div></div>
 <table>
 <thead><tr><th>Fecha</th><th>Documento</th><th>Lote</th><th>Ubicación</th><th>Entrada</th><th>Salida</th><th>Saldo</th></tr></thead>
 <tbody>
