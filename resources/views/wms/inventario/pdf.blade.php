@@ -15,8 +15,7 @@ tr:nth-child(even) { background:#f8fafc; }
 </style>
 </head>
 <body>
-<h1>Inventario físico WMS</h1>
-<div class="sub">FABOCE · Generado: {{ $generado ?? '' }} · Usuario: {{ $usuario ?? '' }}</div>
+<table style="width:100%;border:0;margin:0 0 8px"><tr><td style="width:150px;border:0;vertical-align:top"><img src="{{ public_path('images/faboce2.png') }}" style="width:125px"></td><td style="border:0;vertical-align:top"><h1>Inventario físico WMS</h1><div class="sub">FABOCE · Generado: {{ $generado ?? '' }} · Usuario: {{ $usuario ?? '' }}</div></td></tr></table>
 <table class="cards"><tr>
 <td><div>Total cajas</div><div class="num">{{ $total_cajas ?? 0 }}</div></td>
 <td><div>Total pallets</div><div class="num">{{ $total_pallets ?? 0 }}</div></td>
