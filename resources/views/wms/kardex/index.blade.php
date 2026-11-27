@@ -20,7 +20,7 @@
               <select id="selectAlmacen" class="w-full border-gray-300 rounded-lg">
                 <option value="">Selecciona un almacén...</option>
                 @foreach($almacenes as $almacen)
-                  <option value="{{ $almacen->id }}" {{ $almacenes->count() === 1 ? 'selected' : '' }}>{{ $almacen->nombre }}</option>
+                  <option value="{{ $almacen->id }}" {{ $almacenes->count() === 1 ? 'selected' : '' }}>{{ $almacen->codigo }} · {{ $almacen->nombre }}</option>
                 @endforeach
               </select>
             </div>
