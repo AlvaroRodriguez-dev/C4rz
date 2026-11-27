@@ -57,7 +57,7 @@
           <section class="bg-white border rounded-2xl p-3 sm:p-4 space-y-3">
             <div class="flex flex-col sm:flex-row gap-2">
               <input id="buscarMovimiento" type="search" placeholder="Buscar documento, pallet, lote, usuario..." class="flex-1 border-gray-300 rounded-xl">
-              <button id="btnExportar" class="border rounded-xl px-4 py-2 text-sm font-medium hover:bg-gray-50">Exportar CSV</button>
+              <div class="flex gap-2 flex-wrap"><button id="btnExportarExcel" class="border rounded-xl px-4 py-2 text-sm font-medium hover:bg-gray-50">Exportar a Excel</button><button id="btnExportarPdf" class="border rounded-xl px-4 py-2 text-sm font-medium hover:bg-gray-50">Exportar a PDF</button></div>
             </div>
             <div class="flex flex-wrap gap-2" id="filtrosTipo">
               <button data-tipo="ALL" class="type-filter rounded-full px-3 py-1 text-sm border bg-gray-900 text-white">Todos</button>
@@ -78,7 +78,7 @@
       <div id="detalleModalPanel" class="bg-white rounded-2xl w-full max-w-lg p-5 max-h-[85vh] overflow-auto border-t-4 border-gray-400">
         <div class="flex justify-between items-center mb-3"><h3 class="font-semibold text-lg">Detalle del movimiento</h3><button id="cerrarDetalle" class="text-gray-500 text-xl">&times;</button></div>
         <div id="detalleContenido" class="space-y-2 text-sm"></div>
-        <button id="detalleFiltrarPallet" class="hidden mt-4 w-full border border-blue-200 text-blue-700 rounded-xl p-2">Consultar este pallet</button>
+        <button id="detalleFiltrarPallet" class="hidden mt-4 w-full border border-blue-200 text-blue-700 rounded-xl p-2">Cerrar</button>
       </div>
     </div>
 <script>
@@ -109,8 +109,8 @@ $(function(){
  $('#btnGenerar').on('click',generar);$('#btnLimpiar').on('click',limpiar);
  $('#buscarMovimiento').on('input',renderFiltrado);
  $('.type-filter').on('click',function(){filtroTipo=$(this).data('tipo');$('.type-filter').removeClass('bg-gray-900 text-white').addClass('bg-white text-gray-700');$(this).removeClass('bg-white text-gray-700').addClass('bg-gray-900 text-white');renderFiltrado();});
- $('#btnExportar').on('click',exportarCSV);$('#cerrarDetalle').on('click',()=>$('#detalleModal').addClass('hidden'));
- $('#detalleFiltrarPallet').on('click',()=>{if(movimientoDetalle?.pallet){const p=movimientoDetalle.pallet;let opt=$('#selectPallet option').filter((i,o)=>o.value===p);if(!opt.length)$('#selectPallet').append(new Option(p,p,true,true));$('#selectPallet').val(p).trigger('change');$('#detalleModal').addClass('hidden');generar();}});
+ $('#btnExportarExcel').on('click',exportarExcel);$('#btnExportarPdf').on('click',exportarPDF);$('#cerrarDetalle').on('click',()=>$('#detalleModal').addClass('hidden'));
+ $('#detalleFiltrarPallet').on('click',()=>$('#detalleModal').addClass('hidden'));
 });
 function resetFiltrosProducto(){codigoSeleccionado=null;$('#selectProducto').val(null).trigger('change');resetDependientes();$('#selectLote,#selectGalpon,#selectUbicacion,#selectPallet').prop('disabled',true);$('#resultado,#sinDatos').addClass('hidden');}
 function resetDependientes(){['#selectLote','#selectGalpon','#selectUbicacion','#selectPallet'].forEach(s=>{$(s).empty().append(new Option('', '',false,false)).val(null).trigger('change');});}
@@ -142,7 +142,10 @@ function abrirDetalleIndice(i){
  $('#detalleFiltrarPallet').toggle(!!pallet && pallet!=='—' && !pallet.includes('→'));
  $('#detalleModal').removeClass('hidden');
 }
-function exportarCSV(){if(!reporteActual)return;const rows=reporteActual.filas||[],cols=['fecha','tipo','documento','detalle_ubicacion','clote','usuario','entrada','salida','saldo'];const csv=[cols.join(';'),...rows.map(r=>cols.map(k=>'"'+String(r[k]??'').replace(/"/g,'""')+'"').join(';'))].join('\r\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='kardex_'+($('#selectAlmacen option:selected').text().trim())+'_'+($('#fechaInicio').val())+'_'+($('#fechaFin').val())+'.csv';a.click();URL.revokeObjectURL(a.href);}
+function parametrosReporteExportacion(){const p=new URLSearchParams({codigo:codigoSeleccionado,fecha_inicio:$('#fechaInicio').val(),fecha_fin:$('#fechaFin').val(),almacen:almacen()});[['clote','#selectLote'],['galpon','#selectGalpon'],['ubicacion','#selectUbicacion'],['pallet','#selectPallet']].forEach(([k,s])=>{const val=$(s).val();if(val)p.append(k,val);});return p;}
+function validarExportacion(){if(!reporteActual){mostrarAlerta('Primero genera el reporte de Kardex.','error');return false;}return true;}
+function exportarExcel(){if(!validarExportacion())return;window.location.href="{{ route('wms.kardex.excel') }}?"+parametrosReporteExportacion();}
+function exportarPDF(){if(!validarExportacion())return;window.open("{{ route('wms.kardex.pdf') }}?"+parametrosReporteExportacion(),'_blank');}
 function limpiar(){resetFiltrosProducto();$('#fechaInicio,#fechaFin,#buscarMovimiento').val('');reporteActual=null;$('#resultado,#sinDatos').addClass('hidden');$('#alertBox').addClass('hidden');filtroTipo='ALL';$('.type-filter').removeClass('bg-gray-900 text-white').addClass('bg-white text-gray-700').first().removeClass('bg-white text-gray-700').addClass('bg-gray-900 text-white');}
 function mostrarAlerta(msg,tipo){const b=$('#alertBox');b.removeClass('hidden bg-green-100 text-green-800 bg-red-100 text-red-800').addClass(tipo==='success'?'bg-green-100 text-green-800':'bg-red-100 text-red-800').text(msg);window.scrollTo({top:0,behavior:'smooth'});}
 </script>
