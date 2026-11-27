@@ -83,6 +83,33 @@ class WmsKardexController extends Controller
         return response()->json(['filas'=>$filas,'saldo_final'=>$saldoCorriente,'total_entradas'=>$delPeriodo->where('contable',true)->where('cantidad','>',0)->sum('cantidad'),'total_salidas'=>abs($delPeriodo->where('contable',true)->where('cantidad','<',0)->sum('cantidad'))]);
     }
 
+    private function datosExportacion(Request $request): array
+    {
+        $codigo=$request->get('codigo');$clote=$request->get('clote');$galpon=$request->get('galpon');$ubicacion=$request->get('ubicacion');$pallet=$request->get('pallet');
+        $almacen=$this->almacenCodigo($request);
+        if(!$almacen||!$codigo||!$request->get('fecha_inicio')||!$request->get('fecha_fin')) abort(422,'Producto, almacén autorizado y periodo son obligatorios.');
+        $desde=Carbon::parse($request->get('fecha_inicio'))->startOfDay();$hasta=Carbon::parse($request->get('fecha_fin'))->endOfDay();
+        $movimientos=$this->obtenerMovimientos($codigo,$almacen,$clote,$galpon,$ubicacion,$pallet);
+        $saldoInicial=$movimientos->filter(fn($m)=>$m['fecha']->lt($desde))->sum('cantidad');
+        $delPeriodo=$movimientos->filter(fn($m)=>$m['fecha']->between($desde,$hasta))->sortBy('fecha')->values();
+        $saldo=$saldoInicial;$filas=[['fecha'=>$desde->format('d/m/Y'),'tipo'=>'SALDO INICIAL','documento'=>'—','detalle_ubicacion'=>'—','clote'=>'—','usuario'=>'—','entrada'=>null,'salida'=>null,'saldo'=>$saldoInicial]];
+        foreach($delPeriodo as $m){$saldo+=$m['cantidad'];$filas[]=['fecha'=>$m['fecha']->format('d/m/Y H:i'),'tipo'=>$m['tipo'],'documento'=>$m['documento'],'detalle_ubicacion'=>$m['detalle_ubicacion'],'clote'=>$m['clote']?:'S/L','usuario'=>$m['usuario'],'entrada'=>$m['cantidad']>0?$m['cantidad']:null,'salida'=>$m['cantidad']<0?abs($m['cantidad']):null,'saldo'=>$saldo];}
+        return ['filas'=>$filas,'saldo_final'=>$saldo,'codigo'=>$codigo,'nombre_almacen'=>$this->almacenesAutorizados()->firstWhere('codigo',$almacen)?->nombre??$almacen,'desde'=>$desde->format('d/m/Y'),'hasta'=>$hasta->format('d/m/Y')];
+    }
+
+    public function exportarExcel(Request $request)
+    {
+        $data=$this->datosExportacion($request);
+        return response()->view('wms.kardex.excel',$data,200,['Content-Type'=>'application/vnd.ms-excel; charset=UTF-8','Content-Disposition'=>'attachment; filename="kardex_'.$data['codigo'].'_'.now()->format('Ymd_His').'.xls"']);
+    }
+
+    public function exportarPdf(Request $request)
+    {
+        $data=$this->datosExportacion($request);
+        $pdf=\\Barryvdh\\DomPDF\\Facade\\Pdf::loadView('wms.kardex.pdf',$data)->setPaper('a4','landscape');
+        return $pdf->download('kardex_'.$data['codigo'].'_'.now()->format('Ymd_His').'.pdf');
+    }
+
     private function obtenerMovimientos(string $codigo,string $almacen,?string $clote,?string $galpon,?string $ubicacion,?string $pallet): Collection
     {
         $movimientos=collect();
