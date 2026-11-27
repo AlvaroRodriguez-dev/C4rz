@@ -136,7 +136,10 @@
 
         let codigoSeleccionado = null;
         const routeAlmacen = () => $('#selectAlmacen').val();
-        const conAlmacen = (url) => url + (url.includes('?') ? '&' : '?') + 'almacen=' + encodeURIComponent(routeAlmacen());
+        const conAlmacen = (url) => {
+            const separator = url.includes('?') ? '&' : '?';
+            return url + separator + 'almacen=' + encodeURIComponent(routeAlmacen());
+        };
 
         $(document).ready(function() {
             $('#selectAlmacen').on('change', function() {
@@ -207,10 +210,10 @@
 
             $('#selectLote').on('change', function() {
                 const clote = $(this).val();
-                cargarOpciones(conAlmacen(routeGalpones(codigoSeleccionado)) + (clote ?
-                    `?clote=${encodeURIComponent(clote)}` : ''), '#selectGalpon');
-                cargarOpciones(conAlmacen(routeUbicaciones(codigoSeleccionado)) + (clote ?
-                    `?clote=${encodeURIComponent(clote)}` : ''), '#selectUbicacion');
+                const params = new URLSearchParams();
+                if (clote) params.append('clote', clote);
+                cargarOpciones(conAlmacen(routeGalpones(codigoSeleccionado) + (params.toString() ? '?' + params.toString() : '')), '#selectGalpon');
+                cargarOpciones(conAlmacen(routeUbicaciones(codigoSeleccionado) + (params.toString() ? '?' + params.toString() : '')), '#selectUbicacion');
             });
 
             $('#selectGalpon').on('change', function() {
