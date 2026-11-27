@@ -89,7 +89,7 @@
                             <input id="fLote" class="border rounded-lg p-2" placeholder="Lote">
                         </div>
                     </details>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2"><button type="button" id="btnConsultarInventario" class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-3 w-full">Consultar inventario</button><button type="button" id="btnImprimirInventario" class="bg-slate-700 hover:bg-slate-800 text-white rounded-lg px-4 py-3 w-full">Imprimir / PDF</button></div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2"><button type="button" id="btnConsultarInventario" class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-3 w-full">Consultar inventario</button><button type="button" id="btnImprimirInventario" class="bg-slate-700 hover:bg-slate-800 text-white rounded-lg px-4 py-3 w-full">Imprimir / PDF</button><button type="button" id="btnExportarExcelInventario" class="bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg px-4 py-3 w-full">Exportar Excel</button></div>
                     <p id="mensajeInventario" class="text-sm text-gray-500 mt-2"></p>
                     <div id="inventarioConsulta" class="hidden mt-4">
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
@@ -114,6 +114,7 @@
         const routeConsultaInventario = "{{ route('wms.inventario.consulta') }}";
         const routeBuscarProductosInventario = "{{ route('wms.inventario.productos.buscar') }}";
         const routePdfInventario = "{{ route('wms.inventario.pdf') }}";
+        const routeExcelInventario = "{{ route('wms.inventario.excel') }}";
 
         let detalleInventarioCompleto = [];
 
@@ -179,6 +180,10 @@
             window.open(routePdfInventario + '?' + construirParametrosInventario().toString(), '_blank');
         });
 
+
+        $("#btnExportarExcelInventario").on("click", function () {
+            window.open(routeExcelInventario + "?" + construirParametrosInventario().toString(), "_blank");
+        });
         $('#btnConsultarInventario').on('click', function () {
             const params = construirParametrosInventario();
             $('#mensajeInventario').text('Consultando…');
