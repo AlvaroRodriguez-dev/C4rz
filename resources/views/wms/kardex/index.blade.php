@@ -33,6 +33,16 @@
             {{-- Filtros --}}
             <div class="bg-white shadow rounded-xl p-4 sm:p-5 mb-4 space-y-4">
 
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Almacén</label>
+                    <select id="selectAlmacen" class="w-full border-gray-300 rounded-lg p-2.5 text-base">
+                        <option value="">Selecciona un almacén...</option>
+                        @foreach($almacenes as $almacen)
+                            <option value="{{ $almacen->id }}" data-codigo="{{ $almacen->codigo }}" {{ $almacenes->count() === 1 ? 'selected' : '' }}>{{ $almacen->nombre }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Fecha Inicio</label>
@@ -125,8 +135,21 @@
         const routeReporte = "{{ route('wms.kardex.reporte') }}";
 
         let codigoSeleccionado = null;
+        const routeAlmacen = () => $('#selectAlmacen').val();
+        const conAlmacen = (url) => url + (url.includes('?') ? '&' : '?') + 'almacen=' + encodeURIComponent(routeAlmacen());
 
         $(document).ready(function() {
+            $('#selectAlmacen').on('change', function() {
+                codigoSeleccionado = null;
+                $('#selectProducto').val(null).trigger('change');
+                resetearSelect('#selectLote', 'Todos los lotes');
+                resetearSelect('#selectGalpon', 'Todos los galpones');
+                resetearSelect('#selectUbicacion', 'Todas las ubicaciones');
+                resetearSelect('#selectPallet', 'Todos los pallets');
+                $('#selectLote, #selectGalpon, #selectUbicacion, #selectPallet').prop('disabled', true);
+                $('#resultado, #sinDatos').addClass('hidden');
+            });
+
             $('#selectProducto').select2({
                 placeholder: 'Selecciona un producto...',
                 minimumInputLength: 1,
@@ -173,10 +196,10 @@
                 resetearSelect('#selectUbicacion', 'Todas las ubicaciones');
                 resetearSelect('#selectPallet', 'Todos los pallets'); // <-- nuevo
 
-                cargarOpciones(routeLotes(codigoSeleccionado), '#selectLote');
-                cargarOpciones(routeGalpones(codigoSeleccionado), '#selectGalpon');
-                cargarOpciones(routeUbicaciones(codigoSeleccionado), '#selectUbicacion');
-                cargarOpciones(routePallets(codigoSeleccionado),
+                cargarOpciones(conAlmacen(routeLotes(codigoSeleccionado)), '#selectLote');
+                cargarOpciones(conAlmacen(routeGalpones(codigoSeleccionado)), '#selectGalpon');
+                cargarOpciones(conAlmacen(routeUbicaciones(codigoSeleccionado)), '#selectUbicacion');
+                cargarOpciones(conAlmacen(routePallets(codigoSeleccionado)),
                     '#selectPallet'); // <-- nuevo: lista TODOS los pallets del producto, sin importar saldo
 
                 $('#selectLote, #selectGalpon, #selectUbicacion, #selectPallet').prop('disabled', false);
@@ -184,9 +207,9 @@
 
             $('#selectLote').on('change', function() {
                 const clote = $(this).val();
-                cargarOpciones(routeGalpones(codigoSeleccionado) + (clote ?
+                cargarOpciones(conAlmacen(routeGalpones(codigoSeleccionado)) + (clote ?
                     `?clote=${encodeURIComponent(clote)}` : ''), '#selectGalpon');
-                cargarOpciones(routeUbicaciones(codigoSeleccionado) + (clote ?
+                cargarOpciones(conAlmacen(routeUbicaciones(codigoSeleccionado)) + (clote ?
                     `?clote=${encodeURIComponent(clote)}` : ''), '#selectUbicacion');
             });
 
@@ -197,7 +220,7 @@
                 const params = new URLSearchParams();
                 if (clote) params.append('clote', clote);
                 if (galpon) params.append('galpon', galpon);
-                cargarOpciones(`${url}?${params.toString()}`, '#selectUbicacion');
+                cargarOpciones(conAlmacen(`${url}?${params.toString()}`), '#selectUbicacion');
             });
 
             $('#btnGenerar').on('click', generarKardex);
@@ -222,6 +245,10 @@
         }
 
         function generarKardex() {
+            if (!routeAlmacen()) {
+                mostrarAlerta('Selecciona un almacén.', 'error');
+                return;
+            }
             if (!codigoSeleccionado) {
                 mostrarAlerta('Selecciona un producto.', 'error');
                 return;
@@ -235,6 +262,7 @@
                 codigo: codigoSeleccionado,
                 fecha_inicio: $('#fechaInicio').val(),
                 fecha_fin: $('#fechaFin').val(),
+                almacen: $('#selectAlmacen').val(),
             });
 
             if ($('#selectLote').val()) params.append('clote', $('#selectLote').val());
