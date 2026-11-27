@@ -15,7 +15,7 @@ h1{font-size:20px;margin:0}
 </head>
 <body>
 <table style="border:0"><tr>
-<td style="border:0;width:160px">@if($logoBase64)<img src="{{ $logoBase64 }}" width="140">@endif</td>
+<td style="border:0;width:160px"><div style="font-size:22px;font-weight:bold;color:#1f2937;letter-spacing:1px;">FABOCE S.R.L.</div></td>
 <td style="border:0"><h1>Inventario físico WMS</h1><div class="subtitle">FABOCE · Generado: {{ $generado ?? '' }} · Usuario: {{ $usuario ?? '' }}</div></td>
 </tr></table>
 <table class="cards"><tr>
