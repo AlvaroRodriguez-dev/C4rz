@@ -29,12 +29,18 @@
               <div><label class="block text-sm font-medium mb-1">Fecha fin</label><input type="date" id="fechaFin" class="w-full border-gray-300 rounded-lg"></div>
             </div>
             <div><label class="block text-sm font-medium mb-1">Producto</label><select id="selectProducto" class="w-full" style="width:100%"></select></div>
-            <div class="grid sm:grid-cols-2 gap-3">
-              <div><label class="block text-sm font-medium mb-1">Lote</label><select id="selectLote" class="w-full" disabled></select></div>
-              <div><label class="block text-sm font-medium mb-1">Galpón</label><select id="selectGalpon" class="w-full" disabled></select></div>
-              <div><label class="block text-sm font-medium mb-1">Ubicación</label><select id="selectUbicacion" class="w-full" disabled></select></div>
-              <div><label class="block text-sm font-medium mb-1">Pallet</label><select id="selectPallet" class="w-full" disabled></select></div>
-            </div>
+            <details class="border border-gray-200 rounded-xl overflow-hidden">
+              <summary class="cursor-pointer select-none px-4 py-3 bg-gray-50 hover:bg-gray-100 text-sm font-medium text-gray-700 flex items-center justify-between">
+                <span>Filtros adicionales (Lote, Galpón, Ubicación y Pallet)</span>
+                <span class="text-gray-400 text-xs">Desplegar / ocultar</span>
+              </summary>
+              <div class="grid sm:grid-cols-2 gap-3 p-3">
+                <div><label class="block text-sm font-medium mb-1">Lote</label><select id="selectLote" class="w-full" disabled></select></div>
+                <div><label class="block text-sm font-medium mb-1">Galpón</label><select id="selectGalpon" class="w-full" disabled></select></div>
+                <div><label class="block text-sm font-medium mb-1">Ubicación</label><select id="selectUbicacion" class="w-full" disabled></select></div>
+                <div><label class="block text-sm font-medium mb-1">Pallet</label><select id="selectPallet" class="w-full" disabled></select></div>
+              </div>
+            </details>
             <div class="flex gap-2">
               <button id="btnGenerar" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl">GENERAR KARDEX</button>
               <button id="btnLimpiar" class="px-4 border rounded-xl text-gray-700 hover:bg-gray-50">Limpiar</button>
