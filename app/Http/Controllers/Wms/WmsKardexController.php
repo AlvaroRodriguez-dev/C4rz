@@ -46,7 +46,7 @@ class WmsKardexController extends Controller
         $almacen=$this->almacenCodigo($request);
         if(!$almacen) return response()->json(['results'=>[]],403);
         $galpones=WmsIngreso::where('codigo',$codigo)->where('almacen',$almacen)->when($request->get('clote'),fn($q,$v)=>$q->where('clote',$v))->distinct()->orderBy('galpon')->pluck('galpon');
-        return response()->json(['results'=>$galpones->map(fn($g)=>['id'=>$g,'text'=>$g])});
+        return response()->json(['results' => $galpones->map(fn($g) => ['id' => $g, 'text' => $g])]);
     }
 
     public function ubicaciones(Request $request, string $codigo)
@@ -54,7 +54,7 @@ class WmsKardexController extends Controller
         $almacen=$this->almacenCodigo($request);
         if(!$almacen) return response()->json(['results'=>[]],403);
         $ubicaciones=WmsIngreso::where('codigo',$codigo)->where('almacen',$almacen)->when($request->get('clote'),fn($q,$v)=>$q->where('clote',$v))->when($request->get('galpon'),fn($q,$v)=>$q->where('galpon',$v))->distinct()->orderBy('ubicacion')->pluck('ubicacion');
-        return response()->json(['results'=>$ubicaciones->map(fn($u)=>['id'=>$u,'text'=>$u])});
+        return response()->json(['results' => $ubicaciones->map(fn($u) => ['id' => $u, 'text' => $u])]);
     }
 
     public function pallets(Request $request, string $codigo)
