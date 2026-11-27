@@ -105,9 +105,17 @@ class WmsKardexController extends Controller
 
     public function exportarPdf(Request $request)
     {
-        $data=$this->datosExportacion($request);
-        $pdf=\Barryvdh\DomPDF\Facade\Pdf::loadView('wms.kardex.pdf',$data)->setPaper('a4','landscape');
-        return $pdf->download('kardex_'.$data['codigo'].'_'.now()->format('Ymd_His').'.pdf');
+        $data = $this->datosExportacion($request);
+        $data['usuario'] = auth()->user()->name ?? 'N/D';
+        $data['generado'] = now()->format('d/m/Y H:i');
+
+        $pdf = \\Barryvdh\\DomPDF\\Facade\\Pdf::loadView('wms.kardex.pdf', $data)->setPaper('a4', 'landscape');
+        $pdf->render();
+
+        $font = $pdf->getFontMetrics()->getFont('DejaVu Sans', 'normal');
+        $pdf->getCanvas()->page_text(770, 570, 'Página {PAGE_NUM} de {PAGE_COUNT}', $font, 8, [0.35, 0.40, 0.45]);
+
+        return $pdf->stream('kardex_'.$data['codigo'].'_'.now()->format('Ymd_His').'.pdf');
     }
 
     private function obtenerMovimientos(string $codigo,string $almacen,?string $clote,?string $galpon,?string $ubicacion,?string $pallet): Collection
