@@ -23,7 +23,7 @@ tr { page-break-inside:avoid; }
 <td style="width:150px;border:0;vertical-align:top"><img src="{{ public_path('images/faboce2.png') }}" style="width:125px"></td>
 <td style="border:0;vertical-align:top"><h1>Kardex de inventario WMS</h1><div class="sub">FABOCE · Generado: {{ $generado ?? '' }} · Usuario: {{ $usuario ?? '' }}</div></td>
 </tr></table>
-<div class="meta"><strong>Almacén:</strong> {{ $nombre_almacen }} &nbsp; <strong>Producto:</strong> {{ $codigo }} &nbsp; <strong>Periodo:</strong> {{ $desde }} al {{ $hasta }}</div>
+<div class="meta"><strong>Almacén:</strong> {{ $codigo_almacen }} {{ $nombre_almacen }} &nbsp; <strong>Producto:</strong> {{ $codigo }} {{ $nombre_producto }} &nbsp; <strong>Periodo:</strong> {{ $desde }} al {{ $hasta }}</div>
 <table>
 <thead><tr><th>Fecha</th><th>Documento</th><th>Lote</th><th>Ubicación</th><th>Entrada</th><th>Salida</th><th>Saldo</th></tr></thead>
 <tbody>
