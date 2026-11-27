@@ -274,6 +274,8 @@ Route::middleware(['auth'])->prefix('wms')->name('wms.')->group(function () {
         Route::get('/producto/{codigo}/ubicaciones', [WmsKardexController::class, 'ubicaciones'])->name('ubicaciones');
         Route::get('/producto/{codigo}/pallets', [WmsKardexController::class, 'pallets'])->name('pallets');
         Route::get('/reporte', [WmsKardexController::class, 'reporte'])->name('reporte');
+        Route::get('/exportar/excel', [WmsKardexController::class, 'exportarExcel'])->name('excel');
+        Route::get('/exportar/pdf', [WmsKardexController::class, 'exportarPdf'])->name('pdf');
     });
     Route::middleware(['permission:wms.ingresos.ajuste'])->prefix('ingresos-ajuste')->name('ingresos.ajuste.')->group(function () {
         Route::get('/', [WmsIngresoAjusteController::class, 'create'])->name('create');
