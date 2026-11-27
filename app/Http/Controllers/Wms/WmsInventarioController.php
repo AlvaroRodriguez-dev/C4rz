@@ -126,7 +126,30 @@ class WmsInventarioController extends Controller
         $datos['almacenSeleccionado'] = $request->input('almacen');
         $datos['usuario'] = auth()->user()->name;
         $datos['generado'] = now()->format('d/m/Y H:i');
-        return Pdf::loadView('wms.inventario.pdf', $datos)->setPaper('a4', 'landscape')->stream('inventario-wms.pdf');
+        $pdf = Pdf::loadView('wms.inventario.pdf', $datos)->setPaper('a4', 'landscape');
+        $pdf->render();
+        $pdf->getCanvas()->page_script(function ($pageNumber, $pageCount, $canvas, $fontMetrics) {
+            $font = $fontMetrics->getFont('DejaVu Sans', 'normal');
+            $canvas->text(770, 570, $pageNumber . ' de ' . $pageCount, $font, 8, [0.35, 0.40, 0.45]);
+        });
+        return $pdf->stream('inventario-wms.pdf');
+    }
+
+    public function excel(Request $request)
+    {
+        $response = $this->inventario($request);
+        if ($response->getStatusCode() !== 200) return $response;
+        $datos = json_decode($response->getContent(), true);
+        $datos['filtros'] = $request->only(['codigo','pallet','galpon','ubicacion','lote']);
+        $datos['almacenSeleccionado'] = $request->input('almacen');
+        $datos['usuario'] = auth()->user()->name;
+        $datos['generado'] = now()->format('d/m/Y H:i');
+        $logoPath = public_path('images/faboce2.png');
+        $datos['logoBase64'] = file_exists($logoPath) ? 'data:image/png;base64,'.base64_encode(file_get_contents($logoPath)) : null;
+        return response()->view('wms.inventario.excel', $datos, 200, [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="inventario-wms.xls"',
+        ]);
     }
 
     public function saldos(Request $request, string $codigo)
