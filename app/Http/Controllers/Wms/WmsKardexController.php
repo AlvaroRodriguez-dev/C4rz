@@ -106,7 +106,7 @@ class WmsKardexController extends Controller
     public function exportarPdf(Request $request)
     {
         $data=$this->datosExportacion($request);
-        $pdf=\\Barryvdh\\DomPDF\\Facade\\Pdf::loadView('wms.kardex.pdf',$data)->setPaper('a4','landscape');
+        $pdf=\Barryvdh\DomPDF\Facade\Pdf::loadView('wms.kardex.pdf',$data)->setPaper('a4','landscape');
         return $pdf->download('kardex_'.$data['codigo'].'_'.now()->format('Ymd_His').'.pdf');
     }
 
