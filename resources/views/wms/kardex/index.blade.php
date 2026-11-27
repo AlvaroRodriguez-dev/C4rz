@@ -127,16 +127,20 @@ function card(f,i){const t=f.tipo||'',isInitial=t==='SALDO INICIAL',isTransfer=t
 function abrirDetalleIndice(i){
  const f=movimientosVisibles[i];if(!f)return;movimientoDetalle=f;
  let documento=f.documento||'',pallet=f.pallet||'—';
- const transferencia=documento.match(/Pallet\\s+[^→]+→\\s+Pallet\\s+.+/i);
+ const transferencia=documento.match(/Pallet\s+[^→]+→\s+Pallet\s+.+/i);
  if(transferencia){pallet=transferencia[0];documento='Reubicación interna';}
- else {const match=documento.match(/\\s*·\\s*Pallet\\s+(.+)$/i);if(match){pallet=match[1].trim();documento=documento.replace(match[0],'').trim();}}
+ else {
+  const match=documento.match(/\s*·\s*Pallet\s+(.+)$/i);
+  if(match){pallet=match[1].trim();documento=documento.replace(match[0],'').trim();}
+ }
  const tipo=(f.tipo||'').toUpperCase(),panel=$('#detalleModalPanel');
  panel.removeClass('border-green-500 border-red-500 border-blue-500 border-orange-500 border-gray-400');
  const borderColor=tipo.includes('INGRESO')?'border-green-500':tipo==='SALIDA'?'border-red-500':tipo.includes('REUBICACIÓN')?'border-blue-500':tipo.includes('AJUSTE')?'border-orange-500':'border-gray-400';
  panel.addClass(borderColor);
  const entries=[['Tipo',f.tipo],['Documento',documento],['Fecha',f.fecha],['Ubicación',f.detalle_ubicacion],['Lote',f.clote],['Usuario',f.usuario],['Entrada',f.entrada],['Salida',f.salida],['Saldo',f.saldo],['Pallet',pallet]];
  $('#detalleContenido').html(entries.map(([k,v])=>'<div class="flex justify-between gap-3 border-b py-2"><span class="text-gray-500">'+esc(k)+'</span><span class="font-medium text-right">'+esc(v)+'</span></div>').join(''));
- $('#detalleFiltrarPallet').toggle(!!f.pallet);$('#detalleModal').removeClass('hidden');
+ $('#detalleFiltrarPallet').toggle(!!pallet && pallet!=='—' && !pallet.includes('→'));
+ $('#detalleModal').removeClass('hidden');
 }
 function exportarCSV(){if(!reporteActual)return;const rows=reporteActual.filas||[],cols=['fecha','tipo','documento','detalle_ubicacion','clote','usuario','entrada','salida','saldo'];const csv=[cols.join(';'),...rows.map(r=>cols.map(k=>'"'+String(r[k]??'').replace(/"/g,'""')+'"').join(';'))].join('\r\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='kardex_'+($('#selectAlmacen option:selected').text().trim())+'_'+($('#fechaInicio').val())+'_'+($('#fechaFin').val())+'.csv';a.click();URL.revokeObjectURL(a.href);}
 function limpiar(){resetFiltrosProducto();$('#fechaInicio,#fechaFin,#buscarMovimiento').val('');reporteActual=null;$('#resultado,#sinDatos').addClass('hidden');$('#alertBox').addClass('hidden');filtroTipo='ALL';$('.type-filter').removeClass('bg-gray-900 text-white').addClass('bg-white text-gray-700').first().removeClass('bg-white text-gray-700').addClass('bg-gray-900 text-white');}
