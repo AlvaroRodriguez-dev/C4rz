@@ -139,7 +139,7 @@ function abrirDetalleIndice(i){
  panel.addClass(borderColor);
  const entries=[['Tipo',f.tipo],['Documento',documento],['Fecha',f.fecha],['Ubicación',f.detalle_ubicacion],['Lote',f.clote],['Usuario',f.usuario],['Entrada',f.entrada],['Salida',f.salida],['Saldo',f.saldo],['Pallet',pallet]];
  $('#detalleContenido').html(entries.map(([k,v])=>'<div class="flex justify-between gap-3 border-b py-2"><span class="text-gray-500">'+esc(k)+'</span><span class="font-medium text-right">'+esc(v)+'</span></div>').join(''));
- $('#detalleFiltrarPallet').toggle(!!pallet && pallet!=='—' && !pallet.includes('→'));
+ $('#detalleFiltrarPallet').removeClass('hidden');
  $('#detalleModal').removeClass('hidden');
 }
 function parametrosReporteExportacion(){const p=new URLSearchParams({codigo:codigoSeleccionado,fecha_inicio:$('#fechaInicio').val(),fecha_fin:$('#fechaFin').val(),almacen:almacen()});[['clote','#selectLote'],['galpon','#selectGalpon'],['ubicacion','#selectUbicacion'],['pallet','#selectPallet']].forEach(([k,s])=>{const val=$(s).val();if(val)p.append(k,val);});return p;}
